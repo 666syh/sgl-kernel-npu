@@ -15,14 +15,14 @@
 #include "ascendc/basic_api/interface/kernel_operator_list_tensor_intf.h"
 #include "../../raw_distributed/cam_moe_distribute_combine.h"
 #include "../../fused_deep_moe_utils.h"
-#include "catlass_a5/catlass.hpp"
-#include "catlass_a5/arch/resource.hpp"
-#include "catlass_a5/coord.hpp"
-#include "catlass_a5/detail/callback.hpp"
-#include "catlass_a5/gemm_coord.hpp"
-#include "catlass_a5/matrix_coord.hpp"
-#include "tla_a5/layout.hpp"
-#include "tla_a5/tensor.hpp"
+#include "catlass/catlass.hpp"
+#include "catlass/arch/resource.hpp"
+#include "catlass/coord.hpp"
+#include "catlass/detail/callback.hpp"
+#include "catlass/gemm_coord.hpp"
+#include "catlass/matrix_coord.hpp"
+#include "tla/layout.hpp"
+#include "tla/tensor.hpp"
 
 using namespace Cam;
 

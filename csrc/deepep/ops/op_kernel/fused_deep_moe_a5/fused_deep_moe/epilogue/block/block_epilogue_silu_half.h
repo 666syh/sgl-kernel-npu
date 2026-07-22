@@ -11,15 +11,15 @@
 #ifndef CATLASS_EPILOGUE_BLOCK_EPILOGUE_SILU_HALF_H
 #define CATLASS_EPILOGUE_BLOCK_EPILOGUE_SILU_HALF_H
 
-#include "catlass_a5/catlass.hpp"
-#include "catlass_a5/arch/resource.hpp"
+#include "catlass/catlass.hpp"
+#include "catlass/arch/resource.hpp"
 #include "../dispatch_policy.h"
-#include "catlass_a5/gemm_coord.hpp"
-#include "catlass_a5/matrix_coord.hpp"
-#include "catlass_a5/layout/layout.hpp"
-#include "catlass_a5/epilogue/tile/tile_cast.hpp"
-#include "catlass_a5/epilogue/tile/tile_copy.hpp"
-#include "catlass_a5/epilogue/tile/tile_swizzle.hpp"
+#include "catlass/gemm_coord.hpp"
+#include "catlass/matrix_coord.hpp"
+#include "catlass/layout/layout.hpp"
+#include "catlass/epilogue/tile/tile_cast.hpp"
+#include "catlass/epilogue/tile/tile_copy.hpp"
+#include "catlass/epilogue/tile/tile_swizzle.hpp"
 
 namespace Catlass::Epilogue::Block {
 

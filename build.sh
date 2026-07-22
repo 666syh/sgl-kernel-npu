@@ -230,6 +230,11 @@ function build_deepep_kernels()
     cd "$KERNEL_DIR" || exit
 
     chmod +x build.sh
+    if [[ "$SOC_VERSION" == "Ascend950" ]]; then
+        export ASCEND_COMPUTE_UNIT="ascend950"
+    else
+        unset ASCEND_COMPUTE_UNIT
+    fi
     ./build.sh
 
     custom_opp_file=$(find ./build_out -maxdepth 1 -type f -name "custom_opp*.run")

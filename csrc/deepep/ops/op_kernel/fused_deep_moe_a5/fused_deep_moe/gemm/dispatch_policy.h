@@ -1,5 +1,5 @@
 #pragma once
-#include "catlass_a5/gemm/dispatch_policy.hpp"
+#include "catlass/gemm/dispatch_policy.hpp"
 
 namespace Catlass::Gemm {
 

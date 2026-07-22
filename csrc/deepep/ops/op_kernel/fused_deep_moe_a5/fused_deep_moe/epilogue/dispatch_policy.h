@@ -1,5 +1,5 @@
 #pragma once
-#include "catlass_a5/epilogue/dispatch_policy.hpp"
+#include "catlass/epilogue/dispatch_policy.hpp"
 
 namespace Catlass::Epilogue {
 

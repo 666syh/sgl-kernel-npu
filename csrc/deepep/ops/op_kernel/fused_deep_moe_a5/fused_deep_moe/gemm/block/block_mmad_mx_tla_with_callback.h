@@ -12,15 +12,15 @@
 #ifndef CATLASS_GEMM_BLOCK_BLOCK_MMAD_MX_TLA_WITH_CALLBACK_H
 #define CATLASS_GEMM_BLOCK_BLOCK_MMAD_MX_TLA_WITH_CALLBACK_H
 
-#include "catlass_a5/arch/resource.hpp"
-#include "catlass_a5/catlass.hpp"
-#include "catlass_a5/coord.hpp"
-#include "catlass_a5/numeric_size.hpp"
+#include "catlass/arch/resource.hpp"
+#include "catlass/catlass.hpp"
+#include "catlass/coord.hpp"
+#include "catlass/numeric_size.hpp"
 #include "../dispatch_policy.h"
-#include "catlass_a5/gemm/helper.hpp"
-#include "catlass_a5/gemm_coord.hpp"
-#include "tla_a5/layout.hpp"
-#include "tla_a5/tensor.hpp"
+#include "catlass/gemm/helper.hpp"
+#include "catlass/gemm_coord.hpp"
+#include "tla/layout.hpp"
+#include "tla/tensor.hpp"
 
 namespace Catlass::Gemm::Block {
 

@@ -13,15 +13,16 @@ else()
 endif()
 message(WARNING "_DISPATCH_FFN_INC_OPTS: ${_DISPATCH_FFN_INC_OPTS}")
 
-# FusedDeepMoe on Ascend 950 uses the CANN communication base classes and a
-# private Catlass/TLA snapshot. These options must be appended to the final
-# global option set because OPC's per-op compiler inherits that set.
+# FusedDeepMoe A5 on Ascend 950 reuses the same Catlass dependency fetched by
+# deepep/ops/build.sh for A3 kernels. These options must be appended to the
+# final global option set because OPC's per-op compiler inherits that set.
 set(_A5_FUSED_DEEP_MOE_INC_OPTS)
 if ("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
     list(APPEND _A5_FUSED_DEEP_MOE_INC_OPTS
-        -I${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_a5/deps/catlass_a5
         -I$ENV{ASCEND_TOOLKIT_HOME}/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/common/
-        -DCATLASS_ARCH=3510)
+        -DCATLASS_ARCH=3510
+        -DDEEPEP_CATLASS_A5_COMPAT=1
+        -DDEEPEP_SKIP_DISPATCH_FFN_COMBINE=1)
 endif()
 
 npu_op_kernel_sources(ascendc_kernels
