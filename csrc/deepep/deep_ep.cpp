@@ -511,8 +511,8 @@ static at::Tensor ExecuteAclnnFusedDeepMoeKeepWorkspace(const std::string &apiNa
         workspace_addr = const_cast<void *>(workspace_tensor.storage().data());
     }
 
-    auto acl_call = [converted_params, workspace_addr, workspace_size, acl_stream, executor,
-                     opApiAddr]() mutable -> int {
+    auto acl_call = [converted_params, workspace_addr, workspace_size, acl_stream, executor, opApiAddr,
+                     releaseMemAddr]() mutable -> int {
         using OpApiFunc = int (*)(void *, uint64_t, aclOpExecutor *, const aclrtStream);
         OpApiFunc opApiFunc = reinterpret_cast<OpApiFunc>(opApiAddr);
         auto api_ret = opApiFunc(workspace_addr, workspace_size, executor, acl_stream);
@@ -1597,6 +1597,7 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
     at::Tensor share_output = at::empty({bs, h}, x.options());
     int64_t num_local_experts = num_experts / num_ranks;
     at::Tensor expert_token_nums = at::empty({num_local_experts}, x.options().dtype(at::kLong));
+    int64_t profile_enable_i64 = static_cast<int64_t>(profile_enable);
 
     if (profile_enable) {
         auto workspace_tensor = ExecuteAclnnFusedDeepMoeKeepWorkspace(
@@ -1606,8 +1607,8 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
             static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
             static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
             static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name,
-            num_ranks, rank, num_experts, quant_mode, global_bs, static_cast<int64_t>(profile_enable), output,
-            share_output, expert_token_nums);
+            num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64, output, share_output,
+            expert_token_nums);
         if (g_fusedDeepMoeProfileSession.active) {
             AppendFusedDeepMoeProfileWorkspace(workspace_tensor);
         } else {
@@ -1619,8 +1620,8 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
                      static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
                      static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
                      static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs,
-                     static_cast<int64_t>(profile_enable), output, share_output, expert_token_nums);
+                     hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64, output,
+                     share_output, expert_token_nums);
     }
 
     return {output, expert_token_nums.to(expert_ids.scalar_type())};
