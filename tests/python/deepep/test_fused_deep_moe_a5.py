@@ -12,6 +12,34 @@ from utils import calc_diff, init_dist, profile_npu_event_sequences
 
 torch_npu.npu.config.allow_internal_format = True
 
+MX_QUANT_CONFIGS = {
+    "fp8_e4m3": {
+        # In torch_npu/op-plugin npu_moe_distribute_dispatch_v2, quant_mode=4
+        # selects the generic MX branch; the actual MX output format is then
+        # determined by y_dtype (FP8 here, FP4 in the other config below).
+        "dispatch_quant_mode": 4,
+        "dispatch_y_dtype": torch.float8_e4m3fn,
+        "quant_dst_type": torch.float8_e4m3fn,
+        "origin_dtype": torch.float8_e4m3fn,
+    },
+    "fp8_e5m2": {
+        "dispatch_quant_mode": 4,
+        "dispatch_y_dtype": torch.float8_e5m2,
+        "quant_dst_type": torch.float8_e5m2,
+        "origin_dtype": torch.float8_e5m2,
+    },
+    "fp4_e2m1": {
+        "dispatch_quant_mode": 4,
+        "dispatch_y_dtype": torch_npu.float4_e2m1fn_x2,
+        "quant_dst_type": torch_npu.float4_e2m1fn_x2,
+        "origin_dtype": torch.float4_e2m1fn_x2,
+    },
+}
+# On A5 fused_deep_moe the actual MX quant path is inferred from the passed
+# quantized weight dtype. The Python API still has a quant_mode slot, so keep a
+# fixed compatibility value here instead of treating it as a user-facing switch.
+FUSED_COMPAT_QUANT_MODE = 0
+
 FUSED_EVENT_PATTERNS = (("FusedDeepMoe", "aclnnFusedDeepMoe"),)
 SMALL_OP_EVENT_PATTERNS = (
     ("MoeDistributeDispatchV2", "MoeDistributeDispatchV3"),
@@ -43,9 +71,22 @@ ACCURACY_ATOL = 2.0
 ACCURACY_RTOL = 0.02
 
 
+def get_mx_quant_config(args: argparse.Namespace) -> Dict[str, object]:
+    return MX_QUANT_CONFIGS[args.quant]
+
+
+def log_quant_tensor(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
+    if enabled and rank == 0:
+        print(
+            f"[quant-dtype] {name}: dtype={tensor.dtype}, shape={tuple(tensor.shape)}",
+            flush=True,
+        )
+
+
 def make_umdk_static_inputs(
     rank: int, world_size: int, args: argparse.Namespace
 ) -> Dict[str, torch.Tensor]:
+    quant_cfg = get_mx_quant_config(args)
     assert args.num_experts % world_size == 0
     local_experts = args.num_experts // world_size
 
@@ -68,8 +109,9 @@ def make_umdk_static_inputs(
         - 1
     )
     gmm1_weight, gmm1_scale_raw = torch_npu.npu_dynamic_mx_quant(
-        gmm1_fp, dst_type=torch.float8_e4m3fn, axis=1
+        gmm1_fp, dst_type=quant_cfg["quant_dst_type"], axis=1
     )
+    gmm1_weight = gmm1_weight.view(quant_cfg["origin_dtype"])
     gmm1_scale = gmm1_scale_raw.view(torch.float8_e8m0fnu)
 
     gmm2_fp = (
@@ -80,18 +122,19 @@ def make_umdk_static_inputs(
         - 1
     )
     gmm2_weight, gmm2_scale_raw = torch_npu.npu_dynamic_mx_quant(
-        gmm2_fp, dst_type=torch.float8_e4m3fn, axis=1
+        gmm2_fp, dst_type=quant_cfg["quant_dst_type"], axis=1
     )
+    gmm2_weight = gmm2_weight.view(quant_cfg["origin_dtype"])
     gmm2_scale = gmm2_scale_raw.view(torch.float8_e8m0fnu)
 
     return {
         "x": x,
         "expert_ids": expert_ids,
         "expert_scales": expert_scales,
-        "gmm1_weight_fp8": gmm1_weight,
-        "gmm1_scale_fp8": gmm1_scale,
-        "gmm2_weight_fp8": gmm2_weight,
-        "gmm2_scale_fp8": gmm2_scale,
+        "gmm1_weight_q": gmm1_weight,
+        "gmm1_weight_scale": gmm1_scale,
+        "gmm2_weight_q": gmm2_weight,
+        "gmm2_weight_scale": gmm2_scale,
     }
 
 
@@ -119,6 +162,7 @@ def run_small_op_baseline(
     gmm_burn_in_repeats: int = 1,
     warmup_burn_in_buffers: Tuple[torch.Tensor, torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
+    quant_cfg = get_mx_quant_config(args)
     output_dtype = inputs["x"].dtype
 
     outputs = torch_npu.npu_moe_distribute_dispatch_v2(
@@ -137,10 +181,10 @@ def run_small_op_baseline(
         expert_shard_type=0,
         shared_expert_num=1,
         shared_expert_rank_num=0,
-        quant_mode=4,
+        quant_mode=quant_cfg["dispatch_quant_mode"],
         global_bs=args.num_tokens * world_size,
         expert_token_nums_type=1,
-        y_dtype=torch.float8_e4m3fn,
+        y_dtype=quant_cfg["dispatch_y_dtype"],
     )
     (
         expand_x,
@@ -151,6 +195,12 @@ def run_small_op_baseline(
         tp_send_counts,
         expand_scales,
     ) = outputs
+
+    if args.log_quant_dtypes and not getattr(args, "_small_quant_dtype_logged", False):
+        log_quant_tensor(rank, True, "dispatch.expand_x", expand_x)
+        log_quant_tensor(rank, True, "dispatch.dynamic_scales_raw", dynamic_scales)
+        log_quant_tensor(rank, True, "gmm1_weight_q", inputs["gmm1_weight_q"])
+        log_quant_tensor(rank, True, "gmm1_weight_scale", inputs["gmm1_weight_scale"])
 
     if gmm_burn_in_repeats > 1 and warmup_burn_in_buffers is not None:
         # This burn-in only runs on the first profiler warmup iteration.
@@ -163,11 +213,14 @@ def run_small_op_baseline(
     dynamic_scales = dynamic_scales.view(*(dynamic_scales.shape[:-1]), -1, 2).view(
         torch.float8_e8m0fnu
     )
+    log_quant_tensor(
+        rank, args.log_quant_dtypes, "dispatch.dynamic_scales", dynamic_scales
+    )
 
     y1_fp = torch_npu.npu_grouped_matmul(
         x=[expand_x],
-        weight=[inputs["gmm1_weight_fp8"]],
-        scale=[inputs["gmm1_scale_fp8"]],
+        weight=[inputs["gmm1_weight_q"]],
+        scale=[inputs["gmm1_weight_scale"]],
         per_token_scale=[dynamic_scales],
         split_item=2,
         group_list_type=1,
@@ -175,17 +228,22 @@ def run_small_op_baseline(
         group_list=expert_token_nums,
         output_dtype=output_dtype,
     )[0]
+    log_quant_tensor(rank, args.log_quant_dtypes, "gmm1.output", y1_fp)
     swiglu_out = torch_npu.npu_swiglu(y1_fp)
+    log_quant_tensor(rank, args.log_quant_dtypes, "swiglu.output", swiglu_out)
 
     x2, x2_scale = torch_npu.npu_dynamic_mx_quant(
-        swiglu_out, dst_type=torch.float8_e4m3fn
+        swiglu_out, dst_type=quant_cfg["quant_dst_type"]
     )
+    x2 = x2.view(quant_cfg["origin_dtype"])
 
     x2_scale = x2_scale.view(torch.float8_e8m0fnu)
+    log_quant_tensor(rank, args.log_quant_dtypes, "requant.x2", x2)
+    log_quant_tensor(rank, args.log_quant_dtypes, "requant.x2_scale", x2_scale)
     y2_fp = torch_npu.npu_grouped_matmul(
         x=[x2],
-        weight=[inputs["gmm2_weight_fp8"]],
-        scale=[inputs["gmm2_scale_fp8"]],
+        weight=[inputs["gmm2_weight_q"]],
+        scale=[inputs["gmm2_weight_scale"]],
         per_token_scale=[x2_scale],
         split_item=2,
         group_list_type=1,
@@ -193,6 +251,9 @@ def run_small_op_baseline(
         group_list=expert_token_nums,
         output_dtype=output_dtype,
     )[0]
+    log_quant_tensor(rank, args.log_quant_dtypes, "gmm2.output", y2_fp)
+    if args.log_quant_dtypes:
+        args._small_quant_dtype_logged = True
     output = torch_npu.npu_moe_distribute_combine_v2(
         expand_x=y2_fp,
         expert_ids=inputs["expert_ids"],
@@ -226,13 +287,13 @@ def run_buffer_fused(
         inputs["x"],
         inputs["expert_ids"],
         inputs["expert_scales"],
-        inputs["gmm1_weight_fp8"],
-        inputs["gmm1_scale_fp8"],
-        inputs["gmm2_weight_fp8"],
-        inputs["gmm2_scale_fp8"],
+        inputs["gmm1_weight_q"],
+        inputs["gmm1_weight_scale"],
+        inputs["gmm2_weight_q"],
+        inputs["gmm2_weight_scale"],
         args.num_tokens,
         args.num_experts,
-        args.quant_mode,
+        FUSED_COMPAT_QUANT_MODE,
     )
     return output, ep_recv_count
 
@@ -575,10 +636,10 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 f"moe_intermediate_size={args.moe_intermediate_size}, "
                 f"num_experts={args.num_experts}, "
                 f"num_topk={args.num_topk}, "
-                f"quant_mode={args.quant_mode}, "
+                f"quant={args.quant}, "
                 f"num_warmups={args.num_warmups}, "
                 f"num_tests={args.num_tests}, "
-                f", small_first_warmup_gmm_burn_in_repeats={SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS}",
+                f"small_first_warmup_gmm_burn_in_repeats={SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS}",
                 flush=True,
             )
             if expected_counts is None:
@@ -921,14 +982,19 @@ def main():
         help="Number of counted performance iterations when --profile-num-tests is not set.",
     )
     parser.add_argument(
-        "--quant-mode",
-        type=int,
-        default=0,
-        help="Fused operator quant mode; currently supports 0 and 1.",
+        "--quant",
+        choices=tuple(MX_QUANT_CONFIGS.keys()),
+        default="fp8_e4m3",
+        help="Unified MX quant dtype for the small-op chain and fused GMM weights.",
     )
     parser.add_argument(
         "--trace-dir",
         help="Optional directory to export profiler chrome traces.",
+    )
+    parser.add_argument(
+        "--log-quant-dtypes",
+        action="store_true",
+        help="Print dtype/shape of key quantized tensors on rank0 during the first small-op run.",
     )
     parser.add_argument(
         "--dump-profile-events",
@@ -963,8 +1029,8 @@ def main():
         parser.error("--num-warmups must be non-negative")
     if args.num_tests <= 0:
         parser.error("--num-tests must be positive")
-    if args.quant_mode not in (0, 1):
-        parser.error("--quant-mode currently only supports 0 or 1")
+    if args.quant == "fp4_e2m1" and args.hidden % 2 != 0:
+        parser.error("--hidden must be even when --quant is fp4_e2m1")
 
     torch.multiprocessing.spawn(
         run_rank, args=(args.num_processes, args), nprocs=args.num_processes
