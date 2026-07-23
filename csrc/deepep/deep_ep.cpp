@@ -15,48 +15,12 @@
 #include "exception.hpp"
 #include "deep_ep.hpp"
 #include "pytorch_npu_helper.hpp"
+#include "ops/utils/common/fused_deep_moe_profile_common.h"
 
 namespace deep_ep {
 namespace {
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_MAGIC = 0x46444D5035413031ULL;  // FDMP5A01
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_VERSION = 1;
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US = 50;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = 0;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = 2;
-
-enum class FusedDeepMoeProfileStage : uint32_t {
-    Dispatch = 0,
-    Gmm1 = 1,
-    SwigluQuant = 2,
-    Gmm2 = 3,
-    Combine = 4,
-    Count = 5,
-};
-
-struct FusedDeepMoeProfileHeaderCpu {
-    uint64_t magic;
-    uint64_t version;
-    uint64_t coreCount;
-    uint64_t stageCount;
-    uint64_t recordCount;
-    uint64_t cycleToUs;
-    uint64_t reserved0;
-    uint64_t reserved1;
-};
-
-struct FusedDeepMoeProfileRecordCpu {
-    uint64_t coreType;
-    uint64_t coreIdx;
-    uint64_t stageId;
-    uint64_t startCycle;
-    uint64_t endCycle;
-    uint64_t reserved0;
-    uint64_t reserved1;
-    uint64_t reserved2;
-};
-
-static_assert(sizeof(FusedDeepMoeProfileHeaderCpu) == 64, "Unexpected fused profile header size");
-static_assert(sizeof(FusedDeepMoeProfileRecordCpu) == 64, "Unexpected fused profile record size");
 
 struct TraceEventRow {
     double ts_us{0.0};
@@ -72,16 +36,16 @@ struct TraceEventRow {
 
 static const char *StageName(uint64_t stageId)
 {
-    switch (static_cast<FusedDeepMoeProfileStage>(stageId)) {
-        case FusedDeepMoeProfileStage::Dispatch:
+    switch (static_cast<Cam::FusedDeepMoeProfileStage>(stageId)) {
+        case Cam::FusedDeepMoeProfileStage::Dispatch:
             return "dispatch";
-        case FusedDeepMoeProfileStage::Gmm1:
+        case Cam::FusedDeepMoeProfileStage::Gmm1:
             return "gmm1";
-        case FusedDeepMoeProfileStage::SwigluQuant:
+        case Cam::FusedDeepMoeProfileStage::SwigluQuant:
             return "swiglu_quant";
-        case FusedDeepMoeProfileStage::Gmm2:
+        case Cam::FusedDeepMoeProfileStage::Gmm2:
             return "gmm2";
-        case FusedDeepMoeProfileStage::Combine:
+        case Cam::FusedDeepMoeProfileStage::Combine:
             return "combine";
         default:
             return "unknown";
@@ -194,21 +158,21 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
 
         auto workspaceCpu = workspaceTensor.to(at::kCPU).contiguous();
         auto *base = workspaceCpu.data_ptr<uint8_t>();
-        auto *header = reinterpret_cast<const FusedDeepMoeProfileHeaderCpu *>(base);
-        if (header == nullptr || header->magic != FUSED_DEEP_MOE_PROFILE_MAGIC ||
-            header->version != FUSED_DEEP_MOE_PROFILE_VERSION || header->coreCount == 0 || header->stageCount == 0 ||
-            header->recordCount == 0 || header->cycleToUs == 0) {
+        auto *header = reinterpret_cast<const Cam::FusedDeepMoeProfileHeader *>(base);
+        if (header == nullptr || header->magic != Cam::FUSED_DEEP_MOE_PROFILE_MAGIC ||
+            header->version != Cam::FUSED_DEEP_MOE_PROFILE_VERSION || header->coreCount == 0 ||
+            header->stageCount == 0 || header->recordCount == 0 || header->cycleToUs == 0) {
             continue;
         }
         uint64_t requiredBytes =
-            sizeof(FusedDeepMoeProfileHeaderCpu) + header->recordCount * sizeof(FusedDeepMoeProfileRecordCpu);
+            sizeof(Cam::FusedDeepMoeProfileHeader) + header->recordCount * sizeof(Cam::FusedDeepMoeProfileRecord);
         if (workspaceCpu.numel() < static_cast<int64_t>(requiredBytes)) {
             TORCH_WARN("FusedDeepMoe profile buffer is smaller than expected, skip export for launch ", launchId);
             continue;
         }
 
         auto *records =
-            reinterpret_cast<const FusedDeepMoeProfileRecordCpu *>(base + sizeof(FusedDeepMoeProfileHeaderCpu));
+            reinterpret_cast<const Cam::FusedDeepMoeProfileRecord *>(base + sizeof(Cam::FusedDeepMoeProfileHeader));
         LaunchTraceBundle bundle;
         bundle.launchId = static_cast<int64_t>(launchId);
         bundle.isWarmup = static_cast<int64_t>(launchId) < numWarmups;
@@ -307,9 +271,9 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
     for (const auto &bundle : launches) {
         uint64_t launchTid = 1000000ULL + static_cast<uint64_t>(bundle.launchId);
         emitEvent("fused_deep_moe_launch", "X", static_cast<uint64_t>(rank), launchTid,
-                  static_cast<double>(bundle.minStartCycle) / FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US,
+                  static_cast<double>(bundle.minStartCycle) / Cam::FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US,
                   static_cast<double>(bundle.maxEndCycle - bundle.minStartCycle) /
-                      static_cast<double>(FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US),
+                      static_cast<double>(Cam::FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US),
                   std::string("{\"rank\":") + std::to_string(rank) + ",\"launch_id\":" +
                       std::to_string(bundle.launchId) + ",\"iteration_id\":" + std::to_string(bundle.launchId) +
                       ",\"is_warmup\":" + (bundle.isWarmup ? std::string("true") : std::string("false")) + "}");
@@ -355,20 +319,21 @@ static void ExportFusedDeepMoeProfileTrace(const at::Tensor &workspaceTensor, in
 
     auto workspaceCpu = workspaceTensor.to(at::kCPU).contiguous();
     auto *base = workspaceCpu.data_ptr<uint8_t>();
-    auto *header = reinterpret_cast<const FusedDeepMoeProfileHeaderCpu *>(base);
-    if (header == nullptr || header->magic != FUSED_DEEP_MOE_PROFILE_MAGIC ||
-        header->version != FUSED_DEEP_MOE_PROFILE_VERSION || header->coreCount == 0 || header->stageCount == 0 ||
+    auto *header = reinterpret_cast<const Cam::FusedDeepMoeProfileHeader *>(base);
+    if (header == nullptr || header->magic != Cam::FUSED_DEEP_MOE_PROFILE_MAGIC ||
+        header->version != Cam::FUSED_DEEP_MOE_PROFILE_VERSION || header->coreCount == 0 || header->stageCount == 0 ||
         header->recordCount == 0 || header->cycleToUs == 0) {
         return;
     }
     uint64_t requiredBytes =
-        sizeof(FusedDeepMoeProfileHeaderCpu) + header->recordCount * sizeof(FusedDeepMoeProfileRecordCpu);
+        sizeof(Cam::FusedDeepMoeProfileHeader) + header->recordCount * sizeof(Cam::FusedDeepMoeProfileRecord);
     if (workspaceCpu.numel() < static_cast<int64_t>(requiredBytes)) {
         TORCH_WARN("FusedDeepMoe profile buffer is smaller than expected, skip export.");
         return;
     }
 
-    auto *records = reinterpret_cast<const FusedDeepMoeProfileRecordCpu *>(base + sizeof(FusedDeepMoeProfileHeaderCpu));
+    auto *records =
+        reinterpret_cast<const Cam::FusedDeepMoeProfileRecord *>(base + sizeof(Cam::FusedDeepMoeProfileHeader));
     std::vector<TraceEventRow> traceRows;
     traceRows.reserve(static_cast<size_t>(header->recordCount));
     for (uint64_t i = 0; i < header->recordCount; ++i) {

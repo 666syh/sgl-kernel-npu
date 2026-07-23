@@ -12,7 +12,6 @@
 
 #include <cstdint>
 #include "kernel_tiling/kernel_tiling.h"
-#include "fused_deep_moe_a5_profile.h"
 
 // #define DEBUG_SPACE
 #ifdef DEBUG_SPACE
