@@ -1,0 +1,219 @@
+Use SOC_VERSION: Ascend950
+Use BUILD_TYPE: Release
+=== Fixing ASCConfig for CANN 8.3 / A2 ===
+using ASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.T560
+Warning: Cannot find ASCConfig.cmake
+[1;32mDetected CANN Toolkit Installation Path: /usr/local/Ascend/cann-9.1.T560[0m
+[1;33mDouble Checking Environment Variables:[0m
+[1;32mASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.T560[0m
+[1;32mASCEND_TOOLKIT_HOME: /usr/local/Ascend/cann-9.1.T560[0m
+outpath: /home/syh/sgl-kernel-npu/output
+create_deepep_cmake:./deepep_cmake_build.sh all Ascend950
+Start the cmake script...
+ROOT_PATH: /home/syh/sgl-kernel-npu/csrc
+./deepep/build.sh Ascend950
+Start creating the CMake file
+./deepep/compile_ascend_proj.sh ./deepep Ascend950 deepep
+cd ./deepep
+ops_Ascend950
+[BuildOps] Building for ops: Ascend950
+msopgen gen -i ./AddCustom.json -c ai_core-Ascend950 -f pytorch -lan cpp -out ops_Ascend950
+=================================================================
+                   >>>>>   MindStudio   <<<<<
+    THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
+=================================================================
+
+2026-07-23 14:47:47 (584) - [INFO] Start to generate AI Core operator files. 
+2026-07-23 14:47:47 (584) - [INFO] Start to parse the ir template:/home/syh/sgl-kernel-npu/csrc/deepep/AddCustom.json 
+2026-07-23 14:47:47 (584) - [INFO] Start to parse the op: AddCustom 
+2026-07-23 14:47:47 (584) - [INFO] Start to parse the input_desc: x 
+2026-07-23 14:47:47 (584) - [INFO] Start to parse the input_desc: y 
+2026-07-23 14:47:47 (584) - [INFO] Start to parse the output_desc: z 
+2026-07-23 14:47:47 (584) - [WARNING] The "attr" value is invalid or no "attr" exists in the map. 
+2026-07-23 14:47:47 (584) - [INFO] Start to check the type and format between the inputs/outputs in IR template. 
+2026-07-23 14:47:47 (584) - [INFO] Start to generate a new project. 
+2026-07-23 14:47:47 (584) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom_tiling.h generated successfully. 
+2026-07-23 14:47:47 (584) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_host/add_custom.cpp generated successfully. 
+2026-07-23 14:47:47 (584) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom.cpp generated successfully. 
+2026-07-23 14:47:47 (584) - [INFO] Generation completed. 
+cp -rf ./ops/op_host/* ./ops_Ascend950/op_host/
+cp -rf ./ops/op_kernel/* ./ops_Ascend950/op_kernel/
+cp -rf ./ops/utils/op_host/* ./ops_Ascend950/op_host/
+cp -rf ./ops/utils/op_kernel/* ./ops_Ascend950/op_kernel/
+cp -rf ./ops/build_out/op_host/* ./ops_Ascend950/op_host/
+cp -rf ./ops/build_out/op_kernel/* ./ops_Ascend950/op_kernel/
+./ops built successfully
+cp: cannot stat './ops_Ascend950/cmake': No such file or directory
+ops_Ascend950
+/home/syh/sgl-kernel-npu
+-- The CXX compiler identification is GNU 12.3.1
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- build type set to RELEASE
+-- set GIT_LAST_COMMIT to  as compile definition
+-- run python script successfully, output string is [/usr/local/python3.11.10/lib/python3.11/site-packages/torch /usr/local/python3.11.10/lib/python3.11/site-packages/torch_npu /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11 True]
+-- SOC_VERSION=Ascend910_9382
+-- TORCH_DIR=/usr/local/python3.11.10/lib/python3.11/site-packages/torch
+-- TORCH_NPU_DIR=/usr/local/python3.11.10/lib/python3.11/site-packages/torch_npu
+-- PYBIND11_DIR=/usr/local/python3.11.10/lib/python3.11/site-packages/pybind11
+-- _GLIBCXX_USE_CXX11_ABI=1
+-- ASCEND_CANN_PACKAGE_PATH = /usr/local/Ascend/cann-9.1.T560
+-- ASCEND_HOME_PATH = /usr/local/Ascend/cann-9.1.T560
+-- ccache not found, proceeding with normal compilation
+-- PYTHON_EXECUTABLE:/usr/local/python3.11.10/bin/python3
+CMake Warning (dev) at /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/FindPythonLibsNew.cmake:101 (message):
+  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
+  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
+  the cmake_policy command to set the policy and suppress this warning, or
+  preferably upgrade to using FindPython, either by calling it explicitly
+  before pybind11, or by setting PYBIND11_FINDPYTHON ON before pybind11.
+Call Stack (most recent call first):
+  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Tools.cmake:44 (find_package)
+  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:237 (include)
+  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake:257 (include)
+  csrc/deepep/CMakeLists.txt:20 (find_package)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+CMake Deprecation Warning at /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/FindPythonLibsNew.cmake:110 (cmake_policy):
+  The OLD behavior for policy CMP0148 will be removed from a future version
+  of CMake.
+
+  The cmake-policies(7) manual explains that the OLD behaviors of all
+  policies are deprecated and that a policy should be set to OLD only under
+  specific short-term circumstances.  Projects should be ported to the NEW
+  behavior and not rely on setting a policy to OLD.
+Call Stack (most recent call first):
+  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Tools.cmake:44 (find_package)
+  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:237 (include)
+  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake:257 (include)
+  csrc/deepep/CMakeLists.txt:20 (find_package)
+
+
+-- Found PythonInterp: /usr/local/python3.11.10/bin/python3 (found suitable version "3.11.10", minimum required is "3.8")
+-- Found PythonLibs: /usr/local/python3.11.10/lib/libpython3.11.so
+-- Performing Test HAS_FLTO_AUTO
+-- Performing Test HAS_FLTO_AUTO - Success
+-- Found pybind11: /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/include (found version "3.0.4")
+-- CMAKE_PREFIX_PATH = /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11
+-- TARGET_INSTALL_DIR = /home/syh/sgl-kernel-npu/output
+-- Configuring done (7.7s)
+-- Generating done (0.0s)
+CMake Warning:
+  Manually-specified variables were not used by the project:
+
+    ASCEND_INCLUDE_DIR
+    ASC_DIR
+
+
+-- Build files have been written to: /home/syh/sgl-kernel-npu/build
+[ 25%] Building CXX object csrc/deepep/CMakeFiles/deep_ep_cpp.dir/pybind_extension.cpp.o
+[ 50%] Building CXX object csrc/deepep/CMakeFiles/deep_ep_cpp.dir/config.cpp.o
+[ 75%] Building CXX object csrc/deepep/CMakeFiles/deep_ep_cpp.dir/deep_ep.cpp.o
+In file included from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pybind.h:5,
+                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/Exceptions.h:17,
+                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/api/include/torch/python.h:12,
+                 from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.hpp:4,
+                 from /home/syh/sgl-kernel-npu/csrc/deepep/pybind_extension.cpp:7:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘Py_ssize_t _PyLong_DigitCount(const PyLongObject*)’:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1761:25: warning: cast from type ‘const PyLongObject*’ {aka ‘const _longobject*’} to type ‘PyObject*’ {aka ‘_object*’} casts away qualifiers [-Wcast-qual]
+ 1761 |     return _PyLong_Sign((PyObject*)op) < 0 ? -Py_SIZE(op) : Py_SIZE(op);
+      |                         ^~~~~~~~~~~~~
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘digit* _PyLong_GetDigits(const PyLongObject*)’:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1771:12: warning: cast from type ‘const digit*’ {aka ‘const unsigned int*’} to type ‘digit*’ {aka ‘unsigned int*’} casts away qualifiers [-Wcast-qual]
+ 1771 |     return (digit*)(op->ob_digit);
+      |            ^~~~~~~~~~~~~~~~~~~~~~
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘PyObject* PyConfig_Get(const char*)’:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:2131:24: warning: cast from type ‘const PyConfig*’ to type ‘char*’ casts away qualifiers [-Wcast-qual]
+ 2131 |         void *member = (char *)config + spec->offset;
+      |                        ^~~~~~~~~~~~~~
+In file included from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pybind.h:5,
+                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/Exceptions.h:17,
+                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/api/include/torch/python.h:12,
+                 from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.hpp:4,
+                 from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:16:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘Py_ssize_t _PyLong_DigitCount(const PyLongObject*)’:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1761:25: warning: cast from type ‘const PyLongObject*’ {aka ‘const _longobject*’} to type ‘PyObject*’ {aka ‘_object*’} casts away qualifiers [-Wcast-qual]
+ 1761 |     return _PyLong_Sign((PyObject*)op) < 0 ? -Py_SIZE(op) : Py_SIZE(op);
+      |                         ^~~~~~~~~~~~~
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘digit* _PyLong_GetDigits(const PyLongObject*)’:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1771:12: warning: cast from type ‘const digit*’ {aka ‘const unsigned int*’} to type ‘digit*’ {aka ‘unsigned int*’} casts away qualifiers [-Wcast-qual]
+ 1771 |     return (digit*)(op->ob_digit);
+      |            ^~~~~~~~~~~~~~~~~~~~~~
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘PyObject* PyConfig_Get(const char*)’:
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:2131:24: warning: cast from type ‘const PyConfig*’ to type ‘char*’ casts away qualifiers [-Wcast-qual]
+ 2131 |         void *member = (char *)config + spec->offset;
+      |                        ^~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In lambda function:
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:522:74: error: ‘releaseMemAddr’ is not captured
+  522 |         ReleaseHugeMem releaseMemFunc = reinterpret_cast<ReleaseHugeMem>(releaseMemAddr);
+      |                                                                          ^~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:515:31: note: the lambda has no capture-default
+  515 |                      opApiAddr]() mutable -> int {
+      |                               ^
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:486:10: note: ‘void* releaseMemAddr’ declared here
+  486 |     auto releaseMemAddr = GetOpApiFuncAddr("ReleaseHugeMem");
+      |          ^~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::tuple<at::Tensor, std::optional<at::Tensor>, at::Tensor, at::Tensor, at::Tensor, std::optional<deep_ep::EventHandle>, std::optional<std::function<void()> > > deep_ep::Buffer::low_latency_dispatch(const at::Tensor&, const at::Tensor&, const std::optional<at::Tensor>&, int64_t, int64_t, bool, bool, bool, bool, bool, bool)’:
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1447:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
+ 1447 |         comm_alg = "fullmesh";
+      |                    ^~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1449:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
+ 1449 |         comm_alg = "ccu";
+      |                    ^~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1451:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
+ 1451 |         comm_alg = "fullmesh_v1";
+      |                    ^~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::tuple<at::Tensor, std::optional<deep_ep::EventHandle>, std::optional<std::function<void()> > > deep_ep::Buffer::low_latency_combine(const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, int64_t, int64_t, const at::Tensor&, bool, bool, bool, const std::optional<at::Tensor>&)’:
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1544:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
+ 1544 |         comm_alg = "fullmesh";
+      |                    ^~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1546:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
+ 1546 |         comm_alg = "ccu";
+      |                    ^~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1548:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
+ 1548 |         comm_alg = "fullmesh_v1";
+      |                    ^~~~~~~~~~~~~
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:17:
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::vector<at::Tensor> deep_ep::Buffer::fused_deep_moe(const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, int64_t, int64_t, int, bool, const std::string&)’:
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1623:22: error: cannot bind non-const lvalue reference of type ‘long int&’ to an rvalue of type ‘int64_t’ {aka ‘long int’}
+ 1623 |                      static_cast<int64_t>(profile_enable), output, share_output, expert_token_nums);
+      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:555:46: note: in definition of macro ‘EXEC_NPU_CMD’
+  555 |         auto converted_params = ConvertTypes(__VA_ARGS__, workspace_size_addr, executor_addr);                    \
+      |                                              ^~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:481:33: note:   initializing argument 21 of ‘constexpr auto ConvertTypes(Ts& ...) [with Ts = {const at::Tensor, const at::Tensor, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, const at::Tensor, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, char [128], long int, long int, long int, int, long int, long int, at::Tensor, at::Tensor, at::Tensor, long unsigned int*, aclOpExecutor**}]’
+  481 | constexpr auto ConvertTypes(Ts &...args)
+      |                             ~~~~^~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In lambda function:
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:570:33: error: ‘converted_params’ is not captured
+  570 |             ReleaseConvertTypes(converted_params);                                                                \
+      |                                 ^~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:570:33: note: in definition of macro ‘EXEC_NPU_CMD’
+  570 |             ReleaseConvertTypes(converted_params);                                                                \
+      |                                 ^~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:565:96: note: the lambda has no capture-default
+  565 |         auto acl_call = [converted_params, workspace_addr, workspace_size, acl_stream, executor]() -> int {       \
+      |                                                                                                ^
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1617:9: note: in expansion of macro ‘EXEC_NPU_CMD’
+ 1617 |         EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
+      |         ^~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:555:14: note: ‘<typeprefixerror>converted_params’ declared here
+  555 |         auto converted_params = ConvertTypes(__VA_ARGS__, workspace_size_addr, executor_addr);                    \
+      |              ^~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:555:14: note: in definition of macro ‘EXEC_NPU_CMD’
+  555 |         auto converted_params = ConvertTypes(__VA_ARGS__, workspace_size_addr, executor_addr);                    \
+      |              ^~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In instantiation of ‘at::Tensor deep_ep::{anonymous}::ExecuteAclnnFusedDeepMoeKeepWorkspace(const std::string&, void*, void*, Args&& ...) [with Args = {const at::Tensor&, const at::Tensor&, c10::ArrayRef<at::Tensor>&, c10::ArrayRef<at::Tensor>&, c10::ArrayRef<at::Tensor>&, c10::ArrayRef<at::Tensor>&, const at::Tensor&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, char (&)[128], long int&, long int&, long int&, int&, long int&, long int, at::Tensor&, at::Tensor&, at::Tensor&}; std::string = std::__cxx11::basic_string<char>]’:
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1602:70:   required from here
+/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:501:41: error: cannot bind non-const lvalue reference of type ‘long int&’ to an rvalue of type ‘long int’
+  501 |     auto converted_params = ConvertTypes(std::forward<Args>(args)..., workspace_size_addr, executor_addr);
+      |                             ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:481:33: note:   initializing argument 21 of ‘constexpr auto ConvertTypes(Ts& ...) [with Ts = {const at::Tensor, const at::Tensor, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, const at::Tensor, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, char [128], long int, long int, long int, int, long int, long int, at::Tensor, at::Tensor, at::Tensor, long unsigned int*, aclOpExecutor**}]’
+  481 | constexpr auto ConvertTypes(Ts &...args)
+      |                             ~~~~^~~~~~~
+gmake[2]: *** [csrc/deepep/CMakeFiles/deep_ep_cpp.dir/build.make:107: csrc/deepep/CMakeFiles/deep_ep_cpp.dir/deep_ep.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:106: csrc/deepep/CMakeFiles/deep_ep_cpp.dir/all] Error 2
+gmake: *** [Makefile:136: all] Error 2
