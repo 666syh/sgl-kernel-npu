@@ -282,6 +282,7 @@ def run_buffer_fused(
     buffer: deep_ep.Buffer,
     inputs: Dict[str, torch.Tensor],
     args: argparse.Namespace,
+    kernel_trace_dir: str = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     output, ep_recv_count = buffer.fused_deep_moe(
         inputs["x"],
@@ -294,6 +295,8 @@ def run_buffer_fused(
         args.num_tokens,
         args.num_experts,
         FUSED_COMPAT_QUANT_MODE,
+        profile_enable=kernel_trace_dir is not None,
+        profile_trace_dir=kernel_trace_dir or "",
     )
     return output, ep_recv_count
 
@@ -304,6 +307,7 @@ def run_buffer_fused_with_burn_in(
     args: argparse.Namespace,
     fused_burn_in_repeats: int = 1,
     warmup_burn_in_buffers: Tuple[torch.Tensor, torch.Tensor] = None,
+    kernel_trace_dir: str = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # The extra burn-in is only used for the first profiler warmup iteration.
     # It intentionally stays on the same execution path as the fused op so the
@@ -314,7 +318,7 @@ def run_buffer_fused_with_burn_in(
         for _ in range(fused_burn_in_repeats):
             _ = torch.matmul(burn_in_lhs, burn_in_rhs)
 
-    return run_buffer_fused(buffer, inputs, args)
+    return run_buffer_fused(buffer, inputs, args, kernel_trace_dir=kernel_trace_dir)
 
 
 def format_triplet(name: str, values_us: Tuple[float, float, float]) -> str:
@@ -637,6 +641,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 f"num_experts={args.num_experts}, "
                 f"num_topk={args.num_topk}, "
                 f"quant={args.quant}, "
+                f"kernel_trace_dir={args.kernel_trace_dir}, "
                 f"num_warmups={args.num_warmups}, "
                 f"num_tests={args.num_tests}, "
                 f"small_first_warmup_gmm_burn_in_repeats={SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS}",
@@ -791,6 +796,11 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             )
             fused_profile_call_idx = 0
 
+            if args.kernel_trace_dir is not None:
+                buffer.begin_fused_deep_moe_profile(
+                    args.num_warmups, args.num_tests, args.kernel_trace_dir
+                )
+
             def fused_profile_fn():
                 nonlocal fused_profile_call_idx
                 # Only the first profiler warmup iteration gets the extra
@@ -809,35 +819,40 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     args,
                     fused_burn_in_repeats=fused_burn_in_repeats,
                     warmup_burn_in_buffers=warmup_burn_in_buffers,
+                    kernel_trace_dir=args.kernel_trace_dir,
                 )
 
-            (
-                fused_durations,
-                fused_event_names,
-                fused_matched_sequences,
-                _,
-                fused_debug_info,
-            ) = profile_npu_event_sequences(
-                fused_profile_fn,
-                FUSED_EVENT_PATTERNS,
-                num_warmups=args.num_warmups,
-                num_tests=args.num_tests,
-                suppress_kineto_output=True,
-                trace_path=fused_trace_path,
-                allow_no_match=args.dump_profile_events,
-            )
-            if args.dump_profile_events:
-                print_profile_iteration_debug(rank, "fused", fused_debug_info)
-                print_profile_match_debug(
-                    rank, "fused", fused_event_names, fused_matched_sequences
+            try:
+                (
+                    fused_durations,
+                    fused_event_names,
+                    fused_matched_sequences,
+                    _,
+                    fused_debug_info,
+                ) = profile_npu_event_sequences(
+                    fused_profile_fn,
+                    FUSED_EVENT_PATTERNS,
+                    num_warmups=args.num_warmups,
+                    num_tests=args.num_tests,
+                    suppress_kineto_output=True,
+                    trace_path=fused_trace_path,
+                    allow_no_match=args.dump_profile_events,
                 )
-            if len(fused_durations) == 0:
-                raise AssertionError(
-                    "No matched NPU event sequence found for fused. "
-                    f"Patterns={FUSED_EVENT_PATTERNS}. "
-                    f"Discovered events={fused_event_names}"
-                )
-            fused_stats = summarize_profile_durations(fused_durations)
+                if args.dump_profile_events:
+                    print_profile_iteration_debug(rank, "fused", fused_debug_info)
+                    print_profile_match_debug(
+                        rank, "fused", fused_event_names, fused_matched_sequences
+                    )
+                if len(fused_durations) == 0:
+                    raise AssertionError(
+                        "No matched NPU event sequence found for fused. "
+                        f"Patterns={FUSED_EVENT_PATTERNS}. "
+                        f"Discovered events={fused_event_names}"
+                    )
+                fused_stats = summarize_profile_durations(fused_durations)
+            finally:
+                if args.kernel_trace_dir is not None:
+                    buffer.end_fused_deep_moe_profile()
         dist.barrier()
 
         if small_stats is not None:
@@ -990,6 +1005,10 @@ def main():
     parser.add_argument(
         "--trace-dir",
         help="Optional directory to export profiler chrome traces.",
+    )
+    parser.add_argument(
+        "--kernel-trace-dir",
+        help="Optional directory to export A5 fused kernel traceEvents JSON files.",
     )
     parser.add_argument(
         "--log-quant-dtypes",

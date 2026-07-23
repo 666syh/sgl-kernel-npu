@@ -124,6 +124,7 @@ public:
         this->Attr("moe_expert_num").Int();
         this->Attr("quant_mode").Int();
         this->Attr("global_bs").Int();
+        this->Attr("profile_enable").Int();
 
         OpAICoreConfig aicoreConfig;
         aicoreConfig.DynamicCompileStaticFlag(true)

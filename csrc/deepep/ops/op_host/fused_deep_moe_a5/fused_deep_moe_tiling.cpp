@@ -55,6 +55,7 @@ constexpr uint32_t ATTR_EP_RANK_ID_INDEX = 2;
 constexpr uint32_t ATTR_MOE_EXPERT_NUM_INDEX = 3;
 constexpr uint32_t ATTR_QUANT_MODE_INDEX = 4;
 constexpr uint32_t ATTR_GLOBAL_BS_INDEX = 5;
+constexpr uint32_t ATTR_PROFILE_ENABLE_INDEX = 6;
 
 constexpr uint32_t MIN_BATCH_SIZE = 0;
 constexpr uint32_t MAX_BATCH_SIZE = 256;
@@ -597,6 +598,7 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext &contex
     auto moeExpertNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_MOE_EXPERT_NUM_INDEX);
     auto quantModePtr = attrs->GetAttrPointer<int64_t>(ATTR_QUANT_MODE_INDEX);
     auto globalBsPtr = attrs->GetAttrPointer<int64_t>(ATTR_GLOBAL_BS_INDEX);
+    auto profileEnablePtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_ENABLE_INDEX);
 
     uint32_t epRankSize = static_cast<uint32_t>(*epRankSizePtr);
     uint32_t epRankId = static_cast<uint32_t>(*epRankIdPtr);
@@ -615,12 +617,15 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext &contex
     OPS_ERR_IF((moeExpertNum % epRankSize) != 0, OPS_LOG_E(nodeName, "moeExpertNum must be divisible by epRankSize."),
                return ge::GRAPH_FAILED);
     OPS_ERR_IF(quantModePtr == nullptr, OPS_LOG_E(nodeName, "quantModePtr is nullptr."), return ge::GRAPH_FAILED);
+    OPS_ERR_IF(profileEnablePtr == nullptr, OPS_LOG_E(nodeName, "profileEnablePtr is nullptr."),
+               return ge::GRAPH_FAILED);
 
     groupEp = std::string(groupEpPtr);
     tilingData.fusedDeepMoeInfo.epRankSize = epRankSize;
     tilingData.fusedDeepMoeInfo.epRankId = epRankId;
     tilingData.fusedDeepMoeInfo.moeExpertNum = moeExpertNum;
     tilingData.fusedDeepMoeInfo.quantMode = static_cast<uint32_t>(*quantModePtr);
+    tilingData.fusedDeepMoeInfo.profileEnable = static_cast<uint32_t>(*profileEnablePtr);
     tilingData.fusedDeepMoeInfo.globalBs = static_cast<uint32_t>(*globalBsPtr);
     tilingData.fusedDeepMoeInfo.moeExpertNumPerRank = moeExpertNumPerRank;
     return ge::GRAPH_SUCCESS;

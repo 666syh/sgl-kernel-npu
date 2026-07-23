@@ -44,6 +44,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
         .def("internode_combine", &deep_ep::Buffer::internode_combine)
         .def("low_latency_dispatch", &deep_ep::Buffer::low_latency_dispatch)
         .def("low_latency_combine", &deep_ep::Buffer::low_latency_combine)
-        .def("fused_deep_moe", &deep_ep::Buffer::fused_deep_moe)
+        .def("fused_deep_moe", &deep_ep::Buffer::fused_deep_moe, py::arg("x"), py::arg("expert_ids"),
+             py::arg("gmm1_permuted_weight"), py::arg("gmm1_permuted_weight_scale"), py::arg("gmm2_weight"),
+             py::arg("gmm2_weight_scale"), py::arg("expert_scales_optional"),
+             py::arg("num_max_dispatch_tokens_per_rank"), py::arg("num_experts"), py::arg("quant_mode"),
+             py::arg("profile_enable") = false, py::arg("profile_trace_dir") = "")
+        .def("begin_fused_deep_moe_profile", &deep_ep::Buffer::begin_fused_deep_moe_profile, py::arg("num_warmups"),
+             py::arg("num_tests"), py::arg("profile_trace_dir") = "")
+        .def("end_fused_deep_moe_profile", &deep_ep::Buffer::end_fused_deep_moe_profile)
         .def("dispatch_ffn_combine", &deep_ep::Buffer::dispatch_ffn_combine);
 }

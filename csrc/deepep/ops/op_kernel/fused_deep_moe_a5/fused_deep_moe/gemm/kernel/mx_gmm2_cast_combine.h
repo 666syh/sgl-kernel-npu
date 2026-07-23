@@ -23,6 +23,7 @@
 #include "catlass/matrix_coord.hpp"
 #include "tla/layout.hpp"
 #include "tla/tensor.hpp"
+#include "../../../fused_deep_moe_a5_profile.h"
 
 using namespace Cam;
 
@@ -92,6 +93,7 @@ public:
 
         GemmCoord sharedProblemShape;
         void *combiner;
+        FusedDeepMoeProfileWriter *profile;
 
         // Methods
         CATLASS_HOST_DEVICE
@@ -104,7 +106,8 @@ public:
                LayoutC const &layoutC_, GM_ADDR ptrD_, GemmCoord const &sharedProblemShape_, GM_ADDR ptrSharedA_,
                LayoutA const &layoutSharedA_, GM_ADDR ptrSharedB_, LayoutB const &layoutSharedB_,
                GM_ADDR ptrSharedMxScaleA_, LayoutMxScaleA layoutSharedMxScaleA_, GM_ADDR ptrSharedMxScaleB_,
-               LayoutMxScaleB layoutSharedMxScaleB_, GM_ADDR ptrSharedC_, GM_ADDR ptrSharedD_, void *combiner_)
+               LayoutMxScaleB layoutSharedMxScaleB_, GM_ADDR ptrSharedC_, GM_ADDR ptrSharedD_, void *combiner_,
+               FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -130,7 +133,8 @@ public:
               layoutSharedMxScaleB(layoutSharedMxScaleB_),
               ptrSharedC(reinterpret_cast<__gm__ ElementC *>(ptrSharedC_)),
               ptrSharedD(reinterpret_cast<__gm__ ElementD *>(ptrSharedD_)),
-              combiner(combiner_)
+              combiner(combiner_),
+              profile(profile_)
         {}
     };
 
@@ -148,6 +152,10 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
+        uint64_t profStart = 0;
+        if (params.profile != nullptr && ASCEND_IS_AIC) {
+            profStart = params.profile->Now();
+        }
         AscendC::ICachePreLoad(1);
 
         BlockScheduler blockScheduler;
@@ -336,11 +344,18 @@ public:
             }
         }
         AscendC::PipeBarrier<PIPE_ALL>();
+        if (params.profile != nullptr && ASCEND_IS_AIC) {
+            params.profile->Record(FusedDeepMoeProfileStage::Gmm2, profStart, params.profile->Now());
+        }
     }
 
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
+        uint64_t profStart = 0;
+        if (params.profile != nullptr && ASCEND_IS_AIV) {
+            profStart = params.profile->Now();
+        }
         auto *combiner = (MoeDistributeCombineImpl::CamMoeDistributeCombine<TemplateMC2TypeFunc> *)params.combiner;
 
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
@@ -496,6 +511,9 @@ public:
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
             AscendC::DataCopy(softSyncTensor[coreIdx * CVSoftSync::SOFT_SYNC_SPACE_SIZE / sizeof(int32_t)],
                               tmpZeroLocalTensor, GMM2::INT32_COUNT_PER_BLOCK);
+        }
+        if (params.profile != nullptr && ASCEND_IS_AIV) {
+            params.profile->Record(FusedDeepMoeProfileStage::Combine, profStart, params.profile->Now());
         }
     }
 

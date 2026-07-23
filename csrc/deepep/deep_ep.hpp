@@ -5,6 +5,7 @@
 #include <tuple>
 #include <vector>
 #include <optional>
+#include <string>
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
 #include "aclnn/opdev/platform.h"
@@ -129,7 +130,12 @@ public:
                                            const at::Tensor &gmm1PermutedWeightScale, const at::Tensor &gmm2Weight,
                                            const at::Tensor &gmm2WeightScale, const at::Tensor &expertScalesOptional,
                                            int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
-                                           int quant_mode);
+                                           int quant_mode, bool profile_enable = false,
+                                           const std::string &profile_trace_dir = "");
+
+    void begin_fused_deep_moe_profile(int64_t num_warmups, int64_t num_tests,
+                                      const std::string &profile_trace_dir = "");
+    void end_fused_deep_moe_profile();
 
     std::vector<at::Tensor> dispatch_ffn_combine(const at::Tensor &x, const at::Tensor &expert_ids,
                                                  const at::Tensor &weight1, const at::Tensor &scale1,

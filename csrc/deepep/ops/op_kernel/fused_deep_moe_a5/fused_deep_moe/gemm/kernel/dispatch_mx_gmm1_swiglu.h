@@ -25,6 +25,7 @@
 #include "catlass/epilogue/tile/tile_swizzle.hpp"
 #include "catlass/epilogue/tile/tile_copy.hpp"
 
+#include "../../../fused_deep_moe_a5_profile.h"
 #include "dynamic_mx_quant.h"
 #include "../../../fused_deep_moe_a5_base.h"
 #include "../../fused_deep_moe_utils.h"
@@ -147,6 +148,7 @@ public:
         GM_ADDR gmExpandIdx;
         GM_ADDR gmEpSendCount;
         GM_ADDR gmExpertTokenNums;
+        FusedDeepMoeProfileWriter *profile;
 
         uint32_t epRankSize;
         uint32_t epRankId;
@@ -173,7 +175,7 @@ public:
                GM_ADDR gmShareSwigluOut_, GM_ADDR ptrShareX2_, GM_ADDR gmShareX2Scale_, GM_ADDR gmX_,
                GM_ADDR gmExpertIds_, GM_ADDR gmXActiveMask_, GM_ADDR gmMoeSmoothScales_, GM_ADDR gmShareSmoothScales_,
                GM_ADDR gmExpandIdx_, GM_ADDR gmEpSendCount_, GM_ADDR gmExpertTokenNums_,
-               const FusedDeepMoeInfo &fusedDeepMoeInfo)
+               const FusedDeepMoeInfo &fusedDeepMoeInfo, FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -210,6 +212,7 @@ public:
               gmExpandIdx(gmExpandIdx_),
               gmEpSendCount(gmEpSendCount_),
               gmExpertTokenNums(gmExpertTokenNums_),
+              profile(profile_),
               epRankSize(fusedDeepMoeInfo.epRankSize),
               epRankId(fusedDeepMoeInfo.epRankId),
               moeExpertNum(fusedDeepMoeInfo.moeExpertNum),
@@ -307,6 +310,10 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
+        uint64_t profStart = 0;
+        if (params.profile != nullptr && ASCEND_IS_AIC) {
+            profStart = params.profile->Now();
+        }
         AscendC::ICachePreLoad(1);
         // uint32_t actualRecvCoreNumPerGroup = recvCoreNum < params.epRankSize ? recvCoreNum : params.epRankSize;
         uint32_t actualRecvCoreNumPerGroup = recvCoreNum;
@@ -396,6 +403,9 @@ public:
             }
 
             startCoreIdx = (startCoreIdx + coreLoops) % aicNum;
+        }
+        if (params.profile != nullptr && ASCEND_IS_AIC) {
+            params.profile->Record(FusedDeepMoeProfileStage::Gmm1, profStart, params.profile->Now());
         }
         {
             AscendC::GlobalTensor<ElementGroupList> groupList;
@@ -1322,9 +1332,17 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
+        uint64_t profStart = 0;
+        if (params.profile != nullptr && ASCEND_IS_AIV) {
+            profStart = params.profile->Now();
+        }
         AscendC::SetCtrlSpr<60, 60>(0);
         AivInitParams(params);
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            uint64_t profDispatchStart = 0;
+            if (params.profile != nullptr) {
+                profDispatchStart = params.profile->Now();
+            }
             AivInitState();
             if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
                 if (isShareQuantCore) {
@@ -1338,6 +1356,9 @@ public:
             }
             if (isRecvCore) {
                 RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount);
+            }
+            if (params.profile != nullptr) {
+                params.profile->Record(FusedDeepMoeProfileStage::Dispatch, profDispatchStart, params.profile->Now());
             }
         }
 
@@ -1469,6 +1490,9 @@ public:
         {
             PostSwigluDynamicQuant(params.gmSwigluOut, params.ptrX2, params.gmX2Scale, totalTokenNum,
                                    params.problemShape.n(), startCoreIdx);
+        }
+        if (params.profile != nullptr && ASCEND_IS_AIV) {
+            params.profile->Record(FusedDeepMoeProfileStage::SwigluQuant, profStart, params.profile->Now());
         }
     }
 

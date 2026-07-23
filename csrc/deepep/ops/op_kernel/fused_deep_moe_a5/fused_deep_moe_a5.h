@@ -13,6 +13,7 @@
 #include <kernel_operator.h>
 
 #include "../catlass_dtype_macro_guard_begin.h"
+#include "fused_deep_moe_a5_profile.h"
 #include "catlass/catlass.hpp"
 #include "catlass/arch/arch.hpp"
 #include "fused_deep_moe/gemm/block/block_mmad.h"
@@ -71,7 +72,8 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
     GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareSwigluOut, GM_ADDR gmShareD, GM_ADDR gmShareDScale,
     // dispatch and quant, when EXEC_FLAG_DEEP_FUSE.
     GM_ADDR gmX, GM_ADDR gmExpertIds, GM_ADDR xActiveMask, GM_ADDR gmMoeSmoothScales, GM_ADDR gmShareSmoothScales,
-    GM_ADDR gmExpandIdx, GM_ADDR gmEpSendCount, GM_ADDR gmExpertTokenNums, const FusedDeepMoeInfo &fusedDeepMoeInfo)
+    GM_ADDR gmExpandIdx, GM_ADDR gmEpSendCount, GM_ADDR gmExpertTokenNums, const FusedDeepMoeInfo &fusedDeepMoeInfo,
+    FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
                    std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
@@ -158,7 +160,8 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
                                          gmExpandIdx,
                                          gmEpSendCount,
                                          gmExpertTokenNums,
-                                         fusedDeepMoeInfo};
+                                         fusedDeepMoeInfo,
+                                         profile};
 
     MatmulKernel kernel;
     kernel(params);
@@ -175,7 +178,8 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
     GM_ADDR gmAScale, GM_ADDR gmBScale, GM_ADDR gmSwapSpace, GM_ADDR gmD,
     // shared expert, matmul
     Catlass::GemmCoord sharedProblemShape, GM_ADDR gmShareA, GM_ADDR gmShareB, GM_ADDR gmShareAScale,
-    GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareD, void *combiner)
+    GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareD, void *combiner,
+    FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
                    std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
@@ -254,7 +258,8 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
                                          layoutShareMxScaleB,
                                          gmShareSwapSpace /*ptrShareC*/,
                                          gmShareD,
-                                         combiner};
+                                         combiner,
+                                         profile};
 
     MatmulKernel kernel;
     kernel(params);
@@ -408,6 +413,9 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
     GM_ADDR gmExpandIdx = workspaceGM_ + tilingData_->workSpaceOffset.expandIdxOffset;
     GM_ADDR gmEpSendCount = workspaceGM_ + tilingData_->workSpaceOffset.epSendCountOffset;
     GM_ADDR gmReserved = workspaceGM_ + tilingData_->workSpaceOffset.reservedOffset;
+    FusedDeepMoeProfileWriter profileWriter;
+    profileWriter.Init(gmReserved, tilingData_->fusedDeepMoeInfo.profileEnable != 0, blockDim_,
+                       static_cast<uint32_t>(g_coreType));
 
     if constexpr ((EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) == 0) {
         if constexpr (g_coreType == AscendC::AIV) {
@@ -439,7 +447,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         gmSwigluOut, gmX2, gmX2Scale, shareGmm1ProblemShape, gmShareX1, gmShareWeight1_, gmShareX1Scale,
         gmShareWeight1Scale_, gmShareMm1SwapSpace, gmShareSwigluOut, gmShareX2, gmShareX2Scale, gmX_, gmexpertIds_,
         xActiveMask_, gmSmoothScales_, gmShareSmoothScales_, gmExpandIdx, gmEpSendCount, gmExpertTokenNums_,
-        tilingData_->fusedDeepMoeInfo);
+        tilingData_->fusedDeepMoeInfo, &profileWriter);
     AscendC::PipeBarrier<PIPE_ALL>();
     Arch::CrossCoreFlag gmm1AivFinished{0};
     if constexpr (g_coreType == AscendC::AIV) {
@@ -457,6 +465,6 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
                           Gmm2EpilogueTileShape, Gmm2BlockScheduler>(
         gmm2ProblemShape, groupCount_, gmGroupList, gmX2, gmWeight2_, gmX2Scale, gmScale2_, gmGmm2SwapSpace,
         gmGmm2DepOut, shareGmm2ProblemShape, gmShareX2, gmShareWeight2_, gmShareX2Scale, gmShareWeight2Scale_,
-        gmShareMm2SwapSpace, gmShareOutput_, &combiner);
+        gmShareMm2SwapSpace, gmShareOutput_, &combiner, &profileWriter);
 }
 #endif  // FUSED_DEEP_MOE_H

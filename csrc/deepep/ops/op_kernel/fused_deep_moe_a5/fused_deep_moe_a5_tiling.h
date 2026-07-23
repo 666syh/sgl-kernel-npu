@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include "kernel_tiling/kernel_tiling.h"
+#include "fused_deep_moe_a5_profile.h"
 
 // #define DEBUG_SPACE
 #ifdef DEBUG_SPACE
@@ -53,6 +54,7 @@ struct FusedDeepMoeInfo {
     uint32_t moeExpertNumPerRank;  // moe expert number per rank
     uint32_t quantMode;            // reserved, from quant_mode attr
     uint32_t mxActStorageFp4;      // non-zero when gmm weight dtype is FP4; workspace sizing only
+    uint32_t profileEnable;        // non-zero when fused kernel stage trace collection is enabled
     uint32_t globalBs;             // globalBs = BS * worldSize
     uint32_t bs;                   // bs
     uint32_t k;                    // k
