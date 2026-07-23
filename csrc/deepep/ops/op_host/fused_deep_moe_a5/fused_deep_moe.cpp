@@ -111,6 +111,11 @@ public:
             .DataTypeList({ge::DT_BOOL})
             .FormatList({ge::FORMAT_ND})
             .AutoContiguous();
+        this->Input("profile_buffer")
+            .ParamType(OPTIONAL)
+            .DataTypeList({ge::DT_UINT8})
+            .FormatList({ge::FORMAT_ND})
+            .AutoContiguous();
         this->Output("output").ParamType(REQUIRED).DataType({FUSED_DEEP_MOE_ACT_DTYPES}).FormatList({ge::FORMAT_ND});
         this->Output("share_output")
             .ParamType(REQUIRED)
@@ -125,6 +130,8 @@ public:
         this->Attr("quant_mode").Int();
         this->Attr("global_bs").Int();
         this->Attr("profile_enable").Int();
+        this->Attr("profile_buffer_bytes").Int();
+        this->Attr("profile_launch_id").Int();
 
         OpAICoreConfig aicoreConfig;
         aicoreConfig.DynamicCompileStaticFlag(true)

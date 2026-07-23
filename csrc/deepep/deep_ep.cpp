@@ -20,8 +20,13 @@
 
 namespace deep_ep {
 namespace {
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = 0;
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = 2;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = Cam::FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = Cam::FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_MAX_BYTES_PER_RANK = 128ULL * 1024ULL * 1024ULL;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_HEADER_BYTES = sizeof(Cam::FusedDeepMoeProfileHeader);
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_RECORD_BYTES = sizeof(Cam::FusedDeepMoeProfileRecord);
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_PER_LAUNCH_BYTES =
+    static_cast<uint64_t>(Cam::FUSED_DEEP_MOE_PROFILE_RECORDS_PER_LAUNCH) * FUSED_DEEP_MOE_PROFILE_RECORD_BYTES;
 
 struct TraceEventRow {
     double ts_us{0.0};
@@ -62,16 +67,26 @@ struct FusedDeepMoeProfileSession {
     bool active{false};
     int64_t numWarmups{0};
     int64_t numTests{0};
+    int64_t expectedLaunches{0};
+    int64_t capturedLaunches{0};
     std::string profileTraceDir;
-    std::vector<at::Tensor> launchWorkspaces;
+    at::Tensor profileBuffer;
+    uint64_t profileBufferBytes{0};
+    uint64_t perLaunchBytes{0};
+    uint32_t launchCountCapacity{0};
 
     void Reset()
     {
         active = false;
         numWarmups = 0;
         numTests = 0;
+        expectedLaunches = 0;
+        capturedLaunches = 0;
         profileTraceDir.clear();
-        launchWorkspaces.clear();
+        profileBuffer = at::Tensor();
+        profileBufferBytes = 0;
+        perLaunchBytes = 0;
+        launchCountCapacity = 0;
     }
 };
 
@@ -145,29 +160,63 @@ static std::string ResolveProfileTraceDir(const std::string &profileTraceDir)
     return std::filesystem::current_path().string();
 }
 
-static void AppendFusedDeepMoeProfileWorkspace(const at::Tensor &workspaceTensor)
+static uint64_t AlignUp(uint64_t value, uint64_t alignment)
 {
-    if (!g_fusedDeepMoeProfileSession.active || !workspaceTensor.defined() || workspaceTensor.numel() == 0) {
-        if (IsFusedDeepMoeProfileDebugEnabled()) {
-            std::ostringstream oss;
-            oss << "skip append: active=" << g_fusedDeepMoeProfileSession.active
-                << ", defined=" << workspaceTensor.defined()
-                << ", numel=" << (workspaceTensor.defined() ? workspaceTensor.numel() : 0);
-            FusedDeepMoeProfileDebugPrint(oss.str());
-        }
-        return;
-    }
-    if (IsFusedDeepMoeProfileDebugEnabled()) {
-        std::ostringstream oss;
-        oss << "append workspace: launches_before=" << g_fusedDeepMoeProfileSession.launchWorkspaces.size()
-            << ", numel=" << workspaceTensor.numel() << ", dtype=" << workspaceTensor.scalar_type();
-        FusedDeepMoeProfileDebugPrint(oss.str());
-    }
-    g_fusedDeepMoeProfileSession.launchWorkspaces.push_back(workspaceTensor);
+    return ((value + alignment - 1) / alignment) * alignment;
 }
 
-static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &workspaceTensors, int64_t rank,
-                                           const std::string &profileTraceDir, int64_t numWarmups)
+static Cam::FusedDeepMoeProfileHeader BuildFusedDeepMoeProfileHeader(uint32_t launchCountCapacity)
+{
+    Cam::FusedDeepMoeProfileHeader header{};
+    header.magic = Cam::FUSED_DEEP_MOE_PROFILE_MAGIC;
+    header.version = Cam::FUSED_DEEP_MOE_PROFILE_VERSION;
+    header.cycleToUs = Cam::FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US;
+    header.launchCountsPacked = Cam::PackProfileLaunchCounts(launchCountCapacity, 0U);
+    header.droppedLaunches = 0;
+    header.layoutPacked0 =
+        Cam::PackProfileLayout0(static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT),
+                                static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_GROUP_COUNT_CAPACITY),
+                                static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_AIC_PER_GROUP),
+                                static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_AIV_PER_GROUP));
+    header.layoutPacked1 = Cam::PackProfileLayout1(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
+                                                   Cam::FUSED_DEEP_MOE_PROFILE_RECORDS_PER_LAUNCH);
+    header.flags = Cam::FUSED_DEEP_MOE_PROFILE_FLAG_SESSION_BUFFER;
+    return header;
+}
+
+static void CopyFusedDeepMoeProfileHeaderToDevice(const at::Tensor &profileBuffer,
+                                                  const Cam::FusedDeepMoeProfileHeader &header)
+{
+    TORCH_CHECK(profileBuffer.defined() && profileBuffer.numel() >= static_cast<int64_t>(sizeof(header)),
+                "FusedDeepMoe profile buffer is not large enough for header.");
+    auto headerCpu =
+        at::empty({static_cast<int64_t>(sizeof(header))}, at::TensorOptions().device(at::kCPU).dtype(c10::kByte));
+    std::memcpy(headerCpu.data_ptr<uint8_t>(), &header, sizeof(header));
+    profileBuffer.narrow(0, 0, static_cast<int64_t>(sizeof(header))).copy_(headerCpu);
+}
+
+static uint64_t GetFusedDeepMoeProfileLaunchOffset(uint64_t launchId)
+{
+    return FUSED_DEEP_MOE_PROFILE_HEADER_BYTES + launchId * FUSED_DEEP_MOE_PROFILE_PER_LAUNCH_BYTES;
+}
+
+static uint64_t GetFusedDeepMoeProfileTotalBytes(uint64_t launchCountCapacity)
+{
+    return FUSED_DEEP_MOE_PROFILE_HEADER_BYTES +
+           launchCountCapacity * AlignUp(FUSED_DEEP_MOE_PROFILE_PER_LAUNCH_BYTES, 64ULL);
+}
+
+static at::Tensor AllocateFusedDeepMoeProfileBuffer(uint64_t totalBytes, uint32_t launchCountCapacity)
+{
+    at::TensorOptions options = at::TensorOptions(torch_npu::utils::get_npu_device_type());
+    auto profileBuffer = at::zeros({static_cast<int64_t>(totalBytes)}, options.dtype(c10::kByte));
+    CopyFusedDeepMoeProfileHeaderToDevice(profileBuffer, BuildFusedDeepMoeProfileHeader(launchCountCapacity));
+    return profileBuffer;
+}
+
+static void ExportFusedDeepMoeProfileTrace(const at::Tensor &profileBuffer, int64_t rank,
+                                           const std::string &profileTraceDir, int64_t numWarmups,
+                                           int64_t launchCountCaptured)
 {
     struct LaunchTraceBundle {
         int64_t launchId{0};
@@ -177,35 +226,52 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
         std::vector<TraceEventRow> rows;
     };
 
+    if (!profileBuffer.defined() || profileBuffer.numel() == 0) {
+        return;
+    }
+
+    auto profileCpu = profileBuffer.to(at::kCPU).contiguous();
+    auto *base = profileCpu.data_ptr<uint8_t>();
+    auto *header = reinterpret_cast<const Cam::FusedDeepMoeProfileHeader *>(base);
+    if (header == nullptr || header->magic != Cam::FUSED_DEEP_MOE_PROFILE_MAGIC ||
+        header->version != Cam::FUSED_DEEP_MOE_PROFILE_VERSION || header->cycleToUs == 0) {
+        return;
+    }
+
+    uint32_t launchCountCapacity = Cam::UnpackProfileLaunchCapacity(header->launchCountsPacked);
+    uint32_t stageCount = Cam::UnpackProfileStageCount(header->layoutPacked0);
+    uint32_t logicalCoreCountCapacity = Cam::UnpackProfileLogicalCoreCountCapacity(header->layoutPacked1);
+    uint32_t recordsPerLaunch = Cam::UnpackProfileRecordsPerLaunch(header->layoutPacked1);
+    if (stageCount != Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT ||
+        logicalCoreCountCapacity != Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY ||
+        recordsPerLaunch != Cam::FUSED_DEEP_MOE_PROFILE_RECORDS_PER_LAUNCH) {
+        TORCH_WARN("Unexpected fused deep moe profile layout, skip export.");
+        return;
+    }
+
+    uint64_t requiredBytes = GetFusedDeepMoeProfileTotalBytes(launchCountCapacity);
+    if (profileCpu.numel() < static_cast<int64_t>(requiredBytes)) {
+        TORCH_WARN("FusedDeepMoe profile buffer is smaller than expected, skip export.");
+        return;
+    }
+
+    uint64_t captured = static_cast<uint64_t>(std::max<int64_t>(0, launchCountCaptured));
+    captured = std::min<uint64_t>(captured, launchCountCapacity);
+    if (captured == 0) {
+        return;
+    }
+
     std::vector<LaunchTraceBundle> launches;
-    for (size_t launchId = 0; launchId < workspaceTensors.size(); ++launchId) {
-        const auto &workspaceTensor = workspaceTensors[launchId];
-        if (!workspaceTensor.defined() || workspaceTensor.numel() == 0) {
-            continue;
-        }
+    launches.reserve(static_cast<size_t>(captured));
+    for (uint64_t launchId = 0; launchId < captured; ++launchId) {
+        auto *launchBase = base + GetFusedDeepMoeProfileLaunchOffset(launchId);
+        auto *records = reinterpret_cast<const Cam::FusedDeepMoeProfileRecord *>(launchBase);
 
-        auto workspaceCpu = workspaceTensor.to(at::kCPU).contiguous();
-        auto *base = workspaceCpu.data_ptr<uint8_t>();
-        auto *header = reinterpret_cast<const Cam::FusedDeepMoeProfileHeader *>(base);
-        if (header == nullptr || header->magic != Cam::FUSED_DEEP_MOE_PROFILE_MAGIC ||
-            header->version != Cam::FUSED_DEEP_MOE_PROFILE_VERSION || header->coreCount == 0 ||
-            header->stageCount == 0 || header->recordCount == 0 || header->cycleToUs == 0) {
-            continue;
-        }
-        uint64_t requiredBytes =
-            sizeof(Cam::FusedDeepMoeProfileHeader) + header->recordCount * sizeof(Cam::FusedDeepMoeProfileRecord);
-        if (workspaceCpu.numel() < static_cast<int64_t>(requiredBytes)) {
-            TORCH_WARN("FusedDeepMoe profile buffer is smaller than expected, skip export for launch ", launchId);
-            continue;
-        }
-
-        auto *records =
-            reinterpret_cast<const Cam::FusedDeepMoeProfileRecord *>(base + sizeof(Cam::FusedDeepMoeProfileHeader));
         LaunchTraceBundle bundle;
         bundle.launchId = static_cast<int64_t>(launchId);
         bundle.isWarmup = static_cast<int64_t>(launchId) < numWarmups;
         bool haveRange = false;
-        for (uint64_t i = 0; i < header->recordCount; ++i) {
+        for (uint64_t i = 0; i < recordsPerLaunch; ++i) {
             const auto &record = records[i];
             if (record.endCycle <= record.startCycle) {
                 continue;
@@ -213,8 +279,8 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
             bundle.rows.push_back({
                 static_cast<double>(record.startCycle) / static_cast<double>(header->cycleToUs),
                 static_cast<double>(record.endCycle - record.startCycle) / static_cast<double>(header->cycleToUs),
-                static_cast<int64_t>(launchId),
-                static_cast<int64_t>(launchId) < numWarmups,
+                static_cast<int64_t>(record.launchId),
+                static_cast<int64_t>(record.launchId) < numWarmups,
                 record.coreType,
                 record.coreIdx,
                 record.stageId,
@@ -307,7 +373,10 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
                       ",\"is_warmup\":" + (bundle.isWarmup ? std::string("true") : std::string("false")) + "}");
 
         for (const auto &row : bundle.rows) {
-            uint64_t tid = row.coreType * 1000ULL + row.coreIdx;
+            uint64_t tid = Cam::GetFusedDeepMoeProfileLogicalCoreLinear(row.coreType, row.coreIdx);
+            if (tid == UINT32_MAX) {
+                continue;
+            }
             if (seenThreads.insert(tid).second) {
                 emitEvent("thread_name", "M", static_cast<uint64_t>(rank), tid, 0.0, 0.0,
                           std::string("{\"name\":") +
@@ -316,7 +385,10 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
         }
 
         for (const auto &row : bundle.rows) {
-            uint64_t tid = row.coreType * 1000ULL + row.coreIdx;
+            uint64_t tid = Cam::GetFusedDeepMoeProfileLogicalCoreLinear(row.coreType, row.coreIdx);
+            if (tid == UINT32_MAX) {
+                continue;
+            }
             std::ostringstream args;
             args << "{";
             args << "\"rank\":" << rank << ",";
@@ -338,136 +410,10 @@ static void ExportFusedDeepMoeProfileTrace(const std::vector<at::Tensor> &worksp
     ofs << "\n  ]\n}\n";
 }
 
-static void ExportFusedDeepMoeProfileTrace(const at::Tensor &workspaceTensor, int64_t rank,
+static void ExportFusedDeepMoeProfileTrace(const at::Tensor &profileBuffer, int64_t rank,
                                            const std::string &profileTraceDir)
 {
-    if (!workspaceTensor.defined() || workspaceTensor.numel() == 0) {
-        return;
-    }
-
-    auto workspaceCpu = workspaceTensor.to(at::kCPU).contiguous();
-    auto *base = workspaceCpu.data_ptr<uint8_t>();
-    auto *header = reinterpret_cast<const Cam::FusedDeepMoeProfileHeader *>(base);
-    if (header == nullptr || header->magic != Cam::FUSED_DEEP_MOE_PROFILE_MAGIC ||
-        header->version != Cam::FUSED_DEEP_MOE_PROFILE_VERSION || header->coreCount == 0 || header->stageCount == 0 ||
-        header->recordCount == 0 || header->cycleToUs == 0) {
-        return;
-    }
-    uint64_t requiredBytes =
-        sizeof(Cam::FusedDeepMoeProfileHeader) + header->recordCount * sizeof(Cam::FusedDeepMoeProfileRecord);
-    if (workspaceCpu.numel() < static_cast<int64_t>(requiredBytes)) {
-        TORCH_WARN("FusedDeepMoe profile buffer is smaller than expected, skip export.");
-        return;
-    }
-
-    auto *records =
-        reinterpret_cast<const Cam::FusedDeepMoeProfileRecord *>(base + sizeof(Cam::FusedDeepMoeProfileHeader));
-    std::vector<TraceEventRow> traceRows;
-    traceRows.reserve(static_cast<size_t>(header->recordCount));
-    for (uint64_t i = 0; i < header->recordCount; ++i) {
-        const auto &record = records[i];
-        if (record.endCycle <= record.startCycle) {
-            continue;
-        }
-        traceRows.push_back({
-            static_cast<double>(record.startCycle) / static_cast<double>(header->cycleToUs),
-            static_cast<double>(record.endCycle - record.startCycle) / static_cast<double>(header->cycleToUs),
-            0,
-            false,
-            record.coreType,
-            record.coreIdx,
-            record.stageId,
-            record.startCycle,
-            record.endCycle,
-        });
-    }
-    if (traceRows.empty()) {
-        return;
-    }
-
-    std::sort(traceRows.begin(), traceRows.end(), [](const TraceEventRow &lhs, const TraceEventRow &rhs) {
-        if (lhs.ts_us != rhs.ts_us) {
-            return lhs.ts_us < rhs.ts_us;
-        }
-        if (lhs.coreType != rhs.coreType) {
-            return lhs.coreType < rhs.coreType;
-        }
-        if (lhs.coreIdx != rhs.coreIdx) {
-            return lhs.coreIdx < rhs.coreIdx;
-        }
-        return lhs.stageId < rhs.stageId;
-    });
-
-    std::filesystem::path traceDir = std::filesystem::path(ResolveProfileTraceDir(profileTraceDir));
-    std::error_code ec;
-    std::filesystem::create_directories(traceDir, ec);
-    if (ec) {
-        TORCH_WARN("Failed to create fused deep moe profile trace dir: ", traceDir.string(), ", error=", ec.message());
-        return;
-    }
-
-    std::filesystem::path tracePath = traceDir / ("fused_deep_moe_rank" + std::to_string(rank) + ".json");
-    std::ofstream ofs(tracePath, std::ios::out | std::ios::trunc);
-    if (!ofs.is_open()) {
-        TORCH_WARN("Failed to open fused deep moe profile trace file: ", tracePath.string());
-        return;
-    }
-
-    ofs << "{\n";
-    ofs << "  \"traceEvents\": [\n";
-    bool needComma = false;
-
-    auto emitEvent = [&](const std::string &name, const std::string &ph, uint64_t pid, uint64_t tid, double ts,
-                         double dur, const std::string &argsJson) {
-        if (needComma) {
-            ofs << ",\n";
-        }
-        needComma = true;
-        ofs << "    {"
-            << "\"name\":" << JsonEscape(name) << ","
-            << "\"cat\":\"fused_deep_moe\","
-            << "\"ph\":" << JsonEscape(ph) << ","
-            << "\"ts\":" << std::fixed << std::setprecision(3) << ts << ","
-            << "\"pid\":" << pid << ","
-            << "\"tid\":" << tid;
-        if (ph == "X") {
-            ofs << ",\"dur\":" << std::fixed << std::setprecision(3) << dur;
-        }
-        if (!argsJson.empty()) {
-            ofs << ",\"args\":" << argsJson;
-        }
-        ofs << "}";
-    };
-
-    emitEvent("process_name", "M", static_cast<uint64_t>(rank), 0, 0.0, 0.0,
-              std::string("{\"name\":") + JsonEscape("rank" + std::to_string(rank)) + "}");
-
-    std::set<uint64_t> seenThreads;
-    for (const auto &row : traceRows) {
-        uint64_t tid = row.coreType * 1000ULL + row.coreIdx;
-        if (seenThreads.insert(tid).second) {
-            emitEvent("thread_name", "M", static_cast<uint64_t>(rank), tid, 0.0, 0.0,
-                      std::string("{\"name\":") +
-                          JsonEscape(CoreTypeName(row.coreType) + "-" + std::to_string(row.coreIdx)) + "}");
-        }
-    }
-
-    for (const auto &row : traceRows) {
-        uint64_t tid = row.coreType * 1000ULL + row.coreIdx;
-        std::ostringstream args;
-        args << "{";
-        args << "\"rank\":" << rank << ",";
-        args << "\"core_type\":" << JsonEscape(CoreTypeName(row.coreType)) << ",";
-        args << "\"core_type_raw\":" << row.coreType << ",";
-        args << "\"core_idx\":" << row.coreIdx << ",";
-        args << "\"stage_id\":" << row.stageId << ",";
-        args << "\"start_cycle\":" << row.startCycle << ",";
-        args << "\"end_cycle\":" << row.endCycle;
-        args << "}";
-        emitEvent(StageName(row.stageId), "X", static_cast<uint64_t>(rank), tid, row.ts_us, row.dur_us, args.str());
-    }
-
-    ofs << "\n  ]\n}\n";
+    ExportFusedDeepMoeProfileTrace(profileBuffer, rank, profileTraceDir, 0, 1);
 }
 
 template <typename... Args>
@@ -1590,37 +1536,72 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
     at::Tensor share_output = at::empty({bs, h}, x.options());
     int64_t num_local_experts = num_experts / num_ranks;
     at::Tensor expert_token_nums = at::empty({num_local_experts}, x.options().dtype(at::kLong));
-    int64_t profile_enable_i64 = static_cast<int64_t>(profile_enable);
+    bool profile_session_active = g_fusedDeepMoeProfileSession.active;
+    bool use_profile = profile_enable || profile_session_active;
+    int64_t profile_enable_i64 = static_cast<int64_t>(use_profile);
+    at::Tensor local_profile_buffer;
+    const at::Tensor *profile_buffer_ptr = nullptr;
+    int64_t profile_buffer_bytes_i64 = 0;
+    int64_t profile_launch_id_i64 = profile_session_active ? g_fusedDeepMoeProfileSession.capturedLaunches : 0;
+
+    if (profile_session_active) {
+        TORCH_CHECK(g_fusedDeepMoeProfileSession.profileBuffer.defined() &&
+                        g_fusedDeepMoeProfileSession.profileBuffer.numel() > 0,
+                    "FusedDeepMoe profile session is active but profile buffer is missing.");
+        TORCH_CHECK(g_fusedDeepMoeProfileSession.capturedLaunches < g_fusedDeepMoeProfileSession.expectedLaunches,
+                    "FusedDeepMoe profile session expected ", g_fusedDeepMoeProfileSession.expectedLaunches,
+                    " launches but received ", g_fusedDeepMoeProfileSession.capturedLaunches, ".");
+        profile_buffer_ptr = &g_fusedDeepMoeProfileSession.profileBuffer;
+        profile_buffer_bytes_i64 = static_cast<int64_t>(g_fusedDeepMoeProfileSession.profileBufferBytes);
+    } else if (profile_enable) {
+        local_profile_buffer = AllocateFusedDeepMoeProfileBuffer(GetFusedDeepMoeProfileTotalBytes(1), 1);
+        profile_buffer_ptr = &local_profile_buffer;
+        profile_buffer_bytes_i64 = static_cast<int64_t>(local_profile_buffer.numel());
+    }
 
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
-        oss << "fused_deep_moe entry: profile_enable=" << profile_enable
+        oss << "fused_deep_moe entry: profile_enable=" << profile_enable << ", use_profile=" << use_profile
             << ", session_active=" << g_fusedDeepMoeProfileSession.active << ", trace_dir=" << profile_trace_dir
             << ", num_warmups=" << g_fusedDeepMoeProfileSession.numWarmups
-            << ", num_tests=" << g_fusedDeepMoeProfileSession.numTests;
+            << ", num_tests=" << g_fusedDeepMoeProfileSession.numTests << ", launch_id=" << profile_launch_id_i64
+            << ", profile_buffer_bytes=" << profile_buffer_bytes_i64;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
 
-    if (profile_enable) {
-        auto workspace_tensor = ExecuteAclnnFusedDeepMoeKeepWorkspace(
-            "aclnnFusedDeepMoe", GetOpApiFuncAddr("aclnnFusedDeepMoeGetWorkspaceSize"),
-            GetOpApiFuncAddr("aclnnFusedDeepMoe"), x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
-            gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
-            static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-            static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-            static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name,
-            num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64, output, share_output,
-            expert_token_nums);
-        if (g_fusedDeepMoeProfileSession.active) {
-            AppendFusedDeepMoeProfileWorkspace(workspace_tensor);
-        } else {
+    if (use_profile) {
+        TORCH_CHECK(profile_buffer_ptr != nullptr, "FusedDeepMoe profiling requires a valid profile buffer.");
+        auto invoke_profiled_op = [&](const at::Tensor &profile_buffer_tensor) {
+            return ExecuteAclnnFusedDeepMoeKeepWorkspace(
+                "aclnnFusedDeepMoe", GetOpApiFuncAddr("aclnnFusedDeepMoeGetWorkspaceSize"),
+                GetOpApiFuncAddr("aclnnFusedDeepMoe"), x, expert_ids, gmm1_weight_list, gmm1_scale_list,
+                gmm2_weight_list, gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
+                static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                profile_buffer_tensor, hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs,
+                profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output, share_output,
+                expert_token_nums);
+        };
+
+        auto workspace_tensor = invoke_profiled_op(*profile_buffer_ptr);
+        (void)workspace_tensor;
+        if (profile_session_active) {
+            ++g_fusedDeepMoeProfileSession.capturedLaunches;
             if (IsFusedDeepMoeProfileDebugEnabled()) {
                 std::ostringstream oss;
-                oss << "export immediate workspace: numel=" << workspace_tensor.numel()
+                oss << "captured launch=" << (g_fusedDeepMoeProfileSession.capturedLaunches - 1)
                     << ", trace_dir=" << profile_trace_dir;
                 FusedDeepMoeProfileDebugPrint(oss.str());
             }
-            ExportFusedDeepMoeProfileTrace(workspace_tensor, rank, profile_trace_dir);
+        } else {
+            if (IsFusedDeepMoeProfileDebugEnabled()) {
+                std::ostringstream oss;
+                oss << "export immediate persistent profile buffer: numel=" << profile_buffer_ptr->numel()
+                    << ", trace_dir=" << profile_trace_dir;
+                FusedDeepMoeProfileDebugPrint(oss.str());
+            }
+            ExportFusedDeepMoeProfileTrace(*profile_buffer_ptr, rank, profile_trace_dir);
         }
     } else {
         EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
@@ -1628,7 +1609,8 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
                      static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
                      static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
                      static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64, output,
+                     static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank, num_experts,
+                     quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output,
                      share_output, expert_token_nums);
     }
 
@@ -1657,15 +1639,31 @@ void Buffer::begin_fused_deep_moe_profile(int64_t num_warmups, int64_t num_tests
 {
     TORCH_CHECK(num_warmups >= 0, "num_warmups must be non-negative");
     TORCH_CHECK(num_tests >= 0, "num_tests must be non-negative");
+    TORCH_CHECK(!g_fusedDeepMoeProfileSession.active, "FusedDeepMoe profile session is already active.");
+    int64_t expectedLaunches = num_warmups + num_tests;
+    TORCH_CHECK(expectedLaunches > 0, "FusedDeepMoe profile session needs at least one launch.");
+    uint64_t totalBytes = GetFusedDeepMoeProfileTotalBytes(static_cast<uint64_t>(expectedLaunches));
+    TORCH_CHECK(totalBytes <= FUSED_DEEP_MOE_PROFILE_MAX_BYTES_PER_RANK,
+                "FusedDeepMoe profile buffer would exceed the per-rank cap: totalBytes=", totalBytes,
+                ", cap=", FUSED_DEEP_MOE_PROFILE_MAX_BYTES_PER_RANK);
     g_fusedDeepMoeProfileSession.Reset();
     g_fusedDeepMoeProfileSession.active = true;
     g_fusedDeepMoeProfileSession.numWarmups = num_warmups;
     g_fusedDeepMoeProfileSession.numTests = num_tests;
+    g_fusedDeepMoeProfileSession.expectedLaunches = expectedLaunches;
+    g_fusedDeepMoeProfileSession.capturedLaunches = 0;
     g_fusedDeepMoeProfileSession.profileTraceDir = profile_trace_dir;
-    g_fusedDeepMoeProfileSession.launchWorkspaces.reserve(static_cast<size_t>(num_warmups + num_tests));
+    g_fusedDeepMoeProfileSession.launchCountCapacity = static_cast<uint32_t>(expectedLaunches);
+    g_fusedDeepMoeProfileSession.perLaunchBytes = FUSED_DEEP_MOE_PROFILE_PER_LAUNCH_BYTES;
+    g_fusedDeepMoeProfileSession.profileBufferBytes = totalBytes;
+    g_fusedDeepMoeProfileSession.profileBuffer =
+        AllocateFusedDeepMoeProfileBuffer(totalBytes, g_fusedDeepMoeProfileSession.launchCountCapacity);
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
         oss << "begin session: rank=" << rank << ", num_warmups=" << num_warmups << ", num_tests=" << num_tests
+            << ", launch_capacity=" << g_fusedDeepMoeProfileSession.launchCountCapacity
+            << ", per_launch_bytes=" << g_fusedDeepMoeProfileSession.perLaunchBytes
+            << ", total_bytes=" << g_fusedDeepMoeProfileSession.profileBufferBytes
             << ", trace_dir=" << profile_trace_dir;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
@@ -1679,21 +1677,20 @@ void Buffer::end_fused_deep_moe_profile()
         }
         return;
     }
-    auto expectedLaunches = static_cast<size_t>(
-        std::max<int64_t>(0, g_fusedDeepMoeProfileSession.numWarmups + g_fusedDeepMoeProfileSession.numTests));
-    if (expectedLaunches != 0 && g_fusedDeepMoeProfileSession.launchWorkspaces.size() != expectedLaunches) {
-        TORCH_WARN("FusedDeepMoe profile session captured ", g_fusedDeepMoeProfileSession.launchWorkspaces.size(),
-                   " launches, expected ", expectedLaunches, ".");
+    if (g_fusedDeepMoeProfileSession.capturedLaunches != g_fusedDeepMoeProfileSession.expectedLaunches) {
+        TORCH_WARN("FusedDeepMoe profile session captured ", g_fusedDeepMoeProfileSession.capturedLaunches,
+                   " launches, expected ", g_fusedDeepMoeProfileSession.expectedLaunches, ".");
     }
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
-        oss << "end session: launches=" << g_fusedDeepMoeProfileSession.launchWorkspaces.size()
-            << ", expected=" << expectedLaunches << ", trace_dir=" << g_fusedDeepMoeProfileSession.profileTraceDir;
+        oss << "end session: launches=" << g_fusedDeepMoeProfileSession.capturedLaunches
+            << ", expected=" << g_fusedDeepMoeProfileSession.expectedLaunches
+            << ", trace_dir=" << g_fusedDeepMoeProfileSession.profileTraceDir;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
-    ExportFusedDeepMoeProfileTrace(g_fusedDeepMoeProfileSession.launchWorkspaces, rank,
-                                   g_fusedDeepMoeProfileSession.profileTraceDir,
-                                   g_fusedDeepMoeProfileSession.numWarmups);
+    ExportFusedDeepMoeProfileTrace(
+        g_fusedDeepMoeProfileSession.profileBuffer, rank, g_fusedDeepMoeProfileSession.profileTraceDir,
+        g_fusedDeepMoeProfileSession.numWarmups, g_fusedDeepMoeProfileSession.capturedLaunches);
     g_fusedDeepMoeProfileSession.Reset();
 }
 

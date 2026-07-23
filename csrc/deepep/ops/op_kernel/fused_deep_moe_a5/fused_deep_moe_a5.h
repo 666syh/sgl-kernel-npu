@@ -275,7 +275,7 @@ public:
         GM_ADDR x, GM_ADDR expert_ids, GM_ADDR gmm1_weight, GM_ADDR gmm1_weight_scale, GM_ADDR gmm2_weight,
         GM_ADDR gmm2_weight_scale, GM_ADDR expert_scales, GM_ADDR share_gmm1_weight, GM_ADDR share_gmm1_weight_scale,
         GM_ADDR share_gmm2_weight, GM_ADDR share_gmm2_weight_scale, GM_ADDR expert_smooth_scales,
-        GM_ADDR share_smooth_scales, GM_ADDR x_active_mask,
+        GM_ADDR share_smooth_scales, GM_ADDR x_active_mask, GM_ADDR profile_buffer,
         // output
         GM_ADDR output, GM_ADDR share_output, GM_ADDR expertTokenNums,
         // system
@@ -302,6 +302,7 @@ private:
     GM_ADDR gmShareSmoothScales_;
     GM_ADDR gmexpertScales_;
     GM_ADDR xActiveMask_;
+    GM_ADDR profileBufferGM_;
 
     uint32_t maxTokenNum_{0};
     uint32_t shareGmm1OutputDim_{0};
@@ -331,7 +332,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Init(
     GM_ADDR x, GM_ADDR expert_ids, GM_ADDR gmm1_weight, GM_ADDR gmm1_weight_scale, GM_ADDR gmm2_weight,
     GM_ADDR gmm2_weight_scale, GM_ADDR expert_scales, GM_ADDR share_gmm1_weight, GM_ADDR share_gmm1_weight_scale,
     GM_ADDR share_gmm2_weight, GM_ADDR share_gmm2_weight_scale, GM_ADDR expert_smooth_scales,
-    GM_ADDR share_smooth_scales, GM_ADDR x_active_mask,
+    GM_ADDR share_smooth_scales, GM_ADDR x_active_mask, GM_ADDR profile_buffer,
     // output
     GM_ADDR output, GM_ADDR share_output, GM_ADDR expertTokenNums,
     // system
@@ -362,6 +363,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Init(
 #endif
     gmexpertScales_ = expert_scales;
     xActiveMask_ = x_active_mask;
+    profileBufferGM_ = profile_buffer;
     tilingData_ = tilingData;
     epRankSize_ = tilingData->fusedDeepMoeInfo.epRankSize;
     moeExpertNumPerRank_ = tilingData->fusedDeepMoeInfo.moeExpertNumPerRank;
@@ -412,10 +414,10 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
     GM_ADDR gmGroupList = workspaceGM_ + tilingData_->workSpaceOffset.groupListOffset;
     GM_ADDR gmExpandIdx = workspaceGM_ + tilingData_->workSpaceOffset.expandIdxOffset;
     GM_ADDR gmEpSendCount = workspaceGM_ + tilingData_->workSpaceOffset.epSendCountOffset;
-    GM_ADDR gmReserved = workspaceGM_ + tilingData_->workSpaceOffset.reservedOffset;
     FusedDeepMoeProfileWriter profileWriter;
-    profileWriter.Init(gmReserved, tilingData_->fusedDeepMoeInfo.profileEnable != 0, blockDim_,
-                       static_cast<uint32_t>(g_coreType));
+    profileWriter.Init(profileBufferGM_, tilingData_->fusedDeepMoeInfo.profileEnable != 0,
+                       static_cast<uint32_t>(tilingData_->fusedDeepMoeInfo.profileLaunchId),
+                       static_cast<uint32_t>(g_coreType), tilingData_->fusedDeepMoeInfo.profileBufferBytes);
 
     if constexpr ((EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) == 0) {
         if constexpr (g_coreType == AscendC::AIV) {

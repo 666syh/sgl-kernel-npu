@@ -54,12 +54,14 @@ struct FusedDeepMoeInfo {
     uint32_t quantMode;            // reserved, from quant_mode attr
     uint32_t mxActStorageFp4;      // non-zero when gmm weight dtype is FP4; workspace sizing only
     uint32_t profileEnable;        // non-zero when fused kernel stage trace collection is enabled
+    uint32_t profileLaunchId;      // launch slot in the session-owned persistent profile buffer
     uint32_t globalBs;             // globalBs = BS * worldSize
     uint32_t bs;                   // bs
     uint32_t k;                    // k
     uint32_t h;                    // h
     uint32_t aicNum;               // aicNum
     uint32_t aivNum;               // aivNum
+    uint64_t profileBufferBytes;   // total bytes of the persistent profile buffer
     uint64_t totalUbSize;
     uint64_t totalWinSize;
     uint64_t gmm1HLen;

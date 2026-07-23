@@ -48,6 +48,7 @@ constexpr uint32_t INPUT_SHARE_GMM2_WEIGHT_SCALE_INDEX = 10;
 constexpr uint32_t INPUT_SMOOTH_SCALE_INDEX = 11;
 constexpr uint32_t INPUT_SHARE_SMOOTH_SCALE_INDEX = 12;
 constexpr uint32_t INPUT_SHARE_X_ACTIVE_MASK_INDEX = 13;
+constexpr uint32_t INPUT_PROFILE_BUFFER_INDEX = 14;
 
 constexpr uint32_t ATTR_GROUP_EP_INDEX = 0;
 constexpr uint32_t ATTR_EP_RANK_SIZE_INDEX = 1;
@@ -56,6 +57,8 @@ constexpr uint32_t ATTR_MOE_EXPERT_NUM_INDEX = 3;
 constexpr uint32_t ATTR_QUANT_MODE_INDEX = 4;
 constexpr uint32_t ATTR_GLOBAL_BS_INDEX = 5;
 constexpr uint32_t ATTR_PROFILE_ENABLE_INDEX = 6;
+constexpr uint32_t ATTR_PROFILE_BUFFER_BYTES_INDEX = 7;
+constexpr uint32_t ATTR_PROFILE_LAUNCH_ID_INDEX = 8;
 
 constexpr uint32_t MIN_BATCH_SIZE = 0;
 constexpr uint32_t MAX_BATCH_SIZE = 256;
@@ -599,6 +602,8 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext &contex
     auto quantModePtr = attrs->GetAttrPointer<int64_t>(ATTR_QUANT_MODE_INDEX);
     auto globalBsPtr = attrs->GetAttrPointer<int64_t>(ATTR_GLOBAL_BS_INDEX);
     auto profileEnablePtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_ENABLE_INDEX);
+    auto profileBufferBytesPtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_BUFFER_BYTES_INDEX);
+    auto profileLaunchIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_LAUNCH_ID_INDEX);
 
     uint32_t epRankSize = static_cast<uint32_t>(*epRankSizePtr);
     uint32_t epRankId = static_cast<uint32_t>(*epRankIdPtr);
@@ -619,6 +624,10 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext &contex
     OPS_ERR_IF(quantModePtr == nullptr, OPS_LOG_E(nodeName, "quantModePtr is nullptr."), return ge::GRAPH_FAILED);
     OPS_ERR_IF(profileEnablePtr == nullptr, OPS_LOG_E(nodeName, "profileEnablePtr is nullptr."),
                return ge::GRAPH_FAILED);
+    OPS_ERR_IF(profileBufferBytesPtr == nullptr, OPS_LOG_E(nodeName, "profileBufferBytesPtr is nullptr."),
+               return ge::GRAPH_FAILED);
+    OPS_ERR_IF(profileLaunchIdPtr == nullptr, OPS_LOG_E(nodeName, "profileLaunchIdPtr is nullptr."),
+               return ge::GRAPH_FAILED);
 
     groupEp = std::string(groupEpPtr);
     tilingData.fusedDeepMoeInfo.epRankSize = epRankSize;
@@ -626,6 +635,8 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext &contex
     tilingData.fusedDeepMoeInfo.moeExpertNum = moeExpertNum;
     tilingData.fusedDeepMoeInfo.quantMode = static_cast<uint32_t>(*quantModePtr);
     tilingData.fusedDeepMoeInfo.profileEnable = static_cast<uint32_t>(*profileEnablePtr);
+    tilingData.fusedDeepMoeInfo.profileBufferBytes = static_cast<uint64_t>(*profileBufferBytesPtr);
+    tilingData.fusedDeepMoeInfo.profileLaunchId = static_cast<uint32_t>(*profileLaunchIdPtr);
     tilingData.fusedDeepMoeInfo.globalBs = static_cast<uint32_t>(*globalBsPtr);
     tilingData.fusedDeepMoeInfo.moeExpertNumPerRank = moeExpertNumPerRank;
     return ge::GRAPH_SUCCESS;
