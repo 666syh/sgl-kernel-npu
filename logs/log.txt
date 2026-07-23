@@ -23,19 +23,19 @@ msopgen gen -i ./AddCustom.json -c ai_core-Ascend950 -f pytorch -lan cpp -out op
     THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
 =================================================================
 
-2026-07-23 14:47:47 (584) - [INFO] Start to generate AI Core operator files. 
-2026-07-23 14:47:47 (584) - [INFO] Start to parse the ir template:/home/syh/sgl-kernel-npu/csrc/deepep/AddCustom.json 
-2026-07-23 14:47:47 (584) - [INFO] Start to parse the op: AddCustom 
-2026-07-23 14:47:47 (584) - [INFO] Start to parse the input_desc: x 
-2026-07-23 14:47:47 (584) - [INFO] Start to parse the input_desc: y 
-2026-07-23 14:47:47 (584) - [INFO] Start to parse the output_desc: z 
-2026-07-23 14:47:47 (584) - [WARNING] The "attr" value is invalid or no "attr" exists in the map. 
-2026-07-23 14:47:47 (584) - [INFO] Start to check the type and format between the inputs/outputs in IR template. 
-2026-07-23 14:47:47 (584) - [INFO] Start to generate a new project. 
-2026-07-23 14:47:47 (584) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom_tiling.h generated successfully. 
-2026-07-23 14:47:47 (584) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_host/add_custom.cpp generated successfully. 
-2026-07-23 14:47:47 (584) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom.cpp generated successfully. 
-2026-07-23 14:47:47 (584) - [INFO] Generation completed. 
+2026-07-23 15:25:24 (895) - [INFO] Start to generate AI Core operator files. 
+2026-07-23 15:25:24 (895) - [INFO] Start to parse the ir template:/home/syh/sgl-kernel-npu/csrc/deepep/AddCustom.json 
+2026-07-23 15:25:24 (895) - [INFO] Start to parse the op: AddCustom 
+2026-07-23 15:25:24 (895) - [INFO] Start to parse the input_desc: x 
+2026-07-23 15:25:24 (895) - [INFO] Start to parse the input_desc: y 
+2026-07-23 15:25:24 (895) - [INFO] Start to parse the output_desc: z 
+2026-07-23 15:25:24 (895) - [WARNING] The "attr" value is invalid or no "attr" exists in the map. 
+2026-07-23 15:25:24 (895) - [INFO] Start to check the type and format between the inputs/outputs in IR template. 
+2026-07-23 15:25:24 (895) - [INFO] Start to generate a new project. 
+2026-07-23 15:25:24 (895) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom_tiling.h generated successfully. 
+2026-07-23 15:25:24 (895) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_host/add_custom.cpp generated successfully. 
+2026-07-23 15:25:24 (895) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom.cpp generated successfully. 
+2026-07-23 15:25:24 (895) - [INFO] Generation completed. 
 cp -rf ./ops/op_host/* ./ops_Ascend950/op_host/
 cp -rf ./ops/op_kernel/* ./ops_Ascend950/op_kernel/
 cp -rf ./ops/utils/op_host/* ./ops_Ascend950/op_host/
@@ -99,7 +99,7 @@ Call Stack (most recent call first):
 -- Found pybind11: /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/include (found version "3.0.4")
 -- CMAKE_PREFIX_PATH = /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11
 -- TARGET_INSTALL_DIR = /home/syh/sgl-kernel-npu/output
--- Configuring done (7.7s)
+-- Configuring done (8.8s)
 -- Generating done (0.0s)
 CMake Warning:
   Manually-specified variables were not used by the project:
@@ -146,16 +146,6 @@ In file included from /usr/local/python3.11.10/lib/python3.11/site-packages/torc
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:2131:24: warning: cast from type ‘const PyConfig*’ to type ‘char*’ casts away qualifiers [-Wcast-qual]
  2131 |         void *member = (char *)config + spec->offset;
       |                        ^~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In lambda function:
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:522:74: error: ‘releaseMemAddr’ is not captured
-  522 |         ReleaseHugeMem releaseMemFunc = reinterpret_cast<ReleaseHugeMem>(releaseMemAddr);
-      |                                                                          ^~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:515:31: note: the lambda has no capture-default
-  515 |                      opApiAddr]() mutable -> int {
-      |                               ^
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:486:10: note: ‘void* releaseMemAddr’ declared here
-  486 |     auto releaseMemAddr = GetOpApiFuncAddr("ReleaseHugeMem");
-      |          ^~~~~~~~~~~~~~
 /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::tuple<at::Tensor, std::optional<at::Tensor>, at::Tensor, at::Tensor, at::Tensor, std::optional<deep_ep::EventHandle>, std::optional<std::function<void()> > > deep_ep::Buffer::low_latency_dispatch(const at::Tensor&, const at::Tensor&, const std::optional<at::Tensor>&, int64_t, int64_t, bool, bool, bool, bool, bool, bool)’:
 /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1447:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
  1447 |         comm_alg = "fullmesh";
@@ -176,44 +166,89 @@ In file included from /usr/local/python3.11.10/lib/python3.11/site-packages/torc
 /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1548:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
  1548 |         comm_alg = "fullmesh_v1";
       |                    ^~~~~~~~~~~~~
-In file included from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:17:
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::vector<at::Tensor> deep_ep::Buffer::fused_deep_moe(const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, int64_t, int64_t, int, bool, const std::string&)’:
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1623:22: error: cannot bind non-const lvalue reference of type ‘long int&’ to an rvalue of type ‘int64_t’ {aka ‘long int’}
- 1623 |                      static_cast<int64_t>(profile_enable), output, share_output, expert_token_nums);
-      |                      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:555:46: note: in definition of macro ‘EXEC_NPU_CMD’
-  555 |         auto converted_params = ConvertTypes(__VA_ARGS__, workspace_size_addr, executor_addr);                    \
-      |                                              ^~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:481:33: note:   initializing argument 21 of ‘constexpr auto ConvertTypes(Ts& ...) [with Ts = {const at::Tensor, const at::Tensor, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, const at::Tensor, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, char [128], long int, long int, long int, int, long int, long int, at::Tensor, at::Tensor, at::Tensor, long unsigned int*, aclOpExecutor**}]’
-  481 | constexpr auto ConvertTypes(Ts &...args)
-      |                             ~~~~^~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In lambda function:
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:570:33: error: ‘converted_params’ is not captured
-  570 |             ReleaseConvertTypes(converted_params);                                                                \
-      |                                 ^~~~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:570:33: note: in definition of macro ‘EXEC_NPU_CMD’
-  570 |             ReleaseConvertTypes(converted_params);                                                                \
-      |                                 ^~~~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:565:96: note: the lambda has no capture-default
-  565 |         auto acl_call = [converted_params, workspace_addr, workspace_size, acl_stream, executor]() -> int {       \
-      |                                                                                                ^
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1617:9: note: in expansion of macro ‘EXEC_NPU_CMD’
- 1617 |         EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
-      |         ^~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:555:14: note: ‘<typeprefixerror>converted_params’ declared here
-  555 |         auto converted_params = ConvertTypes(__VA_ARGS__, workspace_size_addr, executor_addr);                    \
-      |              ^~~~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:555:14: note: in definition of macro ‘EXEC_NPU_CMD’
-  555 |         auto converted_params = ConvertTypes(__VA_ARGS__, workspace_size_addr, executor_addr);                    \
-      |              ^~~~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In instantiation of ‘at::Tensor deep_ep::{anonymous}::ExecuteAclnnFusedDeepMoeKeepWorkspace(const std::string&, void*, void*, Args&& ...) [with Args = {const at::Tensor&, const at::Tensor&, c10::ArrayRef<at::Tensor>&, c10::ArrayRef<at::Tensor>&, c10::ArrayRef<at::Tensor>&, c10::ArrayRef<at::Tensor>&, const at::Tensor&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, std::nullptr_t&, char (&)[128], long int&, long int&, long int&, int&, long int&, long int, at::Tensor&, at::Tensor&, at::Tensor&}; std::string = std::__cxx11::basic_string<char>]’:
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1602:70:   required from here
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:501:41: error: cannot bind non-const lvalue reference of type ‘long int&’ to an rvalue of type ‘long int’
-  501 |     auto converted_params = ConvertTypes(std::forward<Args>(args)..., workspace_size_addr, executor_addr);
-      |                             ~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/pytorch_npu_helper.hpp:481:33: note:   initializing argument 21 of ‘constexpr auto ConvertTypes(Ts& ...) [with Ts = {const at::Tensor, const at::Tensor, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, c10::ArrayRef<at::Tensor>, const at::Tensor, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, std::nullptr_t, char [128], long int, long int, long int, int, long int, long int, at::Tensor, at::Tensor, at::Tensor, long unsigned int*, aclOpExecutor**}]’
-  481 | constexpr auto ConvertTypes(Ts &...args)
-      |                             ~~~~^~~~~~~
-gmake[2]: *** [csrc/deepep/CMakeFiles/deep_ep_cpp.dir/build.make:107: csrc/deepep/CMakeFiles/deep_ep_cpp.dir/deep_ep.cpp.o] Error 1
-gmake[1]: *** [CMakeFiles/Makefile2:106: csrc/deepep/CMakeFiles/deep_ep_cpp.dir/all] Error 2
-gmake: *** [Makefile:136: all] Error 2
+[100%] Linking CXX shared module deep_ep_cpp.cpython-311-aarch64-linux-gnu.so
+[100%] Built target deep_ep_cpp
+Install the project...
+-- Install configuration: "Release"
+-- Installing: /home/syh/sgl-kernel-npu/output/lib/deep_ep_cpp.cpython-311-aarch64-linux-gnu.so
+/home/syh/sgl-kernel-npu
+using ASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.T560
+using ASCEND_COMPUTE_UNIT: ascend950
+using catlass ref: v1.6.1
+catlass is already at target ref: v1.6.1
+*************************************
+/usr/local/Ascend/cann-9.1.T560/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/common/op_kernel/moe_distribute_base.h
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/
+-- The C compiler identification is GNU 12.3.1
+-- The CXX compiler identification is GNU 12.3.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- set package config: INSTALL_PATH;/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/
+-- Opbuild generating sources
+compile ascend_all_ops info: /usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_infer.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_infer.cpp
+/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.cpp
+
+compile ascend_all_ops result: 1
+CMake Error at /usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/func.cmake:732 (message):
+  opbuild run failed! In file included from
+  /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/../../op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_tiling.h:15,
+
+                   from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.cpp:20:
+
+  
+  /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/../../op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:9:10:
+  fatal error: kernel_operator.h: No such file or directory
+
+      9 | #include <kernel_operator.h>
+        |          ^~~~~~~~~~~~~~~~~~~
+
+  compilation terminated.
+
+  make: ***
+  [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascendc_all_ops.make:31:
+  /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.o]
+  Error 1
+
+  make: *** Waiting for unfinished jobs....
+
+  Traceback (most recent call last):
+
+    File "/usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/util/compile_ascendc_all_ops_so.py", line 135, in <module>
+      run_compile_cmd(args)
+    File "/usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/util/compile_ascendc_all_ops_so.py", line 129, in run_compile_cmd
+      raise RuntimeError('compile ascend all ops failed')
+
+  RuntimeError: compile ascend all ops failed
+
+Call Stack (most recent call first):
+  op_host/CMakeLists.txt:25 (npu_op_code_gen)
+
+
+-- Configuring incomplete, errors occurred!
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
+gmake: Makefile: No such file or directory
+gmake: *** No rule to make target 'Makefile'.  Stop.
