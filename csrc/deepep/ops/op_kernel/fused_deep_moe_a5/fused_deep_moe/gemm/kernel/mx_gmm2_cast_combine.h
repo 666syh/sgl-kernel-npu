@@ -153,7 +153,7 @@ public:
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
         uint64_t profStart = 0;
-        if (params.profile != nullptr && ASCEND_IS_AIC) {
+        if (params.profile != nullptr) {
             profStart = params.profile->Now();
         }
         AscendC::ICachePreLoad(1);
@@ -344,7 +344,7 @@ public:
             }
         }
         AscendC::PipeBarrier<PIPE_ALL>();
-        if (params.profile != nullptr && ASCEND_IS_AIC) {
+        if (params.profile != nullptr) {
             params.profile->Record(FusedDeepMoeProfileStage::Gmm2, profStart, params.profile->Now());
         }
     }
@@ -353,7 +353,7 @@ public:
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
         uint64_t profStart = 0;
-        if (params.profile != nullptr && ASCEND_IS_AIV) {
+        if (params.profile != nullptr) {
             profStart = params.profile->Now();
         }
         auto *combiner = (MoeDistributeCombineImpl::CamMoeDistributeCombine<TemplateMC2TypeFunc> *)params.combiner;
@@ -512,7 +512,7 @@ public:
             AscendC::DataCopy(softSyncTensor[coreIdx * CVSoftSync::SOFT_SYNC_SPACE_SIZE / sizeof(int32_t)],
                               tmpZeroLocalTensor, GMM2::INT32_COUNT_PER_BLOCK);
         }
-        if (params.profile != nullptr && ASCEND_IS_AIV) {
+        if (params.profile != nullptr) {
             params.profile->Record(FusedDeepMoeProfileStage::Combine, profStart, params.profile->Now());
         }
     }

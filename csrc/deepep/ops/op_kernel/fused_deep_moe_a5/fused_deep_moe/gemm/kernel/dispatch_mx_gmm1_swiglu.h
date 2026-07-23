@@ -311,7 +311,7 @@ public:
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
         uint64_t profStart = 0;
-        if (params.profile != nullptr && ASCEND_IS_AIC) {
+        if (params.profile != nullptr) {
             profStart = params.profile->Now();
         }
         AscendC::ICachePreLoad(1);
@@ -404,7 +404,7 @@ public:
 
             startCoreIdx = (startCoreIdx + coreLoops) % aicNum;
         }
-        if (params.profile != nullptr && ASCEND_IS_AIC) {
+        if (params.profile != nullptr) {
             params.profile->Record(FusedDeepMoeProfileStage::Gmm1, profStart, params.profile->Now());
         }
         {
@@ -1333,7 +1333,7 @@ public:
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
         uint64_t profStart = 0;
-        if (params.profile != nullptr && ASCEND_IS_AIV) {
+        if (params.profile != nullptr) {
             profStart = params.profile->Now();
         }
         AscendC::SetCtrlSpr<60, 60>(0);
@@ -1491,7 +1491,7 @@ public:
             PostSwigluDynamicQuant(params.gmSwigluOut, params.ptrX2, params.gmX2Scale, totalTokenNum,
                                    params.problemShape.n(), startCoreIdx);
         }
-        if (params.profile != nullptr && ASCEND_IS_AIV) {
+        if (params.profile != nullptr) {
             params.profile->Record(FusedDeepMoeProfileStage::SwigluQuant, profStart, params.profile->Now());
         }
     }
