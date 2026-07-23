@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <cstdio>
 #include <sstream>
 #include <set>
 #include <vector>
@@ -76,6 +77,20 @@ struct FusedDeepMoeProfileSession {
 
 static FusedDeepMoeProfileSession g_fusedDeepMoeProfileSession;
 
+static bool IsFusedDeepMoeProfileDebugEnabled()
+{
+    const char *env = std::getenv("DEEPEP_FUSED_PROFILE_DEBUG");
+    return env != nullptr && env[0] != '\0' && std::strcmp(env, "0") != 0;
+}
+
+static void FusedDeepMoeProfileDebugPrint(const std::string &msg)
+{
+    if (!IsFusedDeepMoeProfileDebugEnabled()) {
+        return;
+    }
+    std::fprintf(stderr, "[FusedDeepMoeProfileDebug] %s\n", msg.c_str());
+}
+
 static std::string JsonEscape(const std::string &value)
 {
     std::ostringstream oss;
@@ -133,7 +148,20 @@ static std::string ResolveProfileTraceDir(const std::string &profileTraceDir)
 static void AppendFusedDeepMoeProfileWorkspace(const at::Tensor &workspaceTensor)
 {
     if (!g_fusedDeepMoeProfileSession.active || !workspaceTensor.defined() || workspaceTensor.numel() == 0) {
+        if (IsFusedDeepMoeProfileDebugEnabled()) {
+            std::ostringstream oss;
+            oss << "skip append: active=" << g_fusedDeepMoeProfileSession.active
+                << ", defined=" << workspaceTensor.defined()
+                << ", numel=" << (workspaceTensor.defined() ? workspaceTensor.numel() : 0);
+            FusedDeepMoeProfileDebugPrint(oss.str());
+        }
         return;
+    }
+    if (IsFusedDeepMoeProfileDebugEnabled()) {
+        std::ostringstream oss;
+        oss << "append workspace: launches_before=" << g_fusedDeepMoeProfileSession.launchWorkspaces.size()
+            << ", numel=" << workspaceTensor.numel() << ", dtype=" << workspaceTensor.scalar_type();
+        FusedDeepMoeProfileDebugPrint(oss.str());
     }
     g_fusedDeepMoeProfileSession.launchWorkspaces.push_back(workspaceTensor);
 }
@@ -1564,6 +1592,15 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
     at::Tensor expert_token_nums = at::empty({num_local_experts}, x.options().dtype(at::kLong));
     int64_t profile_enable_i64 = static_cast<int64_t>(profile_enable);
 
+    if (IsFusedDeepMoeProfileDebugEnabled()) {
+        std::ostringstream oss;
+        oss << "fused_deep_moe entry: profile_enable=" << profile_enable
+            << ", session_active=" << g_fusedDeepMoeProfileSession.active << ", trace_dir=" << profile_trace_dir
+            << ", num_warmups=" << g_fusedDeepMoeProfileSession.numWarmups
+            << ", num_tests=" << g_fusedDeepMoeProfileSession.numTests;
+        FusedDeepMoeProfileDebugPrint(oss.str());
+    }
+
     if (profile_enable) {
         auto workspace_tensor = ExecuteAclnnFusedDeepMoeKeepWorkspace(
             "aclnnFusedDeepMoe", GetOpApiFuncAddr("aclnnFusedDeepMoeGetWorkspaceSize"),
@@ -1577,6 +1614,12 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
         if (g_fusedDeepMoeProfileSession.active) {
             AppendFusedDeepMoeProfileWorkspace(workspace_tensor);
         } else {
+            if (IsFusedDeepMoeProfileDebugEnabled()) {
+                std::ostringstream oss;
+                oss << "export immediate workspace: numel=" << workspace_tensor.numel()
+                    << ", trace_dir=" << profile_trace_dir;
+                FusedDeepMoeProfileDebugPrint(oss.str());
+            }
             ExportFusedDeepMoeProfileTrace(workspace_tensor, rank, profile_trace_dir);
         }
     } else {
@@ -1620,11 +1663,20 @@ void Buffer::begin_fused_deep_moe_profile(int64_t num_warmups, int64_t num_tests
     g_fusedDeepMoeProfileSession.numTests = num_tests;
     g_fusedDeepMoeProfileSession.profileTraceDir = profile_trace_dir;
     g_fusedDeepMoeProfileSession.launchWorkspaces.reserve(static_cast<size_t>(num_warmups + num_tests));
+    if (IsFusedDeepMoeProfileDebugEnabled()) {
+        std::ostringstream oss;
+        oss << "begin session: rank=" << rank << ", num_warmups=" << num_warmups << ", num_tests=" << num_tests
+            << ", trace_dir=" << profile_trace_dir;
+        FusedDeepMoeProfileDebugPrint(oss.str());
+    }
 }
 
 void Buffer::end_fused_deep_moe_profile()
 {
     if (!g_fusedDeepMoeProfileSession.active) {
+        if (IsFusedDeepMoeProfileDebugEnabled()) {
+            FusedDeepMoeProfileDebugPrint("end session ignored: inactive");
+        }
         return;
     }
     auto expectedLaunches = static_cast<size_t>(
@@ -1632,6 +1684,12 @@ void Buffer::end_fused_deep_moe_profile()
     if (expectedLaunches != 0 && g_fusedDeepMoeProfileSession.launchWorkspaces.size() != expectedLaunches) {
         TORCH_WARN("FusedDeepMoe profile session captured ", g_fusedDeepMoeProfileSession.launchWorkspaces.size(),
                    " launches, expected ", expectedLaunches, ".");
+    }
+    if (IsFusedDeepMoeProfileDebugEnabled()) {
+        std::ostringstream oss;
+        oss << "end session: launches=" << g_fusedDeepMoeProfileSession.launchWorkspaces.size()
+            << ", expected=" << expectedLaunches << ", trace_dir=" << g_fusedDeepMoeProfileSession.profileTraceDir;
+        FusedDeepMoeProfileDebugPrint(oss.str());
     }
     ExportFusedDeepMoeProfileTrace(g_fusedDeepMoeProfileSession.launchWorkspaces, rank,
                                    g_fusedDeepMoeProfileSession.profileTraceDir,

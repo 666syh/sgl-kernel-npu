@@ -797,6 +797,11 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             fused_profile_call_idx = 0
 
             if args.kernel_trace_dir is not None:
+                print(
+                    f"[rank{rank}] begin fused kernel profiling: "
+                    f"trace_dir={args.kernel_trace_dir}, warmups={args.num_warmups}, tests={args.num_tests}",
+                    flush=True,
+                )
                 buffer.runtime.begin_fused_deep_moe_profile(
                     args.num_warmups, args.num_tests, args.kernel_trace_dir
                 )
@@ -852,6 +857,10 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 fused_stats = summarize_profile_durations(fused_durations)
             finally:
                 if args.kernel_trace_dir is not None:
+                    print(
+                        f"[rank{rank}] end fused kernel profiling: trace_dir={args.kernel_trace_dir}",
+                        flush=True,
+                    )
                     buffer.runtime.end_fused_deep_moe_profile()
         dist.barrier()
 
