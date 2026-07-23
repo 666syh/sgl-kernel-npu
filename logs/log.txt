@@ -1,12 +1,12 @@
-[W723 16:32:10.785758280 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:22.654557050 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:22.763348340 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:23.709527110 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:23.733947010 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:23.789287320 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:23.793464600 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:26.683416510 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W723 16:32:26.296563840 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:23.223897770 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.906016390 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.936841470 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.208258660 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.240841580 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.243055740 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.271900970 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.370502190 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:59:34.438254830 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
   return func(*args, **kwargs)
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
@@ -19,19 +19,27 @@
   return func(*args, **kwargs)
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
   return func(*args, **kwargs)
-Config: num_processes=8, num_tokens=32, hidden=7168, moe_intermediate_size=3072, num_experts=32, num_topk=6, quant=fp8_e4m3, kernel_trace_dir=kernel_trace_dir, num_warmups=5, num_tests=30, small_first_warmup_gmm_burn_in_repeats=100
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
   return func(*args, **kwargs)
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
   return func(*args, **kwargs)
-[rank5]:[W723 16:32:49.967654170 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank7]:[W723 16:32:49.970389340 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank0]:[W723 16:32:49.970647680 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank1]:[W723 16:32:49.972767070 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank6]:[W723 16:32:49.975385440 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank3]:[W723 16:32:49.975485100 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank2]:[W723 16:32:49.976078930 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank4]:[W723 16:32:49.978955820 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+Config: num_processes=8, num_tokens=32, hidden=7168, moe_intermediate_size=3072, num_experts=32, num_topk=6, quant=fp8_e4m3, kernel_trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, num_warmups=5, num_tests=30, small_first_warmup_gmm_burn_in_repeats=100
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[FusedDeepMoeProfileDebug] fused_deep_moe entry: profile_enable=0, session_active=0, trace_dir=, num_warmups=0, num_tests=0
+[rank0]:[W723 16:59:38.295454760 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank5]:[W723 16:59:38.295721330 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank2]:[W723 16:59:38.298592110 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank7]:[W723 16:59:38.299227840 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank3]:[W723 16:59:38.299588490 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank6]:[W723 16:59:38.299614110 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank4]:[W723 16:59:38.299678250 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank1]:[W723 16:59:38.300577080 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
 /usr/local/python3.11.10/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
   return func(*args, **kwargs)
 fused counts (per rank):
@@ -46,62 +54,112 @@ fused counts (per rank):
 |    6 |             4 | [48, 48, 48, 48]     | 192 |
 |    7 |             4 | [48, 48, 48, 48]     | 192 |
 Accuracy check passed. avg_diff=0.000000, max_diff=0.000000, calc_diff=0.000000
-[2026-07-23 16:32:50] [INFO] [34951] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33026_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [34957] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33029_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [34971] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33023_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [34990] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33030_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [34999] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33025_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [35011] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33028_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [35016] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33024_20260723163249596_ascend_pt
-[2026-07-23 16:32:50] [INFO] [35047] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33027_20260723163249596_ascend_pt
-[2026-07-23 16:32:52] [INFO] [34975] profiler.py: CANN profiling data parsed in a total time of 0:00:02.103240
-[2026-07-23 16:32:53] [INFO] [35033] profiler.py: CANN profiling data parsed in a total time of 0:00:02.057996
-[2026-07-23 16:32:53] [INFO] [35042] profiler.py: CANN profiling data parsed in a total time of 0:00:02.055602
-[2026-07-23 16:32:53] [INFO] [35066] profiler.py: CANN profiling data parsed in a total time of 0:00:02.061529
-[2026-07-23 16:32:53] [INFO] [35037] profiler.py: CANN profiling data parsed in a total time of 0:00:02.127193
-[2026-07-23 16:32:53] [INFO] [35107] profiler.py: CANN profiling data parsed in a total time of 0:00:02.085831
-[2026-07-23 16:32:53] [INFO] [34957] profiler.py: All profiling data parsed in a total time of 0:00:02.892809
-[2026-07-23 16:32:53] [INFO] [34999] profiler.py: All profiling data parsed in a total time of 0:00:02.885282
-[2026-07-23 16:32:53] [INFO] [34971] profiler.py: All profiling data parsed in a total time of 0:00:02.851276
-[2026-07-23 16:32:53] [INFO] [35011] profiler.py: All profiling data parsed in a total time of 0:00:02.865684
-[2026-07-23 16:32:53] [INFO] [34990] profiler.py: All profiling data parsed in a total time of 0:00:02.993942
-[2026-07-23 16:32:53] [INFO] [35047] profiler.py: All profiling data parsed in a total time of 0:00:02.884010
-[2026-07-23 16:32:53] [INFO] [34980] profiler.py: CANN profiling data parsed in a total time of 0:00:03.093431
-[2026-07-23 16:32:54] [INFO] [35108] profiler.py: CANN profiling data parsed in a total time of 0:00:03.220035
-[2026-07-23 16:32:54] [INFO] [34951] profiler.py: All profiling data parsed in a total time of 0:00:03.877725
-[2026-07-23 16:32:54] [INFO] [35016] profiler.py: All profiling data parsed in a total time of 0:00:04.101951
-W0723 16:32:59.371000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33023 via signal SIGTERM
-W0723 16:32:59.371000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33024 via signal SIGTERM
-W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33025 via signal SIGTERM
-W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33026 via signal SIGTERM
-W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33027 via signal SIGTERM
-W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33028 via signal SIGTERM
-W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33030 via signal SIGTERM
-Traceback (most recent call last):
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a5.py", line 1060, in <module>
-    main()
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a5.py", line 1054, in main
-    torch.multiprocessing.spawn(
-  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
-    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
-    while not context.join():
-              ^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 211, in join
-    raise ProcessRaisedException(msg, error_index, failed_process.pid)
-torch.multiprocessing.spawn.ProcessRaisedException: 
-
--- Process 6 terminated with the following error:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
-    fn(i, *args)
-  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a5.py", line 800, in run_rank
-    buffer.begin_fused_deep_moe_profile(
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'Buffer' object has no attribute 'begin_fused_deep_moe_profile'
-
-[ERROR] 2026-07-23-16:32:59 (PID:32910, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[2026-07-23 16:59:39] [INFO] [66436] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64613_20260723165938938_ascend_pt
+|[2026-07-23 16:59:40] [INFO] [66451] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64619_20260723165938938_ascend_pt
+|[2026-07-23 16:59:40] [INFO] [66476] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64618_20260723165938938_ascend_pt
+[2026-07-23 16:59:40] [INFO] [66477] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64615_20260723165938938_ascend_pt
+[2026-07-23 16:59:40] [INFO] [66489] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64617_20260723165938938_ascend_pt
+[2026-07-23 16:59:40] [INFO] [66490] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64616_20260723165938938_ascend_pt
+[2026-07-23 16:59:40] [INFO] [66501] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64614_20260723165938938_ascend_pt
+[2026-07-23 16:59:40] [INFO] [66507] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64620_20260723165938938_ascend_pt
+||||||////////--------[2026-07-23 16:59:42] [INFO] [66446] profiler.py: CANN profiling data parsed in a total time of 0:00:02.070913
+[2026-07-23 16:59:42] [INFO] [66436] profiler.py: All profiling data parsed in a total time of 0:00:02.793466
+[2026-07-23 16:59:42] [INFO] [66466] profiler.py: CANN profiling data parsed in a total time of 0:00:02.048086
+[2026-07-23 16:59:42] [INFO] [66451] profiler.py: All profiling data parsed in a total time of 0:00:02.820190
+[2026-07-23 16:59:42] [INFO] [66551] profiler.py: CANN profiling data parsed in a total time of 0:00:02.067588
+[2026-07-23 16:59:43] [INFO] [66501] profiler.py: All profiling data parsed in a total time of 0:00:02.931416
+[2026-07-23 16:59:42] [INFO] [66628] profiler.py: CANN profiling data parsed in a total time of 0:00:02.054993
+[2026-07-23 16:59:43] [INFO] [66476] profiler.py: All profiling data parsed in a total time of 0:00:02.987744
+[2026-07-23 16:59:42] [INFO] [66629] profiler.py: CANN profiling data parsed in a total time of 0:00:02.036424
+[2026-07-23 16:59:43] [INFO] [66507] profiler.py: All profiling data parsed in a total time of 0:00:02.957173
+[2026-07-23 16:59:42] [INFO] [66649] profiler.py: CANN profiling data parsed in a total time of 0:00:02.043500
+[2026-07-23 16:59:43] [INFO] [66477] profiler.py: All profiling data parsed in a total time of 0:00:03.002307
+[2026-07-23 16:59:42] [INFO] [66660] profiler.py: CANN profiling data parsed in a total time of 0:00:02.051095
+[2026-07-23 16:59:43] [INFO] [66490] profiler.py: All profiling data parsed in a total time of 0:00:02.973797
+[2026-07-23 16:59:42] [INFO] [66729] profiler.py: CANN profiling data parsed in a total time of 0:00:02.047836
+[2026-07-23 16:59:43] [INFO] [66489] profiler.py: All profiling data parsed in a total time of 0:00:02.985065
+[rank2] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[rank6] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[rank7] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[rank3] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[rank1] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[rank5] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[FusedDeepMoeProfileDebug] begin session: rank=2, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_d[FusedDeepMoeProfileDebug] begin session: rank=6, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_d[FusedDeepMoeProfileDebug] begin session: rank=7, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+ir
+ir
+[rank0] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[FusedDeepMoeProfileDebug] begin session: rank=3, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_d[FusedDeepMoeProfileDebug] begin session: rank=1, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_d[FusedDeepMoeProfileDebug] begin session: rank=5, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+ir
+ir
+[FusedDeepMoeProfileDebug] begin session: rank=0, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank4] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=5, tests=30
+[FusedDeepMoeProfileDebug] begin session: rank=4, num_warmups=5, num_tests=30, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[2026-07-23 16:59:44] [INFO] [69706] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64618_20260723165943495_ascend_pt
+[2026-07-23 16:59:44] [INFO] [69711] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64619_20260723165943494_ascend_pt
+[2026-07-23 16:59:45] [INFO] [69717] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64616_20260723165943494_ascend_pt
+|[2026-07-23 16:59:45] [INFO] [69725] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64617_20260723165943495_ascend_pt
+|[2026-07-23 16:59:45] [INFO] [69733] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64614_20260723165943494_ascend_pt
+[2026-07-23 16:59:45] [INFO] [69741] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64613_20260723165943495_ascend_pt
+[2026-07-23 16:59:45] [INFO] [69740] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64615_20260723165943494_ascend_pt
+[2026-07-23 16:59:45] [INFO] [69747] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_64620_20260723165943494_ascend_pt
+||||||////////--------[2026-07-23 16:59:47] [INFO] [69763] profiler.py: CANN profiling data parsed in a total time of 0:00:02.147290
+[2026-07-23 16:59:47] [INFO] [69706] profiler.py: All profiling data parsed in a total time of 0:00:02.852342
+[2026-07-23 16:59:47] [INFO] [69768] profiler.py: CANN profiling data parsed in a total time of 0:00:02.134921
+[2026-07-23 16:59:47] [INFO] [69711] profiler.py: All profiling data parsed in a total time of 0:00:02.837155
+[2026-07-23 16:59:47] [INFO] [69784] profiler.py: CANN profiling data parsed in a total time of 0:00:02.103844
+[2026-07-23 16:59:47] [INFO] [69733] profiler.py: All profiling data parsed in a total time of 0:00:02.806531
+[2026-07-23 16:59:47] [INFO] [69801] profiler.py: CANN profiling data parsed in a total time of 0:00:02.044328
+[2026-07-23 16:59:47] [INFO] [69717] profiler.py: All profiling data parsed in a total time of 0:00:02.827859
+[2026-07-23 16:59:47] [INFO] [69836] profiler.py: CANN profiling data parsed in a total time of 0:00:02.078586
+[2026-07-23 16:59:47] [INFO] [69747] profiler.py: All profiling data parsed in a total time of 0:00:02.861994
+[2026-07-23 16:59:47] [INFO] [69834] profiler.py: CANN profiling data parsed in a total time of 0:00:02.073588
+[2026-07-23 16:59:47] [INFO] [69741] profiler.py: All profiling data parsed in a total time of 0:00:02.865449
+[2026-07-23 16:59:47] [INFO] [69845] profiler.py: CANN profiling data parsed in a total time of 0:00:02.051914
+[2026-07-23 16:59:47] [INFO] [69740] profiler.py: All profiling data parsed in a total time of 0:00:02.873999
+[2026-07-23 16:59:47] [INFO] [69798] profiler.py: CANN profiling data parsed in a total time of 0:00:02.142791
+[2026-07-23 16:59:47] [INFO] [69725] profiler.py: All profiling data parsed in a total time of 0:00:02.899547
+[rank5] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank6] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank1] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank3] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank4] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank0] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank7] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[rank2] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+[FusedDeepMoeProfileDebug] end session: launches=35, expected=35, trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
+Profiled NPU op time:
+small-op breakdown (mean over ranks):
+| Stage        |    Avg (us) |    Min (us) |    Max (us) |  Share % |
+|--------------|-------------:|-------------:|-------------:|---------:|
+| dispatch     |        18.04 |        16.94 |        19.14 |    7.39% |
+| gmm1         |       123.19 |       121.40 |       125.53 |   50.44% |
+| swiglu       |         8.52 |         8.01 |         9.19 |    3.49% |
+| requant      |         5.95 |         5.34 |         6.62 |    2.44% |
+| gmm2         |        66.37 |        65.13 |        67.58 |   27.17% |
+| combine      |        22.17 |        20.26 |        24.52 |    9.08% |
+| total        |       244.24 |       241.87 |       247.07 |  100.00% |
+fused buffer path (mean over ranks):
+| Stage        |    Avg (us) |    Min (us) |    Max (us) |  Share % |
+|--------------|-------------:|-------------:|-------------:|---------:|
+| fused        |       232.59 |       223.17 |       261.51 |  100.00% |
+speedup=1.0501x, delta_pct=-4.77%
+rank skew summary:
+| Rank | Dispatch (us) | GMM1 (us) | SwiGLU (us) | Requant (us) | GMM2 (us) | Combine (us) | Small Total (us) | Fused (us) |
+|-----:|--------------:|----------:|------------:|-------------:|----------:|-------------:|-----------------:|-----------:|
+|    0 |         17.97 |    123.34 |        8.48 |         6.05 |     66.35 |        22.03 |           244.23 |     232.61 |
+|    1 |         18.04 |    123.27 |        8.59 |         5.97 |     66.35 |        22.01 |           244.24 |     232.61 |
+|    2 |         18.51 |    123.42 |        8.39 |         5.93 |     66.35 |        21.66 |           244.25 |     232.58 |
+|    3 |         18.31 |    122.95 |        8.45 |         6.00 |     66.20 |        22.37 |           244.28 |     232.58 |
+|    4 |         18.00 |    123.29 |        8.41 |         5.87 |     66.21 |        22.45 |           244.23 |     232.57 |
+|    5 |         17.91 |    123.22 |        8.71 |         5.97 |     66.33 |        22.13 |           244.27 |     232.62 |
+|    6 |         17.71 |    123.02 |        8.51 |         5.87 |     66.62 |        22.45 |           244.17 |     232.56 |
+|    7 |         17.91 |    122.99 |        8.59 |         5.98 |     66.51 |        22.30 |           244.28 |     232.59 |
+| mean |         18.04 |    123.19 |        8.52 |         5.95 |     66.37 |        22.17 |           244.24 |     232.59 |
+communication overlap rate: ((244.24 - 232.59) / (18.04 + 22.17)) = 0.2898
