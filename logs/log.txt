@@ -1,254 +1,107 @@
-Use SOC_VERSION: Ascend950
-Use BUILD_TYPE: Release
-=== Fixing ASCConfig for CANN 8.3 / A2 ===
-using ASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.T560
-Warning: Cannot find ASCConfig.cmake
-[1;32mDetected CANN Toolkit Installation Path: /usr/local/Ascend/cann-9.1.T560[0m
-[1;33mDouble Checking Environment Variables:[0m
-[1;32mASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.T560[0m
-[1;32mASCEND_TOOLKIT_HOME: /usr/local/Ascend/cann-9.1.T560[0m
-outpath: /home/syh/sgl-kernel-npu/output
-create_deepep_cmake:./deepep_cmake_build.sh all Ascend950
-Start the cmake script...
-ROOT_PATH: /home/syh/sgl-kernel-npu/csrc
-./deepep/build.sh Ascend950
-Start creating the CMake file
-./deepep/compile_ascend_proj.sh ./deepep Ascend950 deepep
-cd ./deepep
-ops_Ascend950
-[BuildOps] Building for ops: Ascend950
-msopgen gen -i ./AddCustom.json -c ai_core-Ascend950 -f pytorch -lan cpp -out ops_Ascend950
-=================================================================
-                   >>>>>   MindStudio   <<<<<
-    THE END-TO-END TOOLCHAIN TO UNLEASH HUAWEI ASCEND COMPUTE
-=================================================================
+[W723 16:32:10.785758280 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:22.654557050 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:22.763348340 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:23.709527110 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:23.733947010 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:23.789287320 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:23.793464600 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:26.683416510 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+[W723 16:32:26.296563840 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+Config: num_processes=8, num_tokens=32, hidden=7168, moe_intermediate_size=3072, num_experts=32, num_topk=6, quant=fp8_e4m3, kernel_trace_dir=kernel_trace_dir, num_warmups=5, num_tests=30, small_first_warmup_gmm_burn_in_repeats=100
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
+  return func(*args, **kwargs)
+[rank5]:[W723 16:32:49.967654170 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank7]:[W723 16:32:49.970389340 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank0]:[W723 16:32:49.970647680 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank1]:[W723 16:32:49.972767070 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank6]:[W723 16:32:49.975385440 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank3]:[W723 16:32:49.975485100 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank2]:[W723 16:32:49.976078930 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank4]:[W723 16:32:49.978955820 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+/usr/local/python3.11.10/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+fused counts (per rank):
+| Rank | Local Experts | Fused Counts         | Sum |
+|-----:|--------------:|----------------------|----:|
+|    0 |             4 | [48, 48, 48, 48]     | 192 |
+|    1 |             4 | [48, 48, 48, 48]     | 192 |
+|    2 |             4 | [48, 48, 48, 48]     | 192 |
+|    3 |             4 | [48, 48, 48, 48]     | 192 |
+|    4 |             4 | [48, 48, 48, 48]     | 192 |
+|    5 |             4 | [48, 48, 48, 48]     | 192 |
+|    6 |             4 | [48, 48, 48, 48]     | 192 |
+|    7 |             4 | [48, 48, 48, 48]     | 192 |
+Accuracy check passed. avg_diff=0.000000, max_diff=0.000000, calc_diff=0.000000
+[2026-07-23 16:32:50] [INFO] [34951] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33026_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [34957] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33029_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [34971] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33023_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [34990] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33030_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [34999] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33025_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [35011] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33028_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [35016] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33024_20260723163249596_ascend_pt
+[2026-07-23 16:32:50] [INFO] [35047] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_33027_20260723163249596_ascend_pt
+[2026-07-23 16:32:52] [INFO] [34975] profiler.py: CANN profiling data parsed in a total time of 0:00:02.103240
+[2026-07-23 16:32:53] [INFO] [35033] profiler.py: CANN profiling data parsed in a total time of 0:00:02.057996
+[2026-07-23 16:32:53] [INFO] [35042] profiler.py: CANN profiling data parsed in a total time of 0:00:02.055602
+[2026-07-23 16:32:53] [INFO] [35066] profiler.py: CANN profiling data parsed in a total time of 0:00:02.061529
+[2026-07-23 16:32:53] [INFO] [35037] profiler.py: CANN profiling data parsed in a total time of 0:00:02.127193
+[2026-07-23 16:32:53] [INFO] [35107] profiler.py: CANN profiling data parsed in a total time of 0:00:02.085831
+[2026-07-23 16:32:53] [INFO] [34957] profiler.py: All profiling data parsed in a total time of 0:00:02.892809
+[2026-07-23 16:32:53] [INFO] [34999] profiler.py: All profiling data parsed in a total time of 0:00:02.885282
+[2026-07-23 16:32:53] [INFO] [34971] profiler.py: All profiling data parsed in a total time of 0:00:02.851276
+[2026-07-23 16:32:53] [INFO] [35011] profiler.py: All profiling data parsed in a total time of 0:00:02.865684
+[2026-07-23 16:32:53] [INFO] [34990] profiler.py: All profiling data parsed in a total time of 0:00:02.993942
+[2026-07-23 16:32:53] [INFO] [35047] profiler.py: All profiling data parsed in a total time of 0:00:02.884010
+[2026-07-23 16:32:53] [INFO] [34980] profiler.py: CANN profiling data parsed in a total time of 0:00:03.093431
+[2026-07-23 16:32:54] [INFO] [35108] profiler.py: CANN profiling data parsed in a total time of 0:00:03.220035
+[2026-07-23 16:32:54] [INFO] [34951] profiler.py: All profiling data parsed in a total time of 0:00:03.877725
+[2026-07-23 16:32:54] [INFO] [35016] profiler.py: All profiling data parsed in a total time of 0:00:04.101951
+W0723 16:32:59.371000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33023 via signal SIGTERM
+W0723 16:32:59.371000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33024 via signal SIGTERM
+W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33025 via signal SIGTERM
+W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33026 via signal SIGTERM
+W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33027 via signal SIGTERM
+W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33028 via signal SIGTERM
+W0723 16:32:59.372000 32910 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 33030 via signal SIGTERM
+Traceback (most recent call last):
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a5.py", line 1060, in <module>
+    main()
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a5.py", line 1054, in main
+    torch.multiprocessing.spawn(
+  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 211, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
 
-2026-07-23 15:25:24 (895) - [INFO] Start to generate AI Core operator files. 
-2026-07-23 15:25:24 (895) - [INFO] Start to parse the ir template:/home/syh/sgl-kernel-npu/csrc/deepep/AddCustom.json 
-2026-07-23 15:25:24 (895) - [INFO] Start to parse the op: AddCustom 
-2026-07-23 15:25:24 (895) - [INFO] Start to parse the input_desc: x 
-2026-07-23 15:25:24 (895) - [INFO] Start to parse the input_desc: y 
-2026-07-23 15:25:24 (895) - [INFO] Start to parse the output_desc: z 
-2026-07-23 15:25:24 (895) - [WARNING] The "attr" value is invalid or no "attr" exists in the map. 
-2026-07-23 15:25:24 (895) - [INFO] Start to check the type and format between the inputs/outputs in IR template. 
-2026-07-23 15:25:24 (895) - [INFO] Start to generate a new project. 
-2026-07-23 15:25:24 (895) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom_tiling.h generated successfully. 
-2026-07-23 15:25:24 (895) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_host/add_custom.cpp generated successfully. 
-2026-07-23 15:25:24 (895) - [INFO] File /home/syh/sgl-kernel-npu/csrc/deepep/ops_Ascend950/op_kernel/add_custom.cpp generated successfully. 
-2026-07-23 15:25:24 (895) - [INFO] Generation completed. 
-cp -rf ./ops/op_host/* ./ops_Ascend950/op_host/
-cp -rf ./ops/op_kernel/* ./ops_Ascend950/op_kernel/
-cp -rf ./ops/utils/op_host/* ./ops_Ascend950/op_host/
-cp -rf ./ops/utils/op_kernel/* ./ops_Ascend950/op_kernel/
-cp -rf ./ops/build_out/op_host/* ./ops_Ascend950/op_host/
-cp -rf ./ops/build_out/op_kernel/* ./ops_Ascend950/op_kernel/
-./ops built successfully
-cp: cannot stat './ops_Ascend950/cmake': No such file or directory
-ops_Ascend950
-/home/syh/sgl-kernel-npu
--- The CXX compiler identification is GNU 12.3.1
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/c++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- build type set to RELEASE
--- set GIT_LAST_COMMIT to  as compile definition
--- run python script successfully, output string is [/usr/local/python3.11.10/lib/python3.11/site-packages/torch /usr/local/python3.11.10/lib/python3.11/site-packages/torch_npu /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11 True]
--- SOC_VERSION=Ascend910_9382
--- TORCH_DIR=/usr/local/python3.11.10/lib/python3.11/site-packages/torch
--- TORCH_NPU_DIR=/usr/local/python3.11.10/lib/python3.11/site-packages/torch_npu
--- PYBIND11_DIR=/usr/local/python3.11.10/lib/python3.11/site-packages/pybind11
--- _GLIBCXX_USE_CXX11_ABI=1
--- ASCEND_CANN_PACKAGE_PATH = /usr/local/Ascend/cann-9.1.T560
--- ASCEND_HOME_PATH = /usr/local/Ascend/cann-9.1.T560
--- ccache not found, proceeding with normal compilation
--- PYTHON_EXECUTABLE:/usr/local/python3.11.10/bin/python3
-CMake Warning (dev) at /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/FindPythonLibsNew.cmake:101 (message):
-  Policy CMP0148 is not set: The FindPythonInterp and FindPythonLibs modules
-  are removed.  Run "cmake --help-policy CMP0148" for policy details.  Use
-  the cmake_policy command to set the policy and suppress this warning, or
-  preferably upgrade to using FindPython, either by calling it explicitly
-  before pybind11, or by setting PYBIND11_FINDPYTHON ON before pybind11.
-Call Stack (most recent call first):
-  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Tools.cmake:44 (find_package)
-  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:237 (include)
-  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake:257 (include)
-  csrc/deepep/CMakeLists.txt:20 (find_package)
-This warning is for project developers.  Use -Wno-dev to suppress it.
+-- Process 6 terminated with the following error:
+Traceback (most recent call last):
+  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+    fn(i, *args)
+  File "/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a5.py", line 800, in run_rank
+    buffer.begin_fused_deep_moe_profile(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Buffer' object has no attribute 'begin_fused_deep_moe_profile'
 
-CMake Deprecation Warning at /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/FindPythonLibsNew.cmake:110 (cmake_policy):
-  The OLD behavior for policy CMP0148 will be removed from a future version
-  of CMake.
-
-  The cmake-policies(7) manual explains that the OLD behaviors of all
-  policies are deprecated and that a policy should be set to OLD only under
-  specific short-term circumstances.  Projects should be ported to the NEW
-  behavior and not rely on setting a policy to OLD.
-Call Stack (most recent call first):
-  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Tools.cmake:44 (find_package)
-  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:237 (include)
-  /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake:257 (include)
-  csrc/deepep/CMakeLists.txt:20 (find_package)
-
-
--- Found PythonInterp: /usr/local/python3.11.10/bin/python3 (found suitable version "3.11.10", minimum required is "3.8")
--- Found PythonLibs: /usr/local/python3.11.10/lib/libpython3.11.so
--- Performing Test HAS_FLTO_AUTO
--- Performing Test HAS_FLTO_AUTO - Success
--- Found pybind11: /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11/include (found version "3.0.4")
--- CMAKE_PREFIX_PATH = /usr/local/python3.11.10/lib/python3.11/site-packages/pybind11
--- TARGET_INSTALL_DIR = /home/syh/sgl-kernel-npu/output
--- Configuring done (8.8s)
--- Generating done (0.0s)
-CMake Warning:
-  Manually-specified variables were not used by the project:
-
-    ASCEND_INCLUDE_DIR
-    ASC_DIR
-
-
--- Build files have been written to: /home/syh/sgl-kernel-npu/build
-[ 25%] Building CXX object csrc/deepep/CMakeFiles/deep_ep_cpp.dir/pybind_extension.cpp.o
-[ 50%] Building CXX object csrc/deepep/CMakeFiles/deep_ep_cpp.dir/config.cpp.o
-[ 75%] Building CXX object csrc/deepep/CMakeFiles/deep_ep_cpp.dir/deep_ep.cpp.o
-In file included from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pybind.h:5,
-                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/Exceptions.h:17,
-                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/api/include/torch/python.h:12,
-                 from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.hpp:4,
-                 from /home/syh/sgl-kernel-npu/csrc/deepep/pybind_extension.cpp:7:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘Py_ssize_t _PyLong_DigitCount(const PyLongObject*)’:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1761:25: warning: cast from type ‘const PyLongObject*’ {aka ‘const _longobject*’} to type ‘PyObject*’ {aka ‘_object*’} casts away qualifiers [-Wcast-qual]
- 1761 |     return _PyLong_Sign((PyObject*)op) < 0 ? -Py_SIZE(op) : Py_SIZE(op);
-      |                         ^~~~~~~~~~~~~
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘digit* _PyLong_GetDigits(const PyLongObject*)’:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1771:12: warning: cast from type ‘const digit*’ {aka ‘const unsigned int*’} to type ‘digit*’ {aka ‘unsigned int*’} casts away qualifiers [-Wcast-qual]
- 1771 |     return (digit*)(op->ob_digit);
-      |            ^~~~~~~~~~~~~~~~~~~~~~
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘PyObject* PyConfig_Get(const char*)’:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:2131:24: warning: cast from type ‘const PyConfig*’ to type ‘char*’ casts away qualifiers [-Wcast-qual]
- 2131 |         void *member = (char *)config + spec->offset;
-      |                        ^~~~~~~~~~~~~~
-In file included from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pybind.h:5,
-                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/Exceptions.h:17,
-                 from /usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/api/include/torch/python.h:12,
-                 from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.hpp:4,
-                 from /home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:16:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘Py_ssize_t _PyLong_DigitCount(const PyLongObject*)’:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1761:25: warning: cast from type ‘const PyLongObject*’ {aka ‘const _longobject*’} to type ‘PyObject*’ {aka ‘_object*’} casts away qualifiers [-Wcast-qual]
- 1761 |     return _PyLong_Sign((PyObject*)op) < 0 ? -Py_SIZE(op) : Py_SIZE(op);
-      |                         ^~~~~~~~~~~~~
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘digit* _PyLong_GetDigits(const PyLongObject*)’:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:1771:12: warning: cast from type ‘const digit*’ {aka ‘const unsigned int*’} to type ‘digit*’ {aka ‘unsigned int*’} casts away qualifiers [-Wcast-qual]
- 1771 |     return (digit*)(op->ob_digit);
-      |            ^~~~~~~~~~~~~~~~~~~~~~
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h: In function ‘PyObject* PyConfig_Get(const char*)’:
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/include/torch/csrc/utils/pythoncapi_compat.h:2131:24: warning: cast from type ‘const PyConfig*’ to type ‘char*’ casts away qualifiers [-Wcast-qual]
- 2131 |         void *member = (char *)config + spec->offset;
-      |                        ^~~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::tuple<at::Tensor, std::optional<at::Tensor>, at::Tensor, at::Tensor, at::Tensor, std::optional<deep_ep::EventHandle>, std::optional<std::function<void()> > > deep_ep::Buffer::low_latency_dispatch(const at::Tensor&, const at::Tensor&, const std::optional<at::Tensor>&, int64_t, int64_t, bool, bool, bool, bool, bool, bool)’:
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1447:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
- 1447 |         comm_alg = "fullmesh";
-      |                    ^~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1449:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
- 1449 |         comm_alg = "ccu";
-      |                    ^~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1451:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
- 1451 |         comm_alg = "fullmesh_v1";
-      |                    ^~~~~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp: In member function ‘std::tuple<at::Tensor, std::optional<deep_ep::EventHandle>, std::optional<std::function<void()> > > deep_ep::Buffer::low_latency_combine(const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, const at::Tensor&, int64_t, int64_t, const at::Tensor&, bool, bool, bool, const std::optional<at::Tensor>&)’:
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1544:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
- 1544 |         comm_alg = "fullmesh";
-      |                    ^~~~~~~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1546:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
- 1546 |         comm_alg = "ccu";
-      |                    ^~~~~
-/home/syh/sgl-kernel-npu/csrc/deepep/deep_ep.cpp:1548:20: warning: ISO C++ forbids converting a string constant to ‘char*’ [-Wwrite-strings]
- 1548 |         comm_alg = "fullmesh_v1";
-      |                    ^~~~~~~~~~~~~
-[100%] Linking CXX shared module deep_ep_cpp.cpython-311-aarch64-linux-gnu.so
-[100%] Built target deep_ep_cpp
-Install the project...
--- Install configuration: "Release"
--- Installing: /home/syh/sgl-kernel-npu/output/lib/deep_ep_cpp.cpython-311-aarch64-linux-gnu.so
-/home/syh/sgl-kernel-npu
-using ASCEND_HOME_PATH: /usr/local/Ascend/cann-9.1.T560
-using ASCEND_COMPUTE_UNIT: ascend950
-using catlass ref: v1.6.1
-catlass is already at target ref: v1.6.1
-*************************************
-/usr/local/Ascend/cann-9.1.T560/opp/built-in/op_impl/ai_core/tbe/impl/ops_transformer/ascendc/common/op_kernel/moe_distribute_base.h
-/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/
--- The C compiler identification is GNU 12.3.1
--- The CXX compiler identification is GNU 12.3.1
--- Detecting C compiler ABI info
--- Detecting C compiler ABI info - done
--- Check for working C compiler: /usr/bin/cc - skipped
--- Detecting C compile features
--- Detecting C compile features - done
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Check for working CXX compiler: /usr/bin/c++ - skipped
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- set package config: INSTALL_PATH;/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/
--- Opbuild generating sources
-compile ascend_all_ops info: /usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_infer.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_infer.cpp
-/usr/bin/c++ -fPIC -D_GLIBCXX_USE_CXX11_ABI=0 -std=c++11 -g -D__DAV_C310__ -I/usr/local/Ascend/cann-9.1.T560/include -c -o /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.o /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.cpp
-
-compile ascend_all_ops result: 1
-CMake Error at /usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/func.cmake:732 (message):
-  opbuild run failed! In file included from
-  /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/../../op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_tiling.h:15,
-
-                   from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.cpp:20:
-
-  
-  /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/../../op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:9:10:
-  fatal error: kernel_operator.h: No such file or directory
-
-      9 | #include <kernel_operator.h>
-        |          ^~~~~~~~~~~~~~~~~~~
-
-  compilation terminated.
-
-  make: ***
-  [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascendc_all_ops.make:31:
-  /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/autogen/ascend_all_ops//home/syh/sgl-kernel-npu/csrc/deepep/ops/op_host/fused_deep_moe_a5/fused_deep_moe_tiling.o]
-  Error 1
-
-  make: *** Waiting for unfinished jobs....
-
-  Traceback (most recent call last):
-
-    File "/usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/util/compile_ascendc_all_ops_so.py", line 135, in <module>
-      run_compile_cmd(args)
-    File "/usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/util/compile_ascendc_all_ops_so.py", line 129, in run_compile_cmd
-      raise RuntimeError('compile ascend all ops failed')
-
-  RuntimeError: compile ascend all ops failed
-
-Call Stack (most recent call first):
-  op_host/CMakeLists.txt:25 (npu_op_code_gen)
-
-
--- Configuring incomplete, errors occurred!
-gmake: Makefile: No such file or directory
-gmake: *** No rule to make target 'Makefile'.  Stop.
-gmake: Makefile: No such file or directory
-gmake: *** No rule to make target 'Makefile'.  Stop.
+[ERROR] 2026-07-23-16:32:59 (PID:32910, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
