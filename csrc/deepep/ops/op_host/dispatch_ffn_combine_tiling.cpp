@@ -32,11 +32,11 @@ const char *K_INNER_DEBUG = "DispatchFFNCombine Tiling Debug";
 constexpr uint32_t ATTR_GROUP_INDEX = 0;
 constexpr uint32_t ATTR_EP_RANK_SIZE_INDEX = 1;
 constexpr uint32_t ATTR_EP_RANK_ID_INDEX = 2;
-constexpr uint32_t ATTR_ACTIVATION_TYPE_INDEX = 3;
-constexpr uint32_t ATTR_BETA_INDEX = 4;
-constexpr uint32_t ATTR_LINEAR_BETA_INDEX = 5;
-constexpr uint32_t ATTR_ENABLE_LINEAR_BETA_INDEX = 6;
-constexpr uint32_t ATTR_MAX_OUTPUT_SIZE_INDEX = 7;
+constexpr uint32_t ATTR_MAX_OUTPUT_SIZE_INDEX = 3;
+constexpr uint32_t ATTR_ACTIVATION_TYPE_INDEX = 4;
+constexpr uint32_t ATTR_BETA_INDEX = 5;
+constexpr uint32_t ATTR_LINEAR_BETA_INDEX = 6;
+constexpr uint32_t ATTR_ENABLE_LINEAR_BETA_INDEX = 7;
 constexpr uint32_t ATTR_IS_TRANS_B = 8;
 constexpr uint32_t ATTR_WEIGHT_NZ = 9;
 constexpr uint64_t INIT_TILINGKEY = 1000000;
@@ -84,7 +84,7 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     auto attrs = context->GetAttrs();
     OP_TILING_CHECK(attrs == nullptr, OP_LOGE(K_INNER_DEBUG, "attrs is null."), return ge::GRAPH_FAILED);
 
-    // TODO: set, validate, and print tiling data related to attributes
+    // Keep the attr indexes aligned with dispatch_ffn_combine_def.cpp and the host-side aclnn call order.
     auto groupPtr = attrs->GetAttrPointer<char>(static_cast<int>(ATTR_GROUP_INDEX));
     auto epRankSizePtr = attrs->GetAttrPointer<int>(ATTR_EP_RANK_SIZE_INDEX);
     auto epRankIdPtr = attrs->GetAttrPointer<int>(ATTR_EP_RANK_ID_INDEX);
@@ -118,6 +118,7 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     info.enableLinearBeta = *enableLinearBetaPtr;
     OP_TILING_CHECK(info.activationType > 1, OP_LOGE(K_INNER_DEBUG, "activationType is invalid."),
                     return ge::GRAPH_FAILED);
+    // SwiGLU does not consume beta-related attrs; validate them only for the SiTU branch.
     if (info.activationType == 1) {
         OP_TILING_CHECK(info.beta <= 0.0f, OP_LOGE(K_INNER_DEBUG, "beta must be positive."), return ge::GRAPH_FAILED);
         OP_TILING_CHECK(info.enableLinearBeta && info.linearBeta <= 0.0f,
