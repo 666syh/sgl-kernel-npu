@@ -95,6 +95,11 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     auto betaPtr = attrs->GetAttrPointer<float>(ATTR_BETA_INDEX);
     auto linearBetaPtr = attrs->GetAttrPointer<float>(ATTR_LINEAR_BETA_INDEX);
     auto enableLinearBetaPtr = attrs->GetAttrPointer<bool>(ATTR_ENABLE_LINEAR_BETA_INDEX);
+    OP_LOGE(K_INNER_DEBUG,
+            "raw attr decode: group=%s, epRankSizePtr=%p, epRankIdPtr=%p, maxOutputSizePtr=%p, activationTypePtr=%p, "
+            "betaPtr=%p, linearBetaPtr=%p, enableLinearBetaPtr=%p, transBPtr=%p, weightNzPtr=%p",
+            groupPtr == nullptr ? "<null>" : groupPtr, epRankSizePtr, epRankIdPtr, maxOutputSizePtr, activationTypePtr,
+            betaPtr, linearBetaPtr, enableLinearBetaPtr, is_trans_b, weight_nz);
     OP_TILING_CHECK(groupPtr == nullptr || strlen(groupPtr) == 0, OP_LOGE(K_INNER_DEBUG, "group is invalid."),
                     return GRAPH_FAILED);
     OP_TILING_CHECK(epRankSizePtr == nullptr, OP_LOGE(K_INNER_DEBUG, "epRankSizePtr is invalid."), return GRAPH_FAILED);
@@ -116,6 +121,12 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     info.beta = *betaPtr;
     info.linearBeta = *linearBetaPtr;
     info.enableLinearBeta = *enableLinearBetaPtr;
+    OP_LOGE(K_INNER_DEBUG,
+            "decoded attr values: group=%s, epRankSize=%d, epRankId=%d, maxOutputSize=%d, activationType=%d, beta=%f, "
+            "linearBeta=%f, enableLinearBeta=%d, transB=%d, weightNz=%d",
+            groupPtr, *epRankSizePtr, *epRankIdPtr, info.maxOutputSize, *activationTypePtr, info.beta, info.linearBeta,
+            static_cast<int>(info.enableLinearBeta), static_cast<int>(info.isTransposeB),
+            static_cast<int>(info.isWeightNz));
     OP_TILING_CHECK(info.activationType > 1, OP_LOGE(K_INNER_DEBUG, "activationType is invalid."),
                     return ge::GRAPH_FAILED);
     // SwiGLU does not consume beta-related attrs; validate them only for the SiTU branch.

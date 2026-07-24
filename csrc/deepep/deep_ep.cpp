@@ -1,5 +1,6 @@
 #include <memory>
 #include <cmath>
+#include <iostream>
 #include <pybind11/functional.h>
 
 #include "hccl/hccl.h"
@@ -1121,6 +1122,12 @@ std::vector<at::Tensor> Buffer::dispatch_ffn_combine(const at::Tensor &x, const 
 
     bool is_int8 = weight1.scalar_type() == at::ScalarType::Char;
     if (is_int8) {
+        std::cerr << "[DispatchFFNCombine][runtime] "
+                  << "group=" << hcom_ep_name << ", num_ranks=" << num_ranks << ", rank=" << rank
+                  << ", max_output_size=" << max_output_size << ", activation_type=" << activation_type
+                  << ", beta=" << beta << ", linear_beta=" << linear_beta
+                  << ", enable_linear_beta=" << static_cast<int>(enable_linear_beta) << ", bs=" << bs
+                  << ", hidden=" << h << ", num_experts=" << num_experts << std::endl;
         EXEC_NPU_CMD(aclnnDispatchFFNCombine, x, weight1, weight2, expert_ids, scale1, scale2, expert_scales,
                      hcom_ep_name, num_ranks, rank, max_output_size, activation_type, beta, linear_beta,
                      enable_linear_beta, output, expert_token_nums);

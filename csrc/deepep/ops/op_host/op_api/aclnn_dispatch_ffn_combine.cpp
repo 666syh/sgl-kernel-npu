@@ -51,6 +51,13 @@ aclnnStatus aclnnDispatchFFNCombineGetWorkspaceSize(const aclTensor *x, const ac
     bool transB = false;
     bool weightNz = true;
 
+    std::cerr << "[DispatchFFNCombine][aclnn] "
+              << "group=" << (group == nullptr ? "<null>" : group) << ", epRankSize=" << epRankSize
+              << ", epRankId=" << epRankId << ", maxOutputSize=" << maxOutputSize
+              << ", activationType=" << activationType << ", beta=" << beta << ", linearBeta=" << linearBeta
+              << ", enableLinearBeta=" << static_cast<int>(enableLinearBeta) << ", transB=" << transB
+              << ", weightNz=" << weightNz << std::endl;
+
     aclnnStatus ret = aclnnInnerDispatchFFNCombineGetWorkspaceSize(
         x, weight1, weight2, expertId, scale1, scale2, probs, group, epRankSize, epRankId, maxOutputSize, transB,
         weightNz, activationType, beta, linearBeta, enableLinearBeta, out, expertTokenNums, workspaceSize, executor);
