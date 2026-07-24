@@ -1,66 +1,27 @@
-[W724 08:07:10.342837350 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:10.711657980 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:10.051450230 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:11.371018430 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:11.443990990 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:11.542052840 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:11.687922140 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:07:11.891336140 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=0, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=0, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab1ce41b4d, epRankIdPtr=0xaaab1ce41b55, maxOutputSizePtr=0xaaab1ce41b5d, activationTypePtr=0xaaab1ce41b65, betaPtr=0xaaab1ce41b6d, linearBetaPtr=0xaaab1ce41b71, enableLinearBetaPtr=0xaaab1ce41b75, transBPtr=0xaaab1ce41b76, weightNzPtr=0xaaab1ce41b77
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=0, maxOutputSize=2048, activationType=-516541696, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=6, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=6, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab3955138d, epRankIdPtr=0xaaab39551395, maxOutputSizePtr=0xaaab3955139d, activationTypePtr=0xaaab395513a5, betaPtr=0xaaab395513ad, linearBetaPtr=0xaaab395513b1, enableLinearBetaPtr=0xaaab395513b5, transBPtr=0xaaab395513b6, weightNzPtr=0xaaab395513b7
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=6, maxOutputSize=2048, activationType=-320654592, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=1, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=1, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab15adbd1d, epRankIdPtr=0xaaab15adbd25, maxOutputSizePtr=0xaaab15adbd2d, activationTypePtr=0xaaab15adbd35, betaPtr=0xaaab15adbd3d, linearBetaPtr=0xaaab15adbd41, enableLinearBetaPtr=0xaaab15adbd45, transBPtr=0xaaab15adbd46, weightNzPtr=0xaaab15adbd47
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=1, maxOutputSize=2048, activationType=-247778560, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=3, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=3, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab36f96c2d, epRankIdPtr=0xaaab36f96c35, maxOutputSizePtr=0xaaab36f96c3d, activationTypePtr=0xaaab36f96c45, betaPtr=0xaaab36f96c4d, linearBetaPtr=0xaaab36f96c51, enableLinearBetaPtr=0xaaab36f96c55, transBPtr=0xaaab36f96c56, weightNzPtr=0xaaab36f96c57
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=3, maxOutputSize=2048, activationType=-1096207616, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=2, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=2, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab2138277d, epRankIdPtr=0xaaab21382785, maxOutputSizePtr=0xaaab2138278d, activationTypePtr=0xaaab21382795, betaPtr=0xaaab2138279d, linearBetaPtr=0xaaab213827a1, enableLinearBetaPtr=0xaaab213827a5, transBPtr=0xaaab213827a6, weightNzPtr=0xaaab213827a7
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=2, maxOutputSize=2048, activationType=-578211072, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=4, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=4, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab01aa3e3d, epRankIdPtr=0xaaab01aa3e45, maxOutputSizePtr=0xaaab01aa3e4d, activationTypePtr=0xaaab01aa3e55, betaPtr=0xaaab01aa3e5d, linearBetaPtr=0xaaab01aa3e61, enableLinearBetaPtr=0xaaab01aa3e65, transBPtr=0xaaab01aa3e66, weightNzPtr=0xaaab01aa3e67
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=4, maxOutputSize=2048, activationType=-633982208, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=7, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=7, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaaae778678d, epRankIdPtr=0xaaaae7786795, maxOutputSizePtr=0xaaaae778679d, activationTypePtr=0xaaaae77867a5, betaPtr=0xaaaae77867ad, linearBetaPtr=0xaaaae77867b1, enableLinearBetaPtr=0xaaaae77867b5, transBPtr=0xaaaae77867b6, weightNzPtr=0xaaaae77867b7
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=7, maxOutputSize=2048, activationType=-193449216, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[DispatchFFNCombine][runtime] group=group_name_1, num_ranks=8, rank=5, max_output_size=2048, activation_type=0, beta=1, linear_beta=1, enable_linear_beta=0, bs=32, hidden=7168, num_experts=64
-[DispatchFFNCombine][aclnn] group=group_name_1, epRankSize=8, epRankId=5, maxOutputSize=2048, activationType=0, beta=1, linearBeta=1, enableLinearBeta=0, transB=0, weightNz=1
-[ERROR][DispatchFFNCombine Tiling Debug] raw attr decode: group=group_name_1, epRankSizePtr=0xaaab0f0abd0d, epRankIdPtr=0xaaab0f0abd15, maxOutputSizePtr=0xaaab0f0abd1d, activationTypePtr=0xaaab0f0abd25, betaPtr=0xaaab0f0abd2d, linearBetaPtr=0xaaab0f0abd31, enableLinearBetaPtr=0xaaab0f0abd35, transBPtr=0xaaab0f0abd36, weightNzPtr=0xaaab0f0abd37
-[ERROR][DispatchFFNCombine Tiling Debug] decoded attr values: group=group_name_1, epRankSize=8, epRankId=5, maxOutputSize=2048, activationType=-543214848, beta=0.000000, linearBeta=0.000000, enableLinearBeta=1, transB=0, weightNz=0
-[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
-[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-W0724 08:07:36.784000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146223 via signal SIGTERM
-W0724 08:07:36.784000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146224 via signal SIGTERM
-W0724 08:07:36.785000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146225 via signal SIGTERM
-W0724 08:07:36.785000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146226 via signal SIGTERM
-W0724 08:07:36.785000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146227 via signal SIGTERM
-W0724 08:07:36.785000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146228 via signal SIGTERM
-W0724 08:07:36.786000 146144 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 146230 via signal SIGTERM
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+
+python3 tests/python/deepep/test_dispatch_ffn_combine.py \
+	--num-processes 8 \
+	--num-tokens 32 \
+	--num-experts 64 \
+	--activation situ \
+	--beta 1.0
+
+[W724 08:26:08.011430830 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.308669900 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.341721540 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.503087870 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.787447820 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.975325530 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.066703680 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:26:09.119753860 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+W0724 08:26:37.212000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165255 via signal SIGTERM
+W0724 08:26:37.213000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165256 via signal SIGTERM
+W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165257 via signal SIGTERM
+W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165259 via signal SIGTERM
+W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165260 via signal SIGTERM
+W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165261 via signal SIGTERM
+W0724 08:26:37.215000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165262 via signal SIGTERM
 Traceback (most recent call last):
   File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 698, in <module>
     torch.multiprocessing.spawn(
@@ -74,25 +35,33 @@ Traceback (most recent call last):
     raise ProcessRaisedException(msg, error_index, failed_process.pid)
 torch.multiprocessing.spawn.ProcessRaisedException: 
 
--- Process 6 terminated with the following error:
+-- Process 3 terminated with the following error:
 Traceback (most recent call last):
   File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
     fn(i, *args)
   File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 612, in test_loop
     test(
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 459, in test
-    fused2_output, fused2_ep_recv_count = buffer.fused_deep_moe(
-                                          ^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/buffer.py", line 890, in fused_deep_moe
-    output, expert_token_nums = self.runtime.dispatch_ffn_combine(
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: call aclnnDispatchFFNCombine failed, detail:EZ9999: Inner Error!
-EZ9999[PID: 146229] 2026-07-24-08:07:24.864.787 AclNN_Inner_Error(EZ9999):  DispatchFFNCombine do tiling failed, ret is -1.
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 440, in test
+    baseline_output, base_ep_recv_count = baseline_test(
+                                          ^^^^^^^^^^^^^^
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 244, in baseline_test
+    hidden_states = torch_npu.npu_grouped_matmul(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/utils/_device.py", line 109, in __torch_function__
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: npu_grouped_matmul:../third_party/op-plugin/op_plugin/ops/opapi/GroupedMatmulKernelNpuOpApi.cpp:322 NPU function error: call aclnnGroupedMatmulWeightNz failed, error code is 161002
+[ERROR] 2026-07-24-08:26:27 (PID:165258, Device:3, RankID:-1) ERR00100 PTA call acl api failed.
+[PID: 165258] 2026-07-24-08:26:27.556.747 AclNN_Parameter_Error(EZ1001): PerTokenScaleOptional dim num must be 1 when x is single tensor, but now is 0.
         TraceBack (most recent call last):
-       Check NnopbaseExecutorDoTiling(executor) failed
-       Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed
-       Check NnopbaseExecutorMatchCache(executor) failed
-       Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed
+        Check perTokenScale failed!
+        CheckGroupedMatmulQuant failed.
+        CheckFunctionQuantParams failed.
 
 
-[ERROR] 2026-07-24-08:07:37 (PID:146144, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
