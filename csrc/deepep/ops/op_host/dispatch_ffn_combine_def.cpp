@@ -74,6 +74,10 @@ public:
         this->Attr("M").AttrType(OPTIONAL).Int();  // global_bs
         this->Attr("transB").AttrType(OPTIONAL).Bool(false);
         this->Attr("weightNz").AttrType(OPTIONAL).Bool(false);
+        this->Attr("activation").AttrType(OPTIONAL).Int(0);
+        this->Attr("beta").AttrType(OPTIONAL).Float(1.0f);
+        this->Attr("linear_beta").AttrType(OPTIONAL).Float(1.0f);
+        this->Attr("enable_linear_beta").AttrType(OPTIONAL).Bool(false);
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)

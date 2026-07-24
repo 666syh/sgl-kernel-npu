@@ -43,8 +43,9 @@ extern "C" {
 __attribute__((visibility("default"))) aclnnStatus aclnnDispatchFFNCombineGetWorkspaceSize(
     const aclTensor *x, const aclTensor *weight1, const aclTensor *weight2, const aclTensor *expertId,
     const aclTensor *scale1, const aclTensor *scale2, const aclTensor *probs, const char *group, int64_t epRankSize,
-    int64_t epRankId, int64_t maxOutputSize, const aclTensor *out, const aclTensor *expertTokenNums,
-    uint64_t *workspaceSize, aclOpExecutor **executor);
+    int64_t epRankId, int64_t maxOutputSize, int64_t activationType, float beta, float linearBeta,
+    bool enableLinearBeta, const aclTensor *out, const aclTensor *expertTokenNums, uint64_t *workspaceSize,
+    aclOpExecutor **executor);
 
 /**
  * @brief Second-stage interface of aclnnDispatchFFNCombine to execute computation.

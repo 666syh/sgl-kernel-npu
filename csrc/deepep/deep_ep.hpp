@@ -134,6 +134,7 @@ public:
                                                  const at::Tensor &weight1, const at::Tensor &scale1,
                                                  const at::Tensor &weight2, const at::Tensor &scale2,
                                                  const at::Tensor &expert_scales, int64_t max_output_size,
-                                                 int64_t num_experts, int quant_mode) const;
+                                                 int64_t num_experts, int quant_mode, int64_t activation_type,
+                                                 float beta, float linear_beta, bool enable_linear_beta) const;
 };
 }  // namespace deep_ep

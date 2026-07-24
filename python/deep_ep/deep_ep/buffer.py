@@ -792,6 +792,9 @@ class Buffer:
         num_experts: int,
         quant_mode: int = 1,
         fuse_mode: FuseMode = FuseMode.FUSED_DEEP_MOE,
+        activation: str = "swiglu",
+        beta: float = 1.0,
+        linear_beta: Optional[float] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         A fused low-latency implementation for MoE expert forward and combination.
@@ -881,6 +884,9 @@ class Buffer:
         elif fuse_mode == FuseMode.DISPATCH_FFN_COMBINE:
             # The maximum number of tokens that rank can obtain during dispatch. (max_bs * ranks * topk)
             max_output_size = num_max_dispatch_tokens_per_rank
+            activation_mode = 0 if activation.lower() == "swiglu" else 1
+            enable_linear_beta = linear_beta is not None
+            linear_beta_value = float(1.0 if linear_beta is None else linear_beta)
             output, expert_token_nums = self.runtime.dispatch_ffn_combine(
                 x,
                 topk_ids,
@@ -892,6 +898,10 @@ class Buffer:
                 max_output_size,
                 num_experts,
                 quant_mode,
+                activation_mode,
+                float(beta),
+                linear_beta_value,
+                enable_linear_beta,
             )
             return output, expert_token_nums
         else:

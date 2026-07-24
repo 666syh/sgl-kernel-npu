@@ -1098,7 +1098,8 @@ std::vector<at::Tensor> Buffer::dispatch_ffn_combine(const at::Tensor &x, const 
                                                      const at::Tensor &weight1, const at::Tensor &scale1,
                                                      const at::Tensor &weight2, const at::Tensor &scale2,
                                                      const at::Tensor &expert_scales, int64_t max_output_size,
-                                                     int64_t num_experts, int quant_mode) const
+                                                     int64_t num_experts, int quant_mode, int64_t activation_type,
+                                                     float beta, float linear_beta, bool enable_linear_beta) const
 {
     EP_HOST_ASSERT(expert_ids.dim() == 2);
     EP_HOST_ASSERT(expert_scales.dim() == 2);
@@ -1121,7 +1122,8 @@ std::vector<at::Tensor> Buffer::dispatch_ffn_combine(const at::Tensor &x, const 
     bool is_int8 = weight1.scalar_type() == at::ScalarType::Char;
     if (is_int8) {
         EXEC_NPU_CMD(aclnnDispatchFFNCombine, x, weight1, weight2, expert_ids, scale1, scale2, expert_scales,
-                     hcom_ep_name, num_ranks, rank, max_output_size, output, expert_token_nums);
+                     hcom_ep_name, num_ranks, rank, max_output_size, activation_type, beta, linear_beta,
+                     enable_linear_beta, output, expert_token_nums);
     } else {
         // TODO: Implement aclnnDispatchFFNCombineBF16 when available
         EP_HOST_ASSERT_S(false, "BF16 mode not yet supported for dispatch_ffn_combine");

@@ -35,6 +35,10 @@ constexpr uint32_t ATTR_EP_RANK_ID_INDEX = 2;
 constexpr uint32_t ATTR_MAX_OUTPUT_SIZE_INDEX = 3;
 constexpr uint32_t ATTR_IS_TRANS_B = 4;
 constexpr uint32_t ATTR_WEIGHT_NZ = 5;
+constexpr uint32_t ATTR_ACTIVATION_TYPE_INDEX = 6;
+constexpr uint32_t ATTR_BETA_INDEX = 7;
+constexpr uint32_t ATTR_LINEAR_BETA_INDEX = 8;
+constexpr uint32_t ATTR_ENABLE_LINEAR_BETA_INDEX = 9;
 constexpr uint64_t INIT_TILINGKEY = 1000000;
 constexpr uint64_t TILINGKEY_TRANS_B = 1U;
 constexpr uint64_t TILINGKEY_WEIGHT_NZ = 10;
@@ -87,6 +91,10 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     auto maxOutputSizePtr = attrs->GetAttrPointer<int>(ATTR_MAX_OUTPUT_SIZE_INDEX);
     auto is_trans_b = attrs->GetAttrPointer<bool>(ATTR_IS_TRANS_B);
     auto weight_nz = attrs->GetAttrPointer<bool>(ATTR_WEIGHT_NZ);
+    auto activationTypePtr = attrs->GetAttrPointer<int>(ATTR_ACTIVATION_TYPE_INDEX);
+    auto betaPtr = attrs->GetAttrPointer<float>(ATTR_BETA_INDEX);
+    auto linearBetaPtr = attrs->GetAttrPointer<float>(ATTR_LINEAR_BETA_INDEX);
+    auto enableLinearBetaPtr = attrs->GetAttrPointer<bool>(ATTR_ENABLE_LINEAR_BETA_INDEX);
     OP_TILING_CHECK(groupPtr == nullptr || strlen(groupPtr) == 0, OP_LOGE(K_INNER_DEBUG, "group is invalid."),
                     return GRAPH_FAILED);
     OP_TILING_CHECK(epRankSizePtr == nullptr, OP_LOGE(K_INNER_DEBUG, "epRankSizePtr is invalid."), return GRAPH_FAILED);
@@ -94,10 +102,25 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
 
     OP_TILING_CHECK(is_trans_b == nullptr, OP_LOGE(K_INNER_DEBUG, "is_trans_b is invalid."), return GRAPH_FAILED);
     OP_TILING_CHECK(weight_nz == nullptr, OP_LOGE(K_INNER_DEBUG, "weight_nz is invalid."), return GRAPH_FAILED);
+    OP_TILING_CHECK(activationTypePtr == nullptr, OP_LOGE(K_INNER_DEBUG, "activationType is invalid."),
+                    return GRAPH_FAILED);
+    OP_TILING_CHECK(betaPtr == nullptr, OP_LOGE(K_INNER_DEBUG, "beta is invalid."), return GRAPH_FAILED);
+    OP_TILING_CHECK(linearBetaPtr == nullptr, OP_LOGE(K_INNER_DEBUG, "linearBeta is invalid."), return GRAPH_FAILED);
+    OP_TILING_CHECK(enableLinearBetaPtr == nullptr, OP_LOGE(K_INNER_DEBUG, "enableLinearBeta is invalid."),
+                    return GRAPH_FAILED);
 
     info.maxOutputSize = *maxOutputSizePtr;
     info.isTransposeB = *is_trans_b;
     info.isWeightNz = *weight_nz;
+    info.activationType = static_cast<uint32_t>(*activationTypePtr);
+    info.beta = *betaPtr;
+    info.linearBeta = *linearBetaPtr;
+    info.enableLinearBeta = *enableLinearBetaPtr;
+    OP_TILING_CHECK(info.activationType > 1, OP_LOGE(K_INNER_DEBUG, "activationType is invalid."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(info.beta <= 0.0f, OP_LOGE(K_INNER_DEBUG, "beta must be positive."), return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(info.enableLinearBeta && info.linearBeta <= 0.0f,
+                    OP_LOGE(K_INNER_DEBUG, "linearBeta must be positive when enabled."), return ge::GRAPH_FAILED);
 
     uint32_t epRankSize = static_cast<uint32_t>(*epRankSizePtr);
     OP_TILING_CHECK(*epRankIdPtr < 0, OP_LOGE(K_INNER_DEBUG, "epRankId must >= 0."), return ge::GRAPH_FAILED);
@@ -110,6 +133,10 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
 
     OP_LOGD(K_INNER_DEBUG, "maxOutputSize=%d ", info.maxOutputSize);
     OP_LOGD(K_INNER_DEBUG, "rankSize=%d ", info.worldSize);
+    OP_LOGD(K_INNER_DEBUG, "activationType=%u ", info.activationType);
+    OP_LOGD(K_INNER_DEBUG, "beta=%f ", info.beta);
+    OP_LOGD(K_INNER_DEBUG, "linearBeta=%f ", info.linearBeta);
+    OP_LOGD(K_INNER_DEBUG, "enableLinearBeta=%d ", info.enableLinearBeta);
 
     return ge::GRAPH_SUCCESS;
 }

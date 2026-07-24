@@ -31,6 +31,10 @@ struct DispatchFFNCombineInfo {
     uint32_t topK;
     uint32_t worldSize;
     uint32_t listLen;
+    uint32_t activationType;
+    float beta;
+    float linearBeta;
+    bool enableLinearBeta;
 };
 
 struct CoCTiling {

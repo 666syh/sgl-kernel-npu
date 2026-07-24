@@ -31,6 +31,12 @@ struct EpilogueAtlasA2PerTokenDequantSwigluQuant {
 };
 
 template <uint32_t UB_STAGES_>
+struct EpilogueAtlasA2PerTokenDequantSituQuant {
+    using ArchTag = Arch::AtlasA2;
+    static constexpr uint32_t UB_STAGES = UB_STAGES_;
+};
+
+template <uint32_t UB_STAGES_>
 struct EpilogueAtlasA2PerTokenDequantV2 {
     using ArchTag = Arch::AtlasA2;
     static constexpr uint32_t UB_STAGES = UB_STAGES_;

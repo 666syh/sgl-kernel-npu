@@ -102,6 +102,10 @@ private:
     int32_t maxOutputSize;
     int32_t EP;
     int32_t listLen;
+    int32_t activationType;
+    float beta;
+    float linearBeta;
+    bool enableLinearBeta;
 
     optiling::MoeInitRoutingQuantV2TilingData moeInitRoutingQuantV2TilingData;
     uint64_t initRoutingQuantTilingKey;
@@ -143,6 +147,10 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Init(GM_ADDR xGM,
     expertPerRank = tilingData.dispatchFFNCombineInfo.expertPerRank;
     maxOutputSize = tilingData.dispatchFFNCombineInfo.maxOutputSize;
     listLen = tilingData.dispatchFFNCombineInfo.listLen;
+    activationType = static_cast<int32_t>(tilingData.dispatchFFNCombineInfo.activationType);
+    beta = tilingData.dispatchFFNCombineInfo.beta;
+    linearBeta = tilingData.dispatchFFNCombineInfo.linearBeta;
+    enableLinearBeta = tilingData.dispatchFFNCombineInfo.enableLinearBeta;
 
     m0 = tilingData.cocTiling.m0;
     k0 = tilingData.cocTiling.k0;
@@ -218,6 +226,7 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Process()
     constexpr uint32_t ubStages = 2;
 
     using EpilogueDispatchPolicy1 = Epilogue::EpilogueAtlasA2PerTokenDequantSwigluQuant<ubStages>;
+    using EpilogueDispatchPolicy1Situ = Epilogue::EpilogueAtlasA2PerTokenDequantSituQuant<ubStages>;
 
     using ScaleType = Gemm::GemmType<uint64_t, layout::VectorLayout>;
     using PerTokenScaleType = Gemm::GemmType<float, layout::VectorLayout>;
@@ -227,6 +236,8 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Process()
     using TileCopy1 = Epilogue::Tile::TileCopy<ArchTag, CType, ScaleType, PerTokenScaleType, D1Type>;
     using BlockEpilogue1 = Epilogue::Block::BlockEpilogue<EpilogueDispatchPolicy1, CType, PerTokenScaleType, D1Type,
                                                           TileElemWiseMuls, TileCopy1>;
+    using BlockEpilogue1Situ = Epilogue::Block::BlockEpilogue<EpilogueDispatchPolicy1Situ, CType, PerTokenScaleType,
+                                                              D1Type, TileElemWiseMuls, TileCopy1>;
 
     using EpilogueDispatchPolicy2 = Epilogue::EpilogueAtlasA2PerTokenDequantV2<ubStages>;
     using TileCopy2 = Epilogue::Tile::TileCopy<ArchTag, CType, ScaleType, PerTokenScaleType, D2Type>;
@@ -235,8 +246,6 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Process()
 
     using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<9, 1>;
     using ElementGroupList = int64_t;
-    using MatmulKernel = Gemm::Kernel::DispatchFFNCombineKernel<BlockMmad, BlockScheduler, ElementGroupList,
-                                                                BlockEpilogue1, BlockEpilogue2>;
 
     LayoutA layoutA1{static_cast<uint32_t>(m), static_cast<uint32_t>(k)};
     LayoutA layoutA2{static_cast<uint32_t>(m), static_cast<uint32_t>(k2)};
@@ -251,43 +260,86 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Process()
     uint32_t epilogueCoreNum = aivNum / 2;
     uint32_t epilogueGranularity = expertPerRank - 1;
 
-    typename MatmulKernel::Params params{problemShape,
-                                         static_cast<uint32_t>(EP),
-                                         static_cast<uint32_t>(listLen),
-                                         static_cast<uint32_t>(expertPerRank),
-                                         static_cast<uint32_t>(maxOutputSize),
-                                         static_cast<uint32_t>(rank),
-                                         static_cast<uint32_t>(rankSize),
-                                         static_cast<uint32_t>(topK),
-                                         initRoutingQuantTilingKey,
-                                         epilogueCoreNum,
-                                         epilogueGranularity,
-                                         xGM_,
-                                         layoutA1,
-                                         layoutA2,
-                                         weight1GM_,
-                                         layoutB1,
-                                         weight2GM_,
-                                         layoutB2,
-                                         scale1GM_,
-                                         layoutScale1,
-                                         scale2GM_,
-                                         layoutScale2,
-                                         outGM_,
-                                         layoutD1,
-                                         layoutD2,
-                                         expertIdGM_,
-                                         moeInitRoutingQuantV2Scale,
-                                         moeInitRoutingQuantV2Offset,
-                                         expertTokensBeforeCapacity,
-                                         probs_,
-                                         workspaceGM_,
-                                         gmExpertTokenNums_,
-                                         ubMoveNum,
-                                         moeInitRoutingQuantV2TilingData};
     // Call kernel
-    MatmulKernel kernel(params);
-    kernel(params);
+    if (activationType == 1) {
+        using MatmulKernelSitu = Gemm::Kernel::DispatchFFNCombineKernel<BlockMmad, BlockScheduler, ElementGroupList,
+                                                                        BlockEpilogue1Situ, BlockEpilogue2>;
+        typename MatmulKernelSitu::Params paramsSitu{problemShape,
+                                                     static_cast<uint32_t>(EP),
+                                                     static_cast<uint32_t>(listLen),
+                                                     static_cast<uint32_t>(expertPerRank),
+                                                     static_cast<uint32_t>(maxOutputSize),
+                                                     static_cast<uint32_t>(rank),
+                                                     static_cast<uint32_t>(rankSize),
+                                                     static_cast<uint32_t>(topK),
+                                                     initRoutingQuantTilingKey,
+                                                     epilogueCoreNum,
+                                                     epilogueGranularity,
+                                                     xGM_,
+                                                     layoutA1,
+                                                     layoutA2,
+                                                     weight1GM_,
+                                                     layoutB1,
+                                                     weight2GM_,
+                                                     layoutB2,
+                                                     scale1GM_,
+                                                     layoutScale1,
+                                                     scale2GM_,
+                                                     layoutScale2,
+                                                     outGM_,
+                                                     layoutD1,
+                                                     layoutD2,
+                                                     expertIdGM_,
+                                                     moeInitRoutingQuantV2Scale,
+                                                     moeInitRoutingQuantV2Offset,
+                                                     expertTokensBeforeCapacity,
+                                                     probs_,
+                                                     workspaceGM_,
+                                                     gmExpertTokenNums_,
+                                                     ubMoveNum,
+                                                     moeInitRoutingQuantV2TilingData};
+        MatmulKernelSitu kernel(paramsSitu);
+        kernel(paramsSitu);
+    } else {
+        using MatmulKernelSwiglu = Gemm::Kernel::DispatchFFNCombineKernel<BlockMmad, BlockScheduler, ElementGroupList,
+                                                                          BlockEpilogue1, BlockEpilogue2>;
+        typename MatmulKernelSwiglu::Params paramsSwiglu{problemShape,
+                                                         static_cast<uint32_t>(EP),
+                                                         static_cast<uint32_t>(listLen),
+                                                         static_cast<uint32_t>(expertPerRank),
+                                                         static_cast<uint32_t>(maxOutputSize),
+                                                         static_cast<uint32_t>(rank),
+                                                         static_cast<uint32_t>(rankSize),
+                                                         static_cast<uint32_t>(topK),
+                                                         initRoutingQuantTilingKey,
+                                                         epilogueCoreNum,
+                                                         epilogueGranularity,
+                                                         xGM_,
+                                                         layoutA1,
+                                                         layoutA2,
+                                                         weight1GM_,
+                                                         layoutB1,
+                                                         weight2GM_,
+                                                         layoutB2,
+                                                         scale1GM_,
+                                                         layoutScale1,
+                                                         scale2GM_,
+                                                         layoutScale2,
+                                                         outGM_,
+                                                         layoutD1,
+                                                         layoutD2,
+                                                         expertIdGM_,
+                                                         moeInitRoutingQuantV2Scale,
+                                                         moeInitRoutingQuantV2Offset,
+                                                         expertTokensBeforeCapacity,
+                                                         probs_,
+                                                         workspaceGM_,
+                                                         gmExpertTokenNums_,
+                                                         ubMoveNum,
+                                                         moeInitRoutingQuantV2TilingData};
+        MatmulKernelSwiglu kernel(paramsSwiglu);
+        kernel(paramsSwiglu);
+    }
 }
 
 }  // namespace DispatchFFNCombineImpl

@@ -121,6 +121,55 @@ def from_inclusive_prefix_sum(pref):
     return out
 
 
+def _dequant_and_activate_situ(
+    hidden_states: torch.Tensor,
+    per_token_scale: torch.Tensor,
+    weight_scale: torch.Tensor,
+    group_list: torch.Tensor,
+    beta: float,
+    linear_beta: float | None,
+):
+    hidden_states = hidden_states.to(torch.float32)
+    per_token_scale = per_token_scale.to(torch.float32).reshape(-1, 1)
+    weight_scale = weight_scale.to(torch.float32)
+    group_list = group_list.to(torch.int64)
+
+    rows = []
+    offset = 0
+    for expert_idx, token_num in enumerate(group_list.tolist()):
+        if token_num <= 0:
+            continue
+        chunk = hidden_states[offset : offset + token_num]
+        chunk = chunk * per_token_scale[offset : offset + token_num]
+        chunk = chunk * weight_scale[expert_idx].unsqueeze(0)
+        d = chunk.shape[-1] // 2
+        gate = chunk[:, :d]
+        up = chunk[:, d:]
+        situ_a = beta * torch.tanh(gate / beta) * torch.sigmoid(gate)
+        if linear_beta is not None:
+            up = linear_beta * torch.tanh(up / linear_beta)
+        out = situ_a * up
+        rows.append(out)
+        offset += token_num
+
+    return (
+        torch.cat(rows, dim=0)
+        if rows
+        else hidden_states.new_empty((0, hidden_states.size(-1) // 2))
+    )
+
+
+def _quantize_int8_dynamic(x: torch.Tensor):
+    if x.numel() == 0:
+        return x.to(torch.int8), torch.tensor(1.0, device=x.device, dtype=torch.float32)
+    max_abs = torch.max(torch.abs(x))
+    max_abs_value = float(max_abs.item())
+    scale = max_abs / 127.0 if max_abs_value > 0 else torch.tensor(1.0, device=x.device)
+    y = torch.round(x * (127.0 / max_abs)) if max_abs_value > 0 else x.clone()
+    y = torch.clamp(y, -128, 127).to(torch.int8)
+    return y, scale.to(torch.float32)
+
+
 # ======================== Baseline Reference ========================
 def baseline_test(
     buffer,
@@ -135,6 +184,9 @@ def baseline_test(
     w2,
     w2_scale,
     topk_weights,
+    activation="swiglu",
+    beta: float = 1.0,
+    linear_beta=None,
 ):
     hidden_states, packed_recv_count, handle, _, _ = buffer.low_latency_dispatch(
         x,
@@ -165,18 +217,28 @@ def baseline_test(
         output_dtype=torch.int32,
     )[0]
 
-    # act_fn: swiglu
-    hidden_states, swiglu_out_scale = torch_npu.npu_dequant_swiglu_quant(
-        x=hidden_states,
-        weight_scale=w13_scale.to(torch.float32),
-        activation_scale=per_token_scale,
-        bias=None,
-        quant_scale=None,
-        quant_offset=None,
-        group_index=group_list,
-        activate_left=True,
-        quant_mode=1,
-    )
+    if activation == "swiglu":
+        hidden_states, swiglu_out_scale = torch_npu.npu_dequant_swiglu_quant(
+            x=hidden_states,
+            weight_scale=w13_scale.to(torch.float32),
+            activation_scale=per_token_scale,
+            bias=None,
+            quant_scale=None,
+            quant_offset=None,
+            group_index=group_list,
+            activate_left=True,
+            quant_mode=1,
+        )
+    else:
+        hidden_states = _dequant_and_activate_situ(
+            hidden_states,
+            per_token_scale,
+            w13_scale,
+            group_list,
+            beta,
+            linear_beta,
+        )
+        hidden_states, swiglu_out_scale = _quantize_int8_dynamic(hidden_states)
 
     # gmm2: down_proj
     hidden_states = torch_npu.npu_grouped_matmul(
@@ -217,6 +279,9 @@ def test(
     buffer2: Buffer,
     args: argparse.Namespace,
     aligned_num_tokens: int,
+    activation: str = "swiglu",
+    beta: float = 1.0,
+    linear_beta=None,
     seed: int = 0,
 ):
     torch.manual_seed(seed + rank)
@@ -385,6 +450,9 @@ def test(
         w2,
         w2_scale,
         topk_weights_dropped,
+        activation=activation,
+        beta=beta,
+        linear_beta=linear_beta,
     )
 
     # ----- Fused2: dispatch_ffn_combine -----
@@ -402,6 +470,9 @@ def test(
         num_experts,
         1,  # quant_mode: 1
         2,  # fuse_mode: DISPATCH_FFN_COMBINE
+        activation=activation,
+        beta=beta,
+        linear_beta=linear_beta,
     )
 
     # ----- Compare Outputs -----
@@ -453,6 +524,9 @@ def test(
         "w2": w2,
         "w2_scale": w2_scale,
         "topk_weights": topk_weights_dropped,
+        "activation": activation,
+        "beta": beta,
+        "linear_beta": linear_beta,
     }
 
     fused2_moe_args = {
@@ -469,6 +543,9 @@ def test(
         "num_experts": num_experts,
         "quant_mode": 0,
         "fuse_mode": 2,
+        "activation": activation,
+        "beta": beta,
+        "linear_beta": linear_beta,
     }
 
     baseline_time = bench_kineto(
@@ -477,7 +554,7 @@ def test(
             "aclnnInplaceOne_OnesLikeAiCore_OnesLike",
             "MoeLowLatencyDispatchV2",
             "aclnnGroupedMatmulWeightNz_GroupedMatmul_GroupedMatmul",
-            "DequantSwigluQuant",
+            "DequantSwigluQuant" if activation == "swiglu" else "SituAndMul",
             "MoeLowLatencyCombineV2",
         ),
         barrier_comm_profiling=True,
@@ -545,6 +622,9 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
         buffer2,
         args,
         aligned_num_tokens,
+        activation=args.activation,
+        beta=args.beta,
+        linear_beta=args.linear_beta,
         seed=1,
     )
 
@@ -592,6 +672,25 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Enable debug logging.",
+    )
+    parser.add_argument(
+        "--activation",
+        type=str,
+        default="swiglu",
+        choices=["swiglu", "situ"],
+        help="Activation branch for dispatch_ffn_combine.",
+    )
+    parser.add_argument(
+        "--beta",
+        type=float,
+        default=1.0,
+        help="beta for situ branch.",
+    )
+    parser.add_argument(
+        "--linear-beta",
+        type=float,
+        default=None,
+        help="linear beta for situ branch; omit to disable.",
     )
 
     args = parser.parse_args()
