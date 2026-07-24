@@ -1,36 +1,20 @@
-[W724 08:57:02.234299260 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:02.536847970 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:02.829130610 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:02.103900330 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:02.218563720 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:03.489840160 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:03.559061740 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:57:03.774338670 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 252, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 238, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 268, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 222, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 271, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 262, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 265, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 270, A = 2048, tpWorldSize = 1
-[ERROR][MoeLowLatencyCombineV2] param dim check failed.
-W0724 08:57:28.325000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173495 via signal SIGTERM
-W0724 08:57:28.326000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173496 via signal SIGTERM
-W0724 08:57:28.326000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173497 via signal SIGTERM
-W0724 08:57:28.326000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173498 via signal SIGTERM
-W0724 08:57:28.327000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173500 via signal SIGTERM
-W0724 08:57:28.327000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173501 via signal SIGTERM
-W0724 08:57:28.327000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173502 via signal SIGTERM
+[W724 09:27:05.942155240 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:05.973236690 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:05.197971050 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:05.202878550 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:06.432820530 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:06.605683290 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:06.663913710 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 09:27:06.738020760 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+W0724 09:27:31.111000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177582 via signal SIGTERM
+W0724 09:27:31.111000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177584 via signal SIGTERM
+W0724 09:27:31.112000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177585 via signal SIGTERM
+W0724 09:27:31.112000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177586 via signal SIGTERM
+W0724 09:27:31.112000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177587 via signal SIGTERM
+W0724 09:27:31.112000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177588 via signal SIGTERM
+W0724 09:27:31.112000 177503 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 177589 via signal SIGTERM
 Traceback (most recent call last):
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 701, in <module>
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 714, in <module>
     torch.multiprocessing.spawn(
   File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
     return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
@@ -42,34 +26,18 @@ Traceback (most recent call last):
     raise ProcessRaisedException(msg, error_index, failed_process.pid)
 torch.multiprocessing.spawn.ProcessRaisedException: 
 
--- Process 4 terminated with the following error:
+-- Process 1 terminated with the following error:
 Traceback (most recent call last):
   File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
     fn(i, *args)
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 615, in test_loop
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 628, in test_loop
     test(
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 443, in test
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 456, in test
     baseline_output, base_ep_recv_count = baseline_test(
                                           ^^^^^^^^^^^^^^
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 259, in baseline_test
-    hidden_states, event, hook = buffer.low_latency_combine(
-                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/utils.py", line 87, in wrapper
-    result = func(*args, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/buffer.py", line 771, in low_latency_combine
-    return self.low_latency_strategy.low_latency_combine(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/strategies/low_latency_strategy.py", line 150, in low_latency_combine
-    combined_x, event, hook = self.runtime.low_latency_combine(
-                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: call aclnnMoeLowLatencyCombineV2 failed, detail:EZ9999: Inner Error!
-EZ9999[PID: 173499] 2026-07-24-08:57:21.246.628 AclNN_Inner_Error(EZ9999):  MoeLowLatencyCombineV2 do tiling failed, ret is -1.
-        TraceBack (most recent call last):
-       Check NnopbaseExecutorDoTiling(executor) failed
-       Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed
-       Check NnopbaseExecutorMatchCache(executor) failed
-       Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 263, in baseline_test
+    aligned_num_tokens * num_ranks * min(num_experts // num_ranks, topk_idx.size(1))
+    ^^^^^^^^^^^^^^^^^^
+NameError: name 'aligned_num_tokens' is not defined
 
-
-[ERROR] 2026-07-24-08:57:28 (PID:173416, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2026-07-24-09:27:31 (PID:177503, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
