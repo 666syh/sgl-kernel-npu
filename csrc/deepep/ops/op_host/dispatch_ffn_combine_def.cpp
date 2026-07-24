@@ -71,15 +71,16 @@ public:
         this->Attr("group").AttrType(REQUIRED).String();
         this->Attr("ep_rank_size").Int();
         this->Attr("ep_rank_id").Int();
-        // Keep the attr order aligned with the aclnnDispatchFFNCombine host call:
-        // group, ep_rank_size, ep_rank_id, max_output_size(M), activation, beta, linear_beta, enable_linear_beta.
         this->Attr("M").AttrType(OPTIONAL).Int();  // max_output_size / global_bs slot used by tiling
+        // Keep the attr order aligned with aclnnInnerDispatchFFNCombineGetWorkspaceSize:
+        // group, ep_rank_size, ep_rank_id, max_output_size(M), transB, weightNz, activation, beta, linear_beta,
+        // enable_linear_beta.
+        this->Attr("transB").AttrType(OPTIONAL).Bool(false);
+        this->Attr("weightNz").AttrType(OPTIONAL).Bool(false);
         this->Attr("activation").AttrType(OPTIONAL).Int(0);
         this->Attr("beta").AttrType(OPTIONAL).Float(1.0f);
         this->Attr("linear_beta").AttrType(OPTIONAL).Float(1.0f);
         this->Attr("enable_linear_beta").AttrType(OPTIONAL).Bool(false);
-        this->Attr("transB").AttrType(OPTIONAL).Bool(false);
-        this->Attr("weightNz").AttrType(OPTIONAL).Bool(false);
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)
