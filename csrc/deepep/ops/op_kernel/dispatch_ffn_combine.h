@@ -298,6 +298,9 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Process()
                                                      gmExpertTokenNums_,
                                                      ubMoveNum,
                                                      moeInitRoutingQuantV2TilingData};
+        paramsSitu.beta = beta;
+        paramsSitu.linearBeta = linearBeta;
+        paramsSitu.enableLinearBeta = enableLinearBeta;
         MatmulKernelSitu kernel(paramsSitu);
         kernel(paramsSitu);
     } else {
@@ -337,6 +340,9 @@ __aicore__ inline void DispatchFFNCombine<TemplateMMA2ACFunc>::Process()
                                                          gmExpertTokenNums_,
                                                          ubMoveNum,
                                                          moeInitRoutingQuantV2TilingData};
+        paramsSwiglu.beta = beta;
+        paramsSwiglu.linearBeta = linearBeta;
+        paramsSwiglu.enableLinearBeta = enableLinearBeta;
         MatmulKernelSwiglu kernel(paramsSwiglu);
         kernel(paramsSwiglu);
     }

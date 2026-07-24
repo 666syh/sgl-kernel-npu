@@ -161,13 +161,16 @@ def _dequant_and_activate_situ(
 
 def _quantize_int8_dynamic(x: torch.Tensor):
     if x.numel() == 0:
-        return x.to(torch.int8), torch.tensor(1.0, device=x.device, dtype=torch.float32)
-    max_abs = torch.max(torch.abs(x))
-    max_abs_value = float(max_abs.item())
-    scale = max_abs / 127.0 if max_abs_value > 0 else torch.tensor(1.0, device=x.device)
-    y = torch.round(x * (127.0 / max_abs)) if max_abs_value > 0 else x.clone()
+        return x.to(torch.int8), torch.empty((0,), device=x.device, dtype=torch.float32)
+
+    # GroupedMatmul expects a 1-D per-token scale for a single tensor input.
+    # Keep the SiTU reference quantization contract identical to DequantSwigluQuant.
+    x_fp32 = x.to(torch.float32)
+    max_abs = torch.amax(torch.abs(x_fp32), dim=-1)
+    scale = torch.where(max_abs > 0, max_abs / 127.0, torch.ones_like(max_abs))
+    y = torch.round(x_fp32 / scale.unsqueeze(-1))
     y = torch.clamp(y, -128, 127).to(torch.int8)
-    return y, scale.to(torch.float32)
+    return y, scale
 
 
 # ======================== Baseline Reference ========================

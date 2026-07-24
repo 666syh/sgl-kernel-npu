@@ -135,6 +135,10 @@ public:
         uint64_t initRoutingQuantTilingKey;
         uint32_t epilogueCoreNum;
         uint32_t epilogueGranularity;
+        // Activation parameters are populated by the dispatch wrapper and consumed by SiTU epilogue.
+        float beta{1.0f};
+        float linearBeta{1.0f};
+        bool enableLinearBeta{false};
         optiling::MoeInitRoutingQuantV2TilingData moeInitRoutingQuantV2TilingData;
         //--------------
 
@@ -856,7 +860,11 @@ private:
 
         uint32_t n = params.problemShape.n();
         BlockEpilogue2 blockEpilogue2(resource, epilogueParams);
-        BlockEpilogue1 blockEpilogue1(resource, n);
+        typename BlockEpilogue1::Params epilogue1Params{};
+        epilogue1Params.beta = params.beta;
+        epilogue1Params.linearBeta = params.linearBeta;
+        epilogue1Params.enableLinearBeta = params.enableLinearBeta;
+        BlockEpilogue1 blockEpilogue1(resource, n, epilogue1Params);
 
         // Synchronous wait: SwiGLU waits for GMM1 [1]
         AscendC::CrossCoreWaitFlag<0x2>(SYNCFLAGC2V);

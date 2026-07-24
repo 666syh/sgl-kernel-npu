@@ -60,6 +60,10 @@ public:
         LayoutPerTokenScale layoutPerTokenScale{};
         __gm__ ElementD *ptrD{nullptr};
         LayoutD layoutD{};
+        // Kept for a common kernel-side epilogue parameter path; SwiGLU ignores them.
+        float beta{1.0f};
+        float linearBeta{1.0f};
+        bool enableLinearBeta{false};
 
         CATLASS_DEVICE
         Params() {};
