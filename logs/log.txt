@@ -1,29 +1,36 @@
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
-python3 tests/python/deepep/test_dispatch_ffn_combine.py \
-	--num-processes 8 \
-	--num-tokens 32 \
-	--num-experts 64 \
-	--activation situ \
-	--beta 1.0
-
-[W724 08:26:08.011430830 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.308669900 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.341721540 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.503087870 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.787447820 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.975325530 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.066703680 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 08:26:09.119753860 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-W0724 08:26:37.212000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165255 via signal SIGTERM
-W0724 08:26:37.213000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165256 via signal SIGTERM
-W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165257 via signal SIGTERM
-W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165259 via signal SIGTERM
-W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165260 via signal SIGTERM
-W0724 08:26:37.214000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165261 via signal SIGTERM
-W0724 08:26:37.215000 165176 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 165262 via signal SIGTERM
+[W724 08:57:02.234299260 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:02.536847970 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:02.829130610 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:02.103900330 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:02.218563720 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:03.489840160 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:03.559061740 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 08:57:03.774338670 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 252, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 238, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 268, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 222, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 271, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 262, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 265, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+[ERROR][MoeLowLatencyCombineV2] expandX's dim0 not greater than or equal to A * tpWorldSize, expandX's dim0 = 270, A = 2048, tpWorldSize = 1
+[ERROR][MoeLowLatencyCombineV2] param dim check failed.
+W0724 08:57:28.325000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173495 via signal SIGTERM
+W0724 08:57:28.326000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173496 via signal SIGTERM
+W0724 08:57:28.326000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173497 via signal SIGTERM
+W0724 08:57:28.326000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173498 via signal SIGTERM
+W0724 08:57:28.327000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173500 via signal SIGTERM
+W0724 08:57:28.327000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173501 via signal SIGTERM
+W0724 08:57:28.327000 173416 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 173502 via signal SIGTERM
 Traceback (most recent call last):
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 698, in <module>
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 701, in <module>
     torch.multiprocessing.spawn(
   File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
     return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
@@ -35,33 +42,34 @@ Traceback (most recent call last):
     raise ProcessRaisedException(msg, error_index, failed_process.pid)
 torch.multiprocessing.spawn.ProcessRaisedException: 
 
--- Process 3 terminated with the following error:
+-- Process 4 terminated with the following error:
 Traceback (most recent call last):
   File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
     fn(i, *args)
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 612, in test_loop
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 615, in test_loop
     test(
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 440, in test
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 443, in test
     baseline_output, base_ep_recv_count = baseline_test(
                                           ^^^^^^^^^^^^^^
-  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 244, in baseline_test
-    hidden_states = torch_npu.npu_grouped_matmul(
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
-    return self._op(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/utils/_device.py", line 109, in __torch_function__
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
-    return self._op(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: npu_grouped_matmul:../third_party/op-plugin/op_plugin/ops/opapi/GroupedMatmulKernelNpuOpApi.cpp:322 NPU function error: call aclnnGroupedMatmulWeightNz failed, error code is 161002
-[ERROR] 2026-07-24-08:26:27 (PID:165258, Device:3, RankID:-1) ERR00100 PTA call acl api failed.
-[PID: 165258] 2026-07-24-08:26:27.556.747 AclNN_Parameter_Error(EZ1001): PerTokenScaleOptional dim num must be 1 when x is single tensor, but now is 0.
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 259, in baseline_test
+    hidden_states, event, hook = buffer.low_latency_combine(
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/utils.py", line 87, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/buffer.py", line 771, in low_latency_combine
+    return self.low_latency_strategy.low_latency_combine(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/strategies/low_latency_strategy.py", line 150, in low_latency_combine
+    combined_x, event, hook = self.runtime.low_latency_combine(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: call aclnnMoeLowLatencyCombineV2 failed, detail:EZ9999: Inner Error!
+EZ9999[PID: 173499] 2026-07-24-08:57:21.246.628 AclNN_Inner_Error(EZ9999):  MoeLowLatencyCombineV2 do tiling failed, ret is -1.
         TraceBack (most recent call last):
-        Check perTokenScale failed!
-        CheckGroupedMatmulQuant failed.
-        CheckFunctionQuantParams failed.
+       Check NnopbaseExecutorDoTiling(executor) failed
+       Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed
+       Check NnopbaseExecutorMatchCache(executor) failed
+       Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed
 
 
+[ERROR] 2026-07-24-08:57:28 (PID:173416, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
