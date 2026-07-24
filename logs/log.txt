@@ -7,38 +7,37 @@ python3 tests/python/deepep/test_dispatch_ffn_combine.py \
 	--activation swiglu \
 	--beta 1.0
 
-
-[W724 06:51:35.382977190 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:35.595879750 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:35.833774120 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:35.065508320 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:35.066333270 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:36.339325540 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:36.788664130 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W724 06:51:36.843140640 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[W724 07:20:06.800521940 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:06.879198670 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:06.135812090 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:06.211765580 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:07.441535530 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:07.506857290 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:07.553049260 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 07:20:07.720459380 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine Tiling Debug] activationType is invalid.
 [ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
-W0724 06:52:02.646000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105232 via signal SIGTERM
-W0724 06:52:02.647000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105233 via signal SIGTERM
-W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105234 via signal SIGTERM
-W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105236 via signal SIGTERM
-W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105237 via signal SIGTERM
-W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105238 via signal SIGTERM
-W0724 06:52:02.649000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105239 via signal SIGTERM
+W0724 07:20:32.616000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117700 via signal SIGTERM
+W0724 07:20:32.617000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117701 via signal SIGTERM
+W0724 07:20:32.617000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117702 via signal SIGTERM
+W0724 07:20:32.617000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117703 via signal SIGTERM
+W0724 07:20:32.617000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117704 via signal SIGTERM
+W0724 07:20:32.618000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117705 via signal SIGTERM
+W0724 07:20:32.618000 117621 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 117706 via signal SIGTERM
 Traceback (most recent call last):
   File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 698, in <module>
     torch.multiprocessing.spawn(
@@ -52,7 +51,7 @@ Traceback (most recent call last):
     raise ProcessRaisedException(msg, error_index, failed_process.pid)
 torch.multiprocessing.spawn.ProcessRaisedException: 
 
--- Process 3 terminated with the following error:
+-- Process 7 terminated with the following error:
 Traceback (most recent call last):
   File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
     fn(i, *args)
@@ -65,7 +64,7 @@ Traceback (most recent call last):
     output, expert_token_nums = self.runtime.dispatch_ffn_combine(
                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 RuntimeError: call aclnnDispatchFFNCombine failed, detail:EZ9999: Inner Error!
-EZ9999[PID: 105235] 2026-07-24-06:51:50.770.954 AclNN_Inner_Error(EZ9999):  DispatchFFNCombine do tiling failed, ret is -1.
+EZ9999[PID: 117707] 2026-07-24-07:20:22.221.707 AclNN_Inner_Error(EZ9999):  DispatchFFNCombine do tiling failed, ret is -1.
         TraceBack (most recent call last):
        Check NnopbaseExecutorDoTiling(executor) failed
        Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed
@@ -73,4 +72,4 @@ EZ9999[PID: 105235] 2026-07-24-06:51:50.770.954 AclNN_Inner_Error(EZ9999):  Disp
        Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed
 
 
-[ERROR] 2026-07-24-06:52:02 (PID:105153, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+[ERROR] 2026-07-24-07:20:32 (PID:117621, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
