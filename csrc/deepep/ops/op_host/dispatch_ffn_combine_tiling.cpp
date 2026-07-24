@@ -32,13 +32,13 @@ const char *K_INNER_DEBUG = "DispatchFFNCombine Tiling Debug";
 constexpr uint32_t ATTR_GROUP_INDEX = 0;
 constexpr uint32_t ATTR_EP_RANK_SIZE_INDEX = 1;
 constexpr uint32_t ATTR_EP_RANK_ID_INDEX = 2;
-constexpr uint32_t ATTR_MAX_OUTPUT_SIZE_INDEX = 3;
-constexpr uint32_t ATTR_IS_TRANS_B = 4;
-constexpr uint32_t ATTR_WEIGHT_NZ = 5;
-constexpr uint32_t ATTR_ACTIVATION_TYPE_INDEX = 6;
-constexpr uint32_t ATTR_BETA_INDEX = 7;
-constexpr uint32_t ATTR_LINEAR_BETA_INDEX = 8;
-constexpr uint32_t ATTR_ENABLE_LINEAR_BETA_INDEX = 9;
+constexpr uint32_t ATTR_ACTIVATION_TYPE_INDEX = 3;
+constexpr uint32_t ATTR_BETA_INDEX = 4;
+constexpr uint32_t ATTR_LINEAR_BETA_INDEX = 5;
+constexpr uint32_t ATTR_ENABLE_LINEAR_BETA_INDEX = 6;
+constexpr uint32_t ATTR_MAX_OUTPUT_SIZE_INDEX = 7;
+constexpr uint32_t ATTR_IS_TRANS_B = 8;
+constexpr uint32_t ATTR_WEIGHT_NZ = 9;
 constexpr uint64_t INIT_TILINGKEY = 1000000;
 constexpr uint64_t TILINGKEY_TRANS_B = 1U;
 constexpr uint64_t TILINGKEY_WEIGHT_NZ = 10;
@@ -118,9 +118,11 @@ static ge::graphStatus DispatchFFNCombineCheckAttrAndSetTiling(gert::TilingConte
     info.enableLinearBeta = *enableLinearBetaPtr;
     OP_TILING_CHECK(info.activationType > 1, OP_LOGE(K_INNER_DEBUG, "activationType is invalid."),
                     return ge::GRAPH_FAILED);
-    OP_TILING_CHECK(info.beta <= 0.0f, OP_LOGE(K_INNER_DEBUG, "beta must be positive."), return ge::GRAPH_FAILED);
-    OP_TILING_CHECK(info.enableLinearBeta && info.linearBeta <= 0.0f,
-                    OP_LOGE(K_INNER_DEBUG, "linearBeta must be positive when enabled."), return ge::GRAPH_FAILED);
+    if (info.activationType == 1) {
+        OP_TILING_CHECK(info.beta <= 0.0f, OP_LOGE(K_INNER_DEBUG, "beta must be positive."), return ge::GRAPH_FAILED);
+        OP_TILING_CHECK(info.enableLinearBeta && info.linearBeta <= 0.0f,
+                        OP_LOGE(K_INNER_DEBUG, "linearBeta must be positive when enabled."), return ge::GRAPH_FAILED);
+    }
 
     uint32_t epRankSize = static_cast<uint32_t>(*epRankSizePtr);
     OP_TILING_CHECK(*epRankIdPtr < 0, OP_LOGE(K_INNER_DEBUG, "epRankId must >= 0."), return ge::GRAPH_FAILED);
