@@ -256,6 +256,19 @@ def baseline_test(
         output_dtype=output_dtype,
     )[0]
 
+    # MoeLowLatencyCombineV2 expects a capacity-shaped expand_x tensor, not only the
+    # actually produced token rows. Keep the visible baseline I/O unchanged, but pad
+    # the internal combine input to satisfy the tiling contract.
+    combine_capacity = (
+        aligned_num_tokens * num_ranks * min(num_experts // num_ranks, topk_idx.size(1))
+    )
+    if hidden_states.size(0) < combine_capacity:
+        padded_hidden_states = hidden_states.new_zeros(
+            (combine_capacity, hidden_states.size(1))
+        )
+        padded_hidden_states[: hidden_states.size(0)] = hidden_states
+        hidden_states = padded_hidden_states
+
     hidden_states, event, hook = buffer.low_latency_combine(
         hidden_states,
         topk_idx,
