@@ -16,23 +16,19 @@
 namespace Cam {
 
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_MAGIC = 0x46444D5035413031ULL;  // FDMP5A01
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_VERSION = 1;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_VERSION = 2;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US = 1000;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_FLAG_SESSION_BUFFER = 0x1ULL;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = 1ULL;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = 2ULL;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_GROUP_COUNT_CAPACITY = 64U;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIC_PER_GROUP = 1U;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIV_PER_GROUP = 2U;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY =
-    FUSED_DEEP_MOE_PROFILE_GROUP_COUNT_CAPACITY * FUSED_DEEP_MOE_PROFILE_AIC_PER_GROUP;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY =
-    FUSED_DEEP_MOE_PROFILE_GROUP_COUNT_CAPACITY * FUSED_DEEP_MOE_PROFILE_AIV_PER_GROUP;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY = 36U;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY = 72U;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_COUNT = 5U;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY =
     FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY + FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_RECORDS_PER_LAUNCH =
-    FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY * FUSED_DEEP_MOE_PROFILE_STAGE_COUNT;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS = 12U;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK =
+    (1ULL << FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS) - 1ULL;
 
 FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileLaunchCounts(uint32_t launchCountCapacity,
                                                                          uint32_t launchCountCaptured)
@@ -51,6 +47,24 @@ FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileLayout1(uint32_t log
                                                                     uint32_t recordsPerLaunch)
 {
     return (static_cast<uint64_t>(logicalCoreCountCapacity) << 32) | static_cast<uint64_t>(recordsPerLaunch);
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileStageOccurrences(uint16_t dispatchOccurrence,
+                                                                             uint16_t gmm1Occurrence,
+                                                                             uint16_t swigluOccurrence,
+                                                                             uint16_t gmm2Occurrence,
+                                                                             uint16_t combineOccurrence)
+{
+    return (static_cast<uint64_t>(dispatchOccurrence) << (0U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
+           (static_cast<uint64_t>(gmm1Occurrence) << (1U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
+           (static_cast<uint64_t>(swigluOccurrence) << (2U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
+           (static_cast<uint64_t>(gmm2Occurrence) << (3U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
+           (static_cast<uint64_t>(combineOccurrence) << (4U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS));
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileFlags(uint32_t flags, uint32_t droppedLaunches)
+{
+    return (static_cast<uint64_t>(droppedLaunches) << 32) | static_cast<uint64_t>(flags);
 }
 
 FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileLaunchCapacity(uint64_t launchCountsPacked)
@@ -93,6 +107,60 @@ FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileRecordsPerLaunch(u
     return static_cast<uint32_t>(layoutPacked1 & 0xFFFFFFFFULL);
 }
 
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileFlags(uint64_t flagsPacked)
+{
+    return static_cast<uint32_t>(flagsPacked & 0xFFFFFFFFULL);
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileDroppedLaunches(uint64_t flagsPacked)
+{
+    return static_cast<uint32_t>(flagsPacked >> 32);
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileStageOccurrenceCount(uint64_t stageOccurrencesPacked,
+                                                                                   uint32_t stageId)
+{
+    if (stageId >= FUSED_DEEP_MOE_PROFILE_STAGE_COUNT) {
+        return 0U;
+    }
+    return static_cast<uint32_t>((stageOccurrencesPacked >> (stageId * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) &
+                                 FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK);
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileStageBaseOffset(uint64_t stageOccurrencesPacked,
+                                                                                       uint32_t stageId)
+{
+    uint32_t base = 0U;
+    for (uint32_t i = 0U; i < stageId && i < FUSED_DEEP_MOE_PROFILE_STAGE_COUNT; ++i) {
+        base += UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, i);
+    }
+    return base;
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileTotalOccurrences(uint64_t stageOccurrencesPacked)
+{
+    uint32_t total = 0U;
+    for (uint32_t i = 0U; i < FUSED_DEEP_MOE_PROFILE_STAGE_COUNT; ++i) {
+        total += UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, i);
+    }
+    return total;
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileRecordsPerLaunch(uint32_t logicalCoreCount,
+                                                                                        uint64_t stageOccurrencesPacked)
+{
+    return logicalCoreCount * GetFusedDeepMoeProfileTotalOccurrences(stageOccurrencesPacked);
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t GetFusedDeepMoeProfileLaunchOffset(uint32_t headerBytes,
+                                                                                    uint32_t recordsPerLaunch,
+                                                                                    uint32_t recordBytes,
+                                                                                    uint64_t launchId)
+{
+    return static_cast<uint64_t>(headerBytes) +
+           launchId * static_cast<uint64_t>(recordsPerLaunch) * static_cast<uint64_t>(recordBytes);
+}
+
 FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileLogicalCoreLinear(uint64_t coreType,
                                                                                          uint64_t coreIdx)
 {
@@ -121,21 +189,21 @@ struct FusedDeepMoeProfileHeader {
     uint64_t version;
     uint64_t cycleToUs;
     uint64_t launchCountsPacked;
-    uint64_t droppedLaunches;
     uint64_t layoutPacked0;
     uint64_t layoutPacked1;
-    uint64_t flags;
+    uint64_t stageOccurrencesPacked;
+    uint64_t flagsPacked;
 };
 
 struct FusedDeepMoeProfileRecord {
     uint64_t coreType;
     uint64_t coreIdx;
     uint64_t stageId;
+    uint64_t occurrenceId;
     uint64_t launchId;
     uint64_t startCycle;
     uint64_t endCycle;
     uint64_t reserved0;
-    uint64_t reserved1;
 };
 
 static_assert(sizeof(FusedDeepMoeProfileHeader) == 64, "Unexpected fused profile header size");

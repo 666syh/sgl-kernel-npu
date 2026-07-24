@@ -310,10 +310,6 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
-        uint64_t profStart = 0;
-        if (params.profile != nullptr) {
-            profStart = params.profile->Now();
-        }
         AscendC::ICachePreLoad(1);
         // uint32_t actualRecvCoreNumPerGroup = recvCoreNum < params.epRankSize ? recvCoreNum : params.epRankSize;
         uint32_t actualRecvCoreNumPerGroup = recvCoreNum;
@@ -404,9 +400,6 @@ public:
 
             startCoreIdx = (startCoreIdx + coreLoops) % aicNum;
         }
-        if (params.profile != nullptr) {
-            params.profile->Record(FusedDeepMoeProfileStage::Gmm1, profStart, params.profile->Now());
-        }
         {
             AscendC::GlobalTensor<ElementGroupList> groupList;
             groupList.SetGlobalBuffer(params.ptrGroupList);
@@ -427,6 +420,7 @@ public:
 
             AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+                uint64_t profStart = 0;
                 gmMxScaleA.SetGlobalBuffer(params.ptrMxScaleA + gmGroupOffsetMxScaleA);
                 if constexpr (EXEC_FLAG & EXEC_FLAG_TENSOR_LIST) {
                     gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(groupIdx));
@@ -447,6 +441,9 @@ public:
                 } else {
                     currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                }
+                if (params.profile != nullptr) {
+                    profStart = params.profile->Now();
                 }
                 GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
 
@@ -515,6 +512,9 @@ public:
                 gmGroupOffsetMxScaleA += inGroupProblemShape.m() * mxScaleAlignedK;
 
                 startCoreIdx = (startCoreIdx + coreLoops) % aicNum;
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::Gmm1, groupIdx, profStart, params.profile->Now());
+                }
             }
 
             if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
