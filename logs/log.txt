@@ -1,0 +1,76 @@
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+
+python3 tests/python/deepep/test_dispatch_ffn_combine.py \
+	--num-processes 8 \
+	--num-tokens 32 \
+	--num-experts 64 \
+	--activation swiglu \
+	--beta 1.0
+
+
+[W724 06:51:35.382977190 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:35.595879750 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:35.833774120 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:35.065508320 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:35.066333270 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:36.339325540 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:36.788664130 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W724 06:51:36.843140640 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+[ERROR][DispatchFFNCombine Tiling Debug] beta must be positive.
+[ERROR][DispatchFFNCombine] DispatchFFNCombine CheckAttrAndSetTiling Failed
+W0724 06:52:02.646000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105232 via signal SIGTERM
+W0724 06:52:02.647000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105233 via signal SIGTERM
+W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105234 via signal SIGTERM
+W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105236 via signal SIGTERM
+W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105237 via signal SIGTERM
+W0724 06:52:02.648000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105238 via signal SIGTERM
+W0724 06:52:02.649000 105153 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 105239 via signal SIGTERM
+Traceback (most recent call last):
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 698, in <module>
+    torch.multiprocessing.spawn(
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 211, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 3 terminated with the following error:
+Traceback (most recent call last):
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+    fn(i, *args)
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 612, in test_loop
+    test(
+  File "/home/syh/sgl-kernel-npu/tests/python/deepep/test_dispatch_ffn_combine.py", line 459, in test
+    fused2_output, fused2_ep_recv_count = buffer.fused_deep_moe(
+                                          ^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/deep_ep/buffer.py", line 890, in fused_deep_moe
+    output, expert_token_nums = self.runtime.dispatch_ffn_combine(
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: call aclnnDispatchFFNCombine failed, detail:EZ9999: Inner Error!
+EZ9999[PID: 105235] 2026-07-24-06:51:50.770.954 AclNN_Inner_Error(EZ9999):  DispatchFFNCombine do tiling failed, ret is -1.
+        TraceBack (most recent call last):
+       Check NnopbaseExecutorDoTiling(executor) failed
+       Check NnopbaseExecutorTilingAndUpdateBinInfo(executor) failed
+       Check NnopbaseExecutorMatchCache(executor) failed
+       Check NnopbaseRunForWorkspace(*executor, workspaceSize) failed
+
+
+[ERROR] 2026-07-24-06:52:02 (PID:105153, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
