@@ -208,8 +208,8 @@ static void CopyHeaderToDevice(const at::Tensor &profileBuffer, const Cam::Fused
     profileBuffer.narrow(0, 0, static_cast<int64_t>(sizeof(header))).copy_(headerCpu);
 }
 
-void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
-                         int64_t numWarmups, int64_t launchCountCaptured)
+void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
+                             int64_t numWarmups, int64_t launchCountCaptured)
 {
     struct LaunchTraceBundle {
         int64_t launchId{0};
@@ -580,6 +580,12 @@ void IncrementCapturedLaunches()
     ++GetSessionImpl().capturedLaunches;
 }
 
+void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
+                         int64_t numWarmups, int64_t launchCountCaptured)
+{
+    ExportBufferToTraceImpl(profileBuffer, rank, profileTraceDir, numWarmups, launchCountCaptured);
+}
+
 void ExportAndReset(int64_t rank)
 {
     auto &session = GetSessionImpl();
@@ -599,8 +605,8 @@ void ExportAndReset(int64_t rank)
             << ", trace_dir=" << session.profileTraceDir;
         DebugPrint(oss.str());
     }
-    ExportBufferToTrace(session.profileBuffer, rank, session.profileTraceDir, session.numWarmups,
-                        session.capturedLaunches);
+    ExportBufferToTraceImpl(session.profileBuffer, rank, session.profileTraceDir, session.numWarmups,
+                            session.capturedLaunches);
     session.Reset();
 }
 
