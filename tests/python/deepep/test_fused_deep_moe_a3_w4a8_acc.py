@@ -25,9 +25,19 @@ def info_rank0(rank: int, message: str):
         print(f"[rank0] {message}", flush=True)
 
 
+def info_rank(rank: int, message: str):
+    print(f"[rank{rank}] {message}", flush=True)
+
+
 def warn_rank0(rank: int, message: str):
     if rank == 0:
         print(f"[rank0][WARNING] {message}", flush=True)
+
+
+def stage_barrier(rank: int, stage: str):
+    info_rank(rank, f"{stage}: enter barrier")
+    dist.barrier()
+    info_rank(rank, f"{stage}: exit barrier")
 
 
 def set_env_if_provided(name: str, value):
@@ -331,13 +341,26 @@ def run_grouped_matmul_w4a8(
     group_list: torch.Tensor,
     weight: List[torch.Tensor],
     scale: List[torch.Tensor],
-    bias: torch.Tensor,
+    bias,
+    rank: int,
+    stage_name: str,
 ) -> torch.Tensor:
-    return torch_npu.npu_grouped_matmul(
+    stage_barrier(rank, f"{stage_name}_pre")
+    bias_tensor = bias[0] if isinstance(bias, list) else bias
+    info_rank(
+        rank,
+        f"{stage_name}: x={tuple(x_int8.shape)}/{x_int8.dtype} "
+        f"per_token_scale={tuple(per_token_scale.shape)}/{per_token_scale.dtype} "
+        f"group_list={tuple(group_list.shape)}/{group_list.dtype} "
+        f"weight0={tuple(weight[0].shape)}/{weight[0].dtype} "
+        f"scale0={tuple(scale[0].shape)}/{scale[0].dtype} "
+        f"bias={tuple(bias_tensor.shape)}/{bias_tensor.dtype}",
+    )
+    out = torch_npu.npu_grouped_matmul(
         x=[x_int8],
         weight=weight,
         scale=[scale[0].to(scale[0].dtype)],
-        bias=bias,
+        bias=bias_tensor,
         per_token_scale=[per_token_scale],
         split_item=2,
         group_list_type=EXPERT_TOKEN_NUMS_TYPE_CUMSUM,
@@ -345,6 +368,9 @@ def run_grouped_matmul_w4a8(
         group_list=group_list,
         output_dtype=torch.bfloat16,
     )[0]
+    info_rank(rank, f"{stage_name}: out={tuple(out.shape)}/{out.dtype}")
+    stage_barrier(rank, f"{stage_name}_post")
+    return out
 
 
 def run_mc2_dispatch(
@@ -358,6 +384,14 @@ def run_mc2_dispatch(
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ):
+    stage_barrier(ep_rank_id, "dispatch_pre")
+    info_rank(
+        ep_rank_id,
+        f"dispatch: x={tuple(x.shape)}/{x.dtype} "
+        f"topk_idx={tuple(topk_idx.shape)}/{topk_idx.dtype} "
+        f"x_active_mask={tuple(x_active_mask.shape)}/{x_active_mask.dtype} "
+        f"group_ep={group_ep} ep_world_size={ep_world_size}",
+    )
     kwargs = {
         "x": x,
         "expert_ids": topk_idx,
@@ -378,6 +412,16 @@ def run_mc2_dispatch(
         if enable_dispatch_v2
         else torch_npu.npu_moe_distribute_dispatch(**kwargs)
     )
+    info_rank(
+        ep_rank_id,
+        f"dispatch: recv_x={tuple(output[0].shape)}/{output[0].dtype} "
+        f"recv_x_scale={tuple(output[1].shape)}/{output[1].dtype} "
+        f"group_list={tuple(output[3].shape)}/{output[3].dtype} "
+        f"ep_recv_counts={tuple(output[4].shape)}/{output[4].dtype} "
+        f"tp_recv_counts={tuple(output[5].shape)}/{output[5].dtype} "
+        f"expand_scales={tuple(output[6].shape)}/{output[6].dtype}",
+    )
+    stage_barrier(ep_rank_id, "dispatch_post")
     return output[0:7]
 
 
@@ -396,6 +440,17 @@ def run_mc2_combine(
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ) -> torch.Tensor:
+    stage_barrier(ep_rank_id, "combine_pre")
+    info_rank(
+        ep_rank_id,
+        f"combine: expand_x={tuple(mlp_out.shape)}/{mlp_out.dtype} "
+        f"topk_idx={tuple(topk_idx.shape)}/{topk_idx.dtype} "
+        f"topk_weights={tuple(topk_weights.shape)}/{topk_weights.dtype} "
+        f"ep_recv_counts={tuple(ep_recv_counts.shape)}/{ep_recv_counts.dtype} "
+        f"tp_recv_counts={tuple(tp_recv_counts.shape)}/{tp_recv_counts.dtype} "
+        f"expand_scales={tuple(expand_scales.shape)}/{expand_scales.dtype} "
+        f"group_ep={group_ep} ep_world_size={ep_world_size}",
+    )
     kwargs = {
         "expand_x": mlp_out,
         "expert_ids": topk_idx,
@@ -413,9 +468,13 @@ def run_mc2_combine(
     }
     if enable_dispatch_v2:
         kwargs["assist_info_for_combine"] = assist_info_for_combine
-        return torch_npu.npu_moe_distribute_combine_v2(**kwargs)
-    kwargs["expand_idx"] = assist_info_for_combine
-    return torch_npu.npu_moe_distribute_combine(**kwargs)
+        out = torch_npu.npu_moe_distribute_combine_v2(**kwargs)
+    else:
+        kwargs["expand_idx"] = assist_info_for_combine
+        out = torch_npu.npu_moe_distribute_combine(**kwargs)
+    info_rank(ep_rank_id, f"combine: out={tuple(out.shape)}/{out.dtype}")
+    stage_barrier(ep_rank_id, "combine_post")
+    return out
 
 
 def run_baseline_reference(
@@ -433,6 +492,7 @@ def run_baseline_reference(
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    info_rank(ep_rank_id, "baseline: start")
     x_active_mask = build_x_active_mask(x.size(0), x.device)
     (
         recv_x_int8,
@@ -460,7 +520,11 @@ def run_baseline_reference(
         weights["baseline_l1_weight_stacked"],
         weights["baseline_l1_scale_stacked"],
         weights["baseline_l1_bias_stacked"],
+        ep_rank_id,
+        "gmm1",
     )
+    stage_barrier(ep_rank_id, "activation_pre")
+    info_rank(ep_rank_id, f"activation_in: {tuple(gate_up.shape)}/{gate_up.dtype}")
     act_out = apply_activation(
         gate_up,
         activation,
@@ -468,7 +532,16 @@ def run_baseline_reference(
         linear_beta=linear_beta,
         activation_clamp=activation_clamp,
     )
+    info_rank(ep_rank_id, f"activation_out: {tuple(act_out.shape)}/{act_out.dtype}")
+    stage_barrier(ep_rank_id, "activation_post")
+    stage_barrier(ep_rank_id, "dynamic_quant_pre")
     act_int8, act_scale = torch_npu.npu_dynamic_quant(act_out)
+    info_rank(
+        ep_rank_id,
+        f"dynamic_quant: act_int8={tuple(act_int8.shape)}/{act_int8.dtype} "
+        f"act_scale={tuple(act_scale.shape)}/{act_scale.dtype}",
+    )
+    stage_barrier(ep_rank_id, "dynamic_quant_post")
     down = run_grouped_matmul_w4a8(
         act_int8,
         act_scale,
@@ -476,6 +549,8 @@ def run_baseline_reference(
         weights["baseline_l2_weight_stacked"],
         weights["baseline_l2_scale_stacked"],
         weights["baseline_l2_bias_stacked"],
+        ep_rank_id,
+        "gmm2",
     )
     combined_x = run_mc2_combine(
         down,
@@ -492,6 +567,7 @@ def run_baseline_reference(
         enable_dispatch_v2=enable_dispatch_v2,
     )
     group_counts = torch.cat([group_list[:1], torch.diff(group_list, dim=0)])
+    info_rank(ep_rank_id, "baseline: end")
     return combined_x, normalize_expert_counts(
         group_counts,
         num_experts // dist.get_world_size(),
@@ -512,7 +588,16 @@ def run_fused_reference(
     linear_beta: Optional[float],
     activation_clamp: Optional[float],
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    return buffer.fused_deep_moe(
+    rank = dist.get_rank()
+    stage_barrier(rank, "fused_pre")
+    info_rank(
+        rank,
+        f"fused: x={tuple(x.shape)}/{x.dtype} "
+        f"topk_idx={tuple(topk_idx.shape)}/{topk_idx.dtype} "
+        f"topk_weights={tuple(topk_weights.shape)}/{topk_weights.dtype} "
+        f"l1_num={len(weights['fused_l1_weights'])} l2_num={len(weights['fused_l2_weights'])}",
+    )
+    out = buffer.fused_deep_moe(
         x=x,
         topk_idx=topk_idx,
         topk_weights=topk_weights,
@@ -533,6 +618,13 @@ def run_fused_reference(
         dispatch_quant_mode=weights["dispatch_quant_mode"],
         dispatch_quant_out_dtype=weights["dispatch_quant_out_dtype"],
     )
+    info_rank(
+        rank,
+        f"fused: out={tuple(out[0].shape)}/{out[0].dtype} "
+        f"counts={tuple(out[1].shape)}/{out[1].dtype}",
+    )
+    stage_barrier(rank, "fused_post")
+    return out
 
 
 def build_case_matrix(args: argparse.Namespace) -> list[dict]:
