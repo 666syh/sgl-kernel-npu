@@ -1,0 +1,745 @@
+import argparse
+import os
+import random
+from typing import List, Optional
+
+import deep_ep
+import numpy as np
+import torch
+import torch.distributed as dist
+import torch_npu
+from deep_ep.buffer import FuseMode
+from utils import calc_diff, init_dist
+
+torch_npu.npu.config.allow_internal_format = True
+os.environ["MOE_EXPERT_TOKEN_NUMS_TYPE"] = "1"
+
+ACL_FORMAT_FRACTAL_NZ = torch_npu.Format.FRACTAL_NZ
+W4A8_DIFF_WARNING_THRESHOLD = 5e-3
+EXPERT_TOKEN_NUMS_TYPE_CUMSUM = 0
+COMM_QUANT_MODE_INT8 = 2
+
+
+def info_rank0(rank: int, message: str):
+    if rank == 0:
+        print(f"[rank0] {message}", flush=True)
+
+
+def warn_rank0(rank: int, message: str):
+    if rank == 0:
+        print(f"[rank0][WARNING] {message}", flush=True)
+
+
+def set_env_if_provided(name: str, value):
+    if value is not None:
+        os.environ[name] = str(value)
+
+
+def apply_runtime_env_from_args(args: argparse.Namespace):
+    set_env_if_provided("MASTER_ADDR", args.master_addr)
+    set_env_if_provided("MASTER_PORT", args.master_port)
+    set_env_if_provided("WORLD_SIZE", args.num_servers)
+    set_env_if_provided("RANK", args.server_index)
+    set_env_if_provided("HCCL_BUFFSIZE", args.hccl_buffsize)
+
+
+def parse_csv_list(raw: str) -> List[str]:
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def parse_optional_float_list(raw: str) -> List[Optional[float]]:
+    values: List[Optional[float]] = []
+    for item in parse_csv_list(raw):
+        value = float(item)
+        values.append(None if value == 0 else value)
+    return values
+
+
+def parse_float_list(raw: str) -> List[float]:
+    return [float(item) for item in parse_csv_list(raw)]
+
+
+def swiglu_reference(x: torch.Tensor) -> torch.Tensor:
+    d = x.shape[-1] // 2
+    gate = x[..., :d].to(torch.float32)
+    up = x[..., d:].to(torch.float32)
+    return (gate * torch.sigmoid(gate) * up).to(x.dtype)
+
+
+def situ_reference(
+    x: torch.Tensor,
+    *,
+    beta: float,
+    linear_beta: Optional[float],
+    activation_clamp: Optional[float],
+) -> torch.Tensor:
+    d = x.shape[-1] // 2
+    gate = x[..., :d].to(torch.float32)
+    up = x[..., d:].to(torch.float32)
+    if activation_clamp is not None and activation_clamp > 0:
+        gate = torch.clamp(gate, -activation_clamp, activation_clamp)
+    situ_a = beta * torch.tanh(gate / beta) * torch.sigmoid(gate)
+    if linear_beta is not None and linear_beta > 0:
+        up = linear_beta * torch.tanh(up / linear_beta)
+    return (situ_a * up).to(x.dtype)
+
+
+def apply_activation(
+    x: torch.Tensor,
+    activation: str,
+    *,
+    beta: float,
+    linear_beta: Optional[float],
+    activation_clamp: Optional[float],
+) -> torch.Tensor:
+    if activation == "swiglu":
+        return torch_npu.npu_swiglu(x)
+    if activation == "situ":
+        return situ_reference(
+            x,
+            beta=beta,
+            linear_beta=linear_beta,
+            activation_clamp=activation_clamp,
+        )
+    raise ValueError(f"Unsupported activation: {activation}")
+
+
+def make_topk_inputs(
+    num_tokens: int,
+    num_experts: int,
+    num_topk: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    topk_ids = torch.randint(
+        0, num_experts, (num_tokens, num_topk), dtype=torch.int32, device=device
+    )
+    topk_weights = torch.randn(
+        (num_tokens, num_topk), dtype=torch.float32, device=device
+    )
+    return topk_ids, topk_weights
+
+
+def validate_topk_inputs(topk_ids_int32: torch.Tensor, num_experts: int):
+    if topk_ids_int32.dtype != torch.int32:
+        raise TypeError(f"topk_ids must be int32, got {topk_ids_int32.dtype}")
+    if torch.any(topk_ids_int32 < 0) or torch.any(topk_ids_int32 >= num_experts):
+        raise ValueError("topk_ids contains out-of-range expert indices.")
+
+
+def pack_scale_to_uint64(scale: torch.Tensor) -> torch.Tensor:
+    return scale.contiguous().view(torch.int32).to(torch.int64).view(torch.uint64)
+
+
+def pack_scale_to_int64(scale: torch.Tensor) -> torch.Tensor:
+    return scale.contiguous().view(torch.int32).to(torch.int64)
+
+
+def pack_int4_to_int8(weight: torch.Tensor) -> torch.Tensor:
+    packed = (
+        (weight.to(torch.int16) + 8)
+        .to(torch.uint8)
+        .reshape(weight.shape[0], weight.shape[1] // 2, 2)
+    )
+    return ((packed[..., 1] << 4) | packed[..., 0]).view(torch.int8)
+
+
+def normalize_expert_counts(
+    counts, num_local_experts: int, device: torch.device
+) -> torch.Tensor:
+    if isinstance(counts, torch.Tensor):
+        out = counts.to(device=device, dtype=torch.int64)
+    else:
+        out = torch.tensor(list(counts), device=device, dtype=torch.int64)
+    if out.numel() != num_local_experts:
+        raise ValueError(
+            f"Expected {num_local_experts} local expert counts, got {out.numel()}."
+        )
+    return out
+
+
+def build_x_active_mask(num_tokens: int, device: torch.device) -> torch.Tensor:
+    return torch.randint(0, 2, (num_tokens,), dtype=torch.bool, device=device)
+
+
+def process_scale(
+    weight: torch.Tensor,
+    scale: torch.Tensor,
+    per_group_scale: torch.Tensor,
+    *,
+    new_quant_version: bool,
+    group_size: int,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    scale = scale.transpose(1, 2).contiguous()
+    per_group_scale = per_group_scale.transpose(1, 2).contiguous()
+
+    group_num, k_dim, n_packed = weight.shape
+    n_dim = n_packed * 2 if new_quant_version else n_packed
+    per_group_scale = per_group_scale.reshape(group_num, -1, n_dim)
+    _, quant_group_num, n_dim = per_group_scale.shape
+
+    weight_high = weight.to(torch.float32).reshape(
+        group_num, quant_group_num, -1, n_dim
+    ) * per_group_scale.reshape(group_num, quant_group_num, 1, n_dim)
+    weight_high = weight_high.reshape(group_num, k_dim, n_dim)
+    bias = 8 * (weight_high.to(torch.float32) * scale).sum(axis=1)
+
+    scale_fp32 = (scale * per_group_scale).to(torch.float16).to(torch.float32)
+    scale_fp32_np = scale_fp32.cpu().numpy()
+    scale_fp32_np.dtype = np.uint32
+    packed = np.zeros((group_num, quant_group_num, n_dim * 2), dtype=np.uint32)
+    packed[..., ::2] = scale_fp32_np
+    packed_buffer = np.frombuffer(packed.tobytes(), dtype=np.int64).copy()
+    packed_tensor = (
+        torch.from_numpy(packed_buffer).reshape(group_num, quant_group_num, n_dim).npu()
+    )
+    return packed_tensor, bias
+
+
+def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Tensor:
+    if not new_quant_version:
+        raise ValueError("This test only supports new_quant_version=True for A3 W4A8.")
+    if weight.shape[-1] % 4 != 0:
+        raise ValueError(
+            f"Packed int4 weight last dim must be divisible by 4, got {weight.shape}."
+        )
+    return weight.view(torch.int32).contiguous()
+
+
+def prepare_scene_weights(
+    hidden: int,
+    intermediate_hidden: int,
+    num_local_experts: int,
+    device: torch.device,
+) -> dict:
+    group_size = 256
+    new_quant_version = True
+    if hidden % group_size != 0:
+        raise ValueError("W4A8 requires hidden divisible by 256.")
+    if intermediate_hidden % group_size != 0:
+        raise ValueError("W4A8 requires intermediate_hidden divisible by 256.")
+
+    # Same source tensors for both paths, matching the demos' new-version layout.
+    w13_weight = torch.randint(
+        -8,
+        8,
+        (num_local_experts, intermediate_hidden, hidden),
+        dtype=torch.int8,
+        device=device,
+    )
+    w2_weight = torch.randint(
+        -8,
+        8,
+        (num_local_experts, hidden // 2, intermediate_hidden),
+        dtype=torch.int8,
+        device=device,
+    )
+    w13_weight_scale = torch.randn(
+        (num_local_experts, 2 * intermediate_hidden, 1),
+        dtype=torch.float32,
+        device=device,
+    )
+    w2_weight_scale = torch.randn(
+        (num_local_experts, hidden, 1), dtype=torch.float32, device=device
+    )
+    w13_weight_scale_second = torch.randn(
+        (num_local_experts, 2 * intermediate_hidden, hidden // group_size),
+        dtype=torch.float32,
+        device=device,
+    )
+    w2_weight_scale_second = torch.randn(
+        (num_local_experts, hidden, intermediate_hidden // group_size),
+        dtype=torch.float32,
+        device=device,
+    )
+
+    w13_weight = w13_weight.transpose(1, 2).contiguous()
+    w2_weight = w2_weight.transpose(1, 2).contiguous()
+
+    w13_scale_int64, w13_bias = process_scale(
+        w13_weight,
+        w13_weight_scale,
+        w13_weight_scale_second,
+        new_quant_version=new_quant_version,
+        group_size=group_size,
+    )
+    w2_scale_int64, w2_bias = process_scale(
+        w2_weight,
+        w2_weight_scale,
+        w2_weight_scale_second,
+        new_quant_version=new_quant_version,
+        group_size=group_size,
+    )
+
+    w13_weight_packed = torch_npu.npu_format_cast(
+        pack_to_int32(w13_weight, new_quant_version=new_quant_version),
+        ACL_FORMAT_FRACTAL_NZ,
+    )
+    w2_weight_packed = torch_npu.npu_format_cast(
+        pack_to_int32(w2_weight, new_quant_version=new_quant_version),
+        ACL_FORMAT_FRACTAL_NZ,
+    )
+
+    baseline_l1_weight_stacked = [w13_weight_packed]
+    baseline_l2_weight_stacked = [w2_weight_packed]
+    baseline_l1_scale_stacked = [w13_scale_int64]
+    baseline_l2_scale_stacked = [w2_scale_int64]
+    baseline_l1_bias_stacked = w13_bias.contiguous()
+    baseline_l2_bias_stacked = w2_bias.contiguous()
+
+    fused_l1_weights = [w.clone() for w in w13_weight_packed.unbind(dim=0)]
+    fused_l2_weights = [w.clone() for w in w2_weight_packed.unbind(dim=0)]
+    fused_l1_scales = [
+        w.reshape(-1).view(torch.uint64) for w in w13_scale_int64.unbind(dim=0)
+    ]
+    fused_l2_scales = [
+        w.reshape(-1).view(torch.uint64) for w in w2_scale_int64.unbind(dim=0)
+    ]
+    fused_l1_bias = [w.reshape(-1) for w in w13_bias.unbind(dim=0)]
+    fused_l2_bias = [w.reshape(-1) for w in w2_bias.unbind(dim=0)]
+
+    expected_l1_shape = (hidden, (2 * intermediate_hidden) // 8)
+    expected_l2_shape = (intermediate_hidden, hidden // 8)
+    for weight in fused_l1_weights:
+        if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l1_shape:
+            raise ValueError(
+                f"Invalid fused l1 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
+                f"expected {expected_l1_shape} torch.int32."
+            )
+    for weight in fused_l2_weights:
+        if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l2_shape:
+            raise ValueError(
+                f"Invalid fused l2 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
+                f"expected {expected_l2_shape} torch.int32."
+            )
+
+    return {
+        "baseline_l1_weight_stacked": baseline_l1_weight_stacked,
+        "baseline_l2_weight_stacked": baseline_l2_weight_stacked,
+        "baseline_l1_scale_stacked": baseline_l1_scale_stacked,
+        "baseline_l2_scale_stacked": baseline_l2_scale_stacked,
+        "baseline_l1_bias_stacked": baseline_l1_bias_stacked,
+        "baseline_l2_bias_stacked": baseline_l2_bias_stacked,
+        "fused_l1_weights": fused_l1_weights,
+        "fused_l2_weights": fused_l2_weights,
+        "fused_l1_scales": fused_l1_scales,
+        "fused_l2_scales": fused_l2_scales,
+        "fused_l1_bias": fused_l1_bias,
+        "fused_l2_bias": fused_l2_bias,
+        "dispatch_quant_mode": 2,
+        "dispatch_quant_out_dtype": torch.int8,
+    }
+
+
+def run_grouped_matmul_w4a8(
+    x_int8: torch.Tensor,
+    per_token_scale: torch.Tensor,
+    group_list: torch.Tensor,
+    weight: List[torch.Tensor],
+    scale: List[torch.Tensor],
+    bias: torch.Tensor,
+) -> torch.Tensor:
+    return torch_npu.npu_grouped_matmul(
+        x=[x_int8],
+        weight=weight,
+        scale=[scale[0].to(scale[0].dtype)],
+        bias=bias,
+        per_token_scale=[per_token_scale],
+        split_item=2,
+        group_list_type=EXPERT_TOKEN_NUMS_TYPE_CUMSUM,
+        group_type=0,
+        group_list=group_list,
+        output_dtype=torch.bfloat16,
+    )[0]
+
+
+def run_mc2_dispatch(
+    x: torch.Tensor,
+    topk_idx: torch.Tensor,
+    x_active_mask: torch.Tensor,
+    *,
+    num_experts: int,
+    group_ep: str,
+    ep_world_size: int,
+    ep_rank_id: int,
+    enable_dispatch_v2: bool,
+):
+    kwargs = {
+        "x": x,
+        "expert_ids": topk_idx,
+        "expert_shard_type": 0,
+        "shared_expert_rank_num": 0,
+        "moe_expert_num": num_experts,
+        "global_bs": 0,
+        "x_active_mask": x_active_mask,
+        "quant_mode": COMM_QUANT_MODE_INT8,
+        "scales": None,
+        "group_ep": group_ep,
+        "ep_world_size": ep_world_size,
+        "ep_rank_id": ep_rank_id,
+        "expert_token_nums_type": EXPERT_TOKEN_NUMS_TYPE_CUMSUM,
+    }
+    output = (
+        torch_npu.npu_moe_distribute_dispatch_v2(**kwargs)
+        if enable_dispatch_v2
+        else torch_npu.npu_moe_distribute_dispatch(**kwargs)
+    )
+    return output[0:7]
+
+
+def run_mc2_combine(
+    mlp_out: torch.Tensor,
+    topk_idx: torch.Tensor,
+    topk_weights: torch.Tensor,
+    *,
+    num_experts: int,
+    ep_recv_counts: torch.Tensor,
+    tp_recv_counts: torch.Tensor,
+    assist_info_for_combine,
+    expand_scales: torch.Tensor,
+    group_ep: str,
+    ep_world_size: int,
+    ep_rank_id: int,
+    enable_dispatch_v2: bool,
+) -> torch.Tensor:
+    kwargs = {
+        "expand_x": mlp_out,
+        "expert_ids": topk_idx,
+        "expert_scales": topk_weights.to(torch.float32),
+        "expert_shard_type": 0,
+        "shared_expert_rank_num": 0,
+        "moe_expert_num": num_experts,
+        "global_bs": 0,
+        "ep_send_counts": ep_recv_counts,
+        "group_ep": group_ep,
+        "ep_world_size": ep_world_size,
+        "ep_rank_id": ep_rank_id,
+        "expand_scales": expand_scales,
+        "comm_quant_mode": 0,
+    }
+    if enable_dispatch_v2:
+        kwargs["assist_info_for_combine"] = assist_info_for_combine
+        return torch_npu.npu_moe_distribute_combine_v2(**kwargs)
+    kwargs["expand_idx"] = assist_info_for_combine
+    return torch_npu.npu_moe_distribute_combine(**kwargs)
+
+
+def run_baseline_reference(
+    x: torch.Tensor,
+    topk_idx: torch.Tensor,
+    topk_weights: torch.Tensor,
+    num_experts: int,
+    weights: dict,
+    activation: str,
+    beta: float,
+    linear_beta: Optional[float],
+    activation_clamp: Optional[float],
+    group_ep: str,
+    ep_world_size: int,
+    ep_rank_id: int,
+    enable_dispatch_v2: bool,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    x_active_mask = build_x_active_mask(x.size(0), x.device)
+    (
+        recv_x_int8,
+        recv_x_scale,
+        assist_info_for_combine,
+        group_list,
+        ep_recv_counts,
+        tp_recv_counts,
+        expand_scales,
+    ) = run_mc2_dispatch(
+        x,
+        topk_idx,
+        x_active_mask,
+        num_experts=num_experts,
+        group_ep=group_ep,
+        ep_world_size=ep_world_size,
+        ep_rank_id=ep_rank_id,
+        enable_dispatch_v2=enable_dispatch_v2,
+    )
+
+    gate_up = run_grouped_matmul_w4a8(
+        recv_x_int8,
+        recv_x_scale,
+        group_list,
+        weights["baseline_l1_weight_stacked"],
+        weights["baseline_l1_scale_stacked"],
+        weights["baseline_l1_bias_stacked"],
+    )
+    act_out = apply_activation(
+        gate_up,
+        activation,
+        beta=beta,
+        linear_beta=linear_beta,
+        activation_clamp=activation_clamp,
+    )
+    act_int8, act_scale = torch_npu.npu_dynamic_quant(act_out)
+    down = run_grouped_matmul_w4a8(
+        act_int8,
+        act_scale,
+        group_list,
+        weights["baseline_l2_weight_stacked"],
+        weights["baseline_l2_scale_stacked"],
+        weights["baseline_l2_bias_stacked"],
+    )
+    combined_x = run_mc2_combine(
+        down,
+        topk_idx,
+        topk_weights,
+        num_experts=num_experts,
+        ep_recv_counts=ep_recv_counts,
+        tp_recv_counts=tp_recv_counts,
+        assist_info_for_combine=assist_info_for_combine,
+        expand_scales=expand_scales,
+        group_ep=group_ep,
+        ep_world_size=ep_world_size,
+        ep_rank_id=ep_rank_id,
+        enable_dispatch_v2=enable_dispatch_v2,
+    )
+    group_counts = torch.cat([group_list[:1], torch.diff(group_list, dim=0)])
+    return combined_x, normalize_expert_counts(
+        group_counts,
+        num_experts // dist.get_world_size(),
+        x.device,
+    )
+
+
+def run_fused_reference(
+    buffer: deep_ep.Buffer,
+    x: torch.Tensor,
+    topk_idx: torch.Tensor,
+    topk_weights: torch.Tensor,
+    num_tokens: int,
+    num_experts: int,
+    weights: dict,
+    activation: str,
+    beta: float,
+    linear_beta: Optional[float],
+    activation_clamp: Optional[float],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    return buffer.fused_deep_moe(
+        x=x,
+        topk_idx=topk_idx,
+        topk_weights=topk_weights,
+        gmm1_permuted_weight=weights["fused_l1_weights"],
+        gmm1_permuted_weight_scale=weights["fused_l1_scales"],
+        gmm2_weight=weights["fused_l2_weights"],
+        gmm2_weight_scale=weights["fused_l2_scales"],
+        num_max_dispatch_tokens_per_rank=num_tokens,
+        num_experts=num_experts,
+        backend="mega_moe",
+        fuse_mode=FuseMode.FUSED_DEEP_MOE,
+        activation=activation,
+        activation_clamp=activation_clamp,
+        beta=beta,
+        linear_beta=linear_beta,
+        l1_bias=weights["fused_l1_bias"],
+        l2_bias=weights["fused_l2_bias"],
+        dispatch_quant_mode=weights["dispatch_quant_mode"],
+        dispatch_quant_out_dtype=weights["dispatch_quant_out_dtype"],
+    )
+
+
+def build_case_matrix(args: argparse.Namespace) -> list[dict]:
+    activations = parse_csv_list(args.activation)
+    betas = parse_float_list(args.beta)
+    linear_betas = parse_optional_float_list(args.linear_beta)
+    activation_clamps = parse_optional_float_list(args.activation_clamp)
+
+    cases = []
+    for activation in activations:
+        if activation == "swiglu":
+            cases.append(
+                {
+                    "activation": "swiglu",
+                    "beta": 1.0,
+                    "linear_beta": None,
+                    "activation_clamp": None,
+                }
+            )
+            continue
+        if activation != "situ":
+            raise ValueError(f"Unsupported activation case: {activation}")
+        for beta in betas:
+            for linear_beta in linear_betas:
+                for activation_clamp in activation_clamps:
+                    cases.append(
+                        {
+                            "activation": "situ",
+                            "beta": beta,
+                            "linear_beta": linear_beta,
+                            "activation_clamp": activation_clamp,
+                        }
+                    )
+    return cases
+
+
+def run_case(
+    args: argparse.Namespace,
+    rank: int,
+    num_ranks: int,
+    fused_buffer: deep_ep.Buffer,
+    case: dict,
+    iteration: int,
+    group_ep: str,
+    enable_dispatch_v2: bool,
+):
+    device = torch.device(f"npu:{torch.npu.current_device()}")
+    num_local_experts = args.num_experts // num_ranks
+
+    torch.manual_seed(args.seed + rank)
+    random.seed(args.seed + rank)
+
+    x = torch.randn((args.num_tokens, args.hidden), dtype=torch.bfloat16, device=device)
+    topk_idx, topk_weights = make_topk_inputs(
+        args.num_tokens, args.num_experts, args.num_topk, device
+    )
+    validate_topk_inputs(topk_idx, args.num_experts)
+    weights = prepare_scene_weights(
+        args.hidden,
+        args.moe_intermediate_size,
+        num_local_experts,
+        device,
+    )
+
+    baseline_out, baseline_counts = run_baseline_reference(
+        x,
+        topk_idx,
+        topk_weights,
+        args.num_experts,
+        weights,
+        case["activation"],
+        case["beta"],
+        case["linear_beta"],
+        case["activation_clamp"],
+        group_ep,
+        num_ranks,
+        rank,
+        enable_dispatch_v2,
+    )
+    fused_out, fused_counts = run_fused_reference(
+        fused_buffer,
+        x,
+        topk_idx,
+        topk_weights,
+        args.num_tokens,
+        args.num_experts,
+        weights,
+        case["activation"],
+        case["beta"],
+        case["linear_beta"],
+        case["activation_clamp"],
+    )
+
+    local_diff = calc_diff(baseline_out.float(), fused_out.float())
+    diff_tensor = torch.tensor(local_diff, dtype=torch.float32, device=device)
+    dist.all_reduce(diff_tensor, op=dist.ReduceOp.MAX)
+
+    counts_match = torch.equal(
+        normalize_expert_counts(baseline_counts, num_local_experts, device),
+        normalize_expert_counts(fused_counts, num_local_experts, device),
+    )
+    counts_mismatch = torch.tensor(
+        0 if counts_match else 1, dtype=torch.int32, device=device
+    )
+    dist.all_reduce(counts_mismatch, op=dist.ReduceOp.MAX)
+
+    case_desc = (
+        f"iter={iteration} activation={case['activation']} beta={case['beta']} "
+        f"linear_beta={case['linear_beta']} activation_clamp={case['activation_clamp']}"
+    )
+    if counts_mismatch.item() != 0:
+        warn_rank0(rank, f"{case_desc} expert_token_nums mismatch across ranks.")
+    max_diff = diff_tensor.item()
+    if max_diff >= W4A8_DIFF_WARNING_THRESHOLD:
+        warn_rank0(
+            rank,
+            f"{case_desc} calc_diff={max_diff} exceeds threshold={W4A8_DIFF_WARNING_THRESHOLD}",
+        )
+    else:
+        info_rank0(
+            rank,
+            f"{case_desc} calc_diff={max_diff} token_counts_match={counts_mismatch.item() == 0}",
+        )
+    dist.barrier()
+
+
+def test_main(
+    args: argparse.Namespace,
+    rank: int,
+    num_ranks: int,
+    fused_buffer: deep_ep.Buffer,
+    group_ep: str,
+    enable_dispatch_v2: bool,
+):
+    if args.num_experts % num_ranks != 0:
+        raise ValueError("num_experts must be divisible by world_size.")
+    if args.enable_performance and args.performance_iters <= 0:
+        raise ValueError("--performance-iters must be greater than zero.")
+
+    iterations = args.performance_iters if args.enable_performance else 1
+    cases = build_case_matrix(args)
+    for iteration in range(iterations):
+        for case in cases:
+            run_case(
+                args,
+                rank,
+                num_ranks,
+                fused_buffer,
+                case,
+                iteration,
+                group_ep,
+                enable_dispatch_v2,
+            )
+    info_rank0(rank, "A3 W4A8 fused_deep_moe accuracy test completed")
+
+
+def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+    rank, num_ranks, group = init_dist(local_rank, num_local_ranks)
+    backend = group._get_backend(torch.device("npu"))
+    group_ep = backend.get_hccl_comm_name(rank)
+    enable_dispatch_v2 = hasattr(torch_npu, "npu_moe_distribute_dispatch_v2")
+
+    fused_buffer = deep_ep.Buffer(
+        group,
+        int(2e9),
+        0,
+        low_latency_mode=False,
+        num_qps_per_rank=1,
+    )
+
+    test_main(args, rank, num_ranks, fused_buffer, group_ep, enable_dispatch_v2)
+    dist.barrier()
+    dist.destroy_process_group()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="A3 W4A8 fused_deep_moe vs MC2 small-op accuracy test."
+    )
+    parser.add_argument("--num-processes", type=int, default=16)
+    parser.add_argument("--num-servers", type=int, default=1)
+    parser.add_argument("--server-index", type=int, default=0)
+    parser.add_argument("--master-addr", type=str, default=None)
+    parser.add_argument("--master-port", type=str, default=None)
+    parser.add_argument("--hccl-buffsize", type=int, default=None)
+    parser.add_argument("--num-tokens", type=int, default=64)
+    parser.add_argument("--hidden", type=int, default=7168)
+    parser.add_argument("--moe-intermediate-size", type=int, default=3072)
+    parser.add_argument("--num-topk", type=int, default=6)
+    parser.add_argument("--num-experts", type=int, default=16)
+    parser.add_argument("--activation", type=str, default="swiglu,situ")
+    parser.add_argument("--beta", type=str, default="4.0")
+    parser.add_argument("--linear-beta", type=str, default="25.0")
+    parser.add_argument("--activation-clamp", type=str, default="0")
+    parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--enable-performance", action="store_true")
+    parser.add_argument("--performance-iters", type=int, default=30)
+    args = parser.parse_args()
+
+    apply_runtime_env_from_args(args)
+    torch.multiprocessing.spawn(
+        test_loop,
+        args=(args.num_processes, args),
+        nprocs=args.num_processes,
+    )
