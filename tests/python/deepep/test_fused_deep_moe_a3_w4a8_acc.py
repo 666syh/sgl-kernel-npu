@@ -34,9 +34,17 @@ def warn_rank0(rank: int, message: str):
         print(f"[rank0][WARNING] {message}", flush=True)
 
 
-def stage_barrier(rank: int, stage: str):
+def stage_barrier(
+    rank: int,
+    stage: str,
+    *,
+    group: Optional[dist.ProcessGroup] = None,
+    synchronize_npu: bool = False,
+):
+    if synchronize_npu:
+        torch.npu.synchronize()
     info_rank(rank, f"{stage}: enter barrier")
-    dist.barrier()
+    dist.barrier(group=group)
     info_rank(rank, f"{stage}: exit barrier")
 
 
@@ -354,8 +362,9 @@ def run_grouped_matmul_w4a8(
     bias,
     rank: int,
     stage_name: str,
+    barrier_group: dist.ProcessGroup,
 ) -> torch.Tensor:
-    stage_barrier(rank, f"{stage_name}_pre")
+    stage_barrier(rank, f"{stage_name}_pre", group=barrier_group)
     bias_list = bias if isinstance(bias, list) else [bias]
     bias_tensor = bias_list[0]
     info_rank(
@@ -380,7 +389,12 @@ def run_grouped_matmul_w4a8(
         output_dtype=torch.bfloat16,
     )[0]
     info_rank(rank, f"{stage_name}: out={tuple(out.shape)}/{out.dtype}")
-    stage_barrier(rank, f"{stage_name}_post")
+    stage_barrier(
+        rank,
+        f"{stage_name}_post",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
     return out
 
 
@@ -391,11 +405,12 @@ def run_mc2_dispatch(
     *,
     num_experts: int,
     group_ep: str,
+    barrier_group: dist.ProcessGroup,
     ep_world_size: int,
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ):
-    stage_barrier(ep_rank_id, "dispatch_pre")
+    stage_barrier(ep_rank_id, "dispatch_pre", group=barrier_group)
     info_rank(
         ep_rank_id,
         f"dispatch: x={tuple(x.shape)}/{x.dtype} "
@@ -433,7 +448,12 @@ def run_mc2_dispatch(
         f"tp_recv_counts={tuple(output[5].shape)}/{output[5].dtype} "
         f"expand_scales={tuple(output[6].shape)}/{output[6].dtype}",
     )
-    stage_barrier(ep_rank_id, "dispatch_post")
+    stage_barrier(
+        ep_rank_id,
+        "dispatch_post",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
     return output[0:7]
 
 
@@ -448,11 +468,12 @@ def run_mc2_combine(
     assist_info_for_combine,
     expand_scales: torch.Tensor,
     group_ep: str,
+    barrier_group: dist.ProcessGroup,
     ep_world_size: int,
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ) -> torch.Tensor:
-    stage_barrier(ep_rank_id, "combine_pre")
+    stage_barrier(ep_rank_id, "combine_pre", group=barrier_group)
     info_rank(
         ep_rank_id,
         f"combine: expand_x={tuple(mlp_out.shape)}/{mlp_out.dtype} "
@@ -486,7 +507,12 @@ def run_mc2_combine(
         kwargs["expand_idx"] = assist_info_for_combine
         out = torch_npu.npu_moe_distribute_combine(**kwargs)
     info_rank(ep_rank_id, f"combine: out={tuple(out.shape)}/{out.dtype}")
-    stage_barrier(ep_rank_id, "combine_post")
+    stage_barrier(
+        ep_rank_id,
+        "combine_post",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
     return out
 
 
@@ -501,6 +527,7 @@ def run_baseline_reference(
     linear_beta: Optional[float],
     activation_clamp: Optional[float],
     group_ep: str,
+    barrier_group: dist.ProcessGroup,
     ep_world_size: int,
     ep_rank_id: int,
     enable_dispatch_v2: bool,
@@ -521,6 +548,7 @@ def run_baseline_reference(
         x_active_mask,
         num_experts=num_experts,
         group_ep=group_ep,
+        barrier_group=barrier_group,
         ep_world_size=ep_world_size,
         ep_rank_id=ep_rank_id,
         enable_dispatch_v2=enable_dispatch_v2,
@@ -535,8 +563,9 @@ def run_baseline_reference(
         weights["baseline_l1_bias_stacked"],
         ep_rank_id,
         "gmm1",
+        barrier_group,
     )
-    stage_barrier(ep_rank_id, "activation_pre")
+    stage_barrier(ep_rank_id, "activation_pre", group=barrier_group)
     info_rank(ep_rank_id, f"activation_in: {tuple(gate_up.shape)}/{gate_up.dtype}")
     act_out = apply_activation(
         gate_up,
@@ -546,15 +575,25 @@ def run_baseline_reference(
         activation_clamp=activation_clamp,
     )
     info_rank(ep_rank_id, f"activation_out: {tuple(act_out.shape)}/{act_out.dtype}")
-    stage_barrier(ep_rank_id, "activation_post")
-    stage_barrier(ep_rank_id, "dynamic_quant_pre")
+    stage_barrier(
+        ep_rank_id,
+        "activation_post",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+    stage_barrier(ep_rank_id, "dynamic_quant_pre", group=barrier_group)
     act_int8, act_scale = torch_npu.npu_dynamic_quant(act_out)
     info_rank(
         ep_rank_id,
         f"dynamic_quant: act_int8={tuple(act_int8.shape)}/{act_int8.dtype} "
         f"act_scale={tuple(act_scale.shape)}/{act_scale.dtype}",
     )
-    stage_barrier(ep_rank_id, "dynamic_quant_post")
+    stage_barrier(
+        ep_rank_id,
+        "dynamic_quant_post",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
     down = run_grouped_matmul_w4a8(
         act_int8,
         act_scale,
@@ -564,6 +603,7 @@ def run_baseline_reference(
         weights["baseline_l2_bias_stacked"],
         ep_rank_id,
         "gmm2",
+        barrier_group,
     )
     combined_x = run_mc2_combine(
         down,
@@ -575,6 +615,7 @@ def run_baseline_reference(
         assist_info_for_combine=assist_info_for_combine,
         expand_scales=expand_scales,
         group_ep=group_ep,
+        barrier_group=barrier_group,
         ep_world_size=ep_world_size,
         ep_rank_id=ep_rank_id,
         enable_dispatch_v2=enable_dispatch_v2,
@@ -600,9 +641,10 @@ def run_fused_reference(
     beta: float,
     linear_beta: Optional[float],
     activation_clamp: Optional[float],
+    barrier_group: dist.ProcessGroup,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     rank = dist.get_rank()
-    stage_barrier(rank, "fused_pre")
+    stage_barrier(rank, "fused_pre", group=barrier_group)
     info_rank(
         rank,
         f"fused: x={tuple(x.shape)}/{x.dtype} "
@@ -636,7 +678,7 @@ def run_fused_reference(
         f"fused: out={tuple(out[0].shape)}/{out[0].dtype} "
         f"counts={tuple(out[1].shape)}/{out[1].dtype}",
     )
-    stage_barrier(rank, "fused_post")
+    stage_barrier(rank, "fused_post", group=barrier_group, synchronize_npu=True)
     return out
 
 
@@ -682,6 +724,8 @@ def run_case(
     case: dict,
     iteration: int,
     baseline_group_ep: str,
+    baseline_group: dist.ProcessGroup,
+    mega_group: dist.ProcessGroup,
     enable_dispatch_v2: bool,
 ):
     device = torch.device(f"npu:{torch.npu.current_device()}")
@@ -713,6 +757,7 @@ def run_case(
         case["linear_beta"],
         case["activation_clamp"],
         baseline_group_ep,
+        baseline_group,
         num_ranks,
         rank,
         enable_dispatch_v2,
@@ -729,6 +774,7 @@ def run_case(
         case["beta"],
         case["linear_beta"],
         case["activation_clamp"],
+        mega_group,
     )
 
     local_diff = calc_diff(baseline_out.float(), fused_out.float())
@@ -771,6 +817,8 @@ def test_main(
     fused_buffer: deep_ep.Buffer,
     baseline_group_ep: str,
     mega_group_ep: str,
+    baseline_group: dist.ProcessGroup,
+    mega_group: dist.ProcessGroup,
     enable_dispatch_v2: bool,
 ):
     if args.num_experts % num_ranks != 0:
@@ -794,6 +842,8 @@ def test_main(
                 case,
                 iteration,
                 baseline_group_ep,
+                baseline_group,
+                mega_group,
                 enable_dispatch_v2,
             )
     info_rank0(rank, "A3 W4A8 fused_deep_moe accuracy test completed")
@@ -825,6 +875,8 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
         fused_buffer,
         baseline_group_ep,
         mega_group_ep,
+        baseline_group,
+        mega_group,
         enable_dispatch_v2,
     )
     dist.barrier()
