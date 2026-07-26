@@ -40,6 +40,16 @@ def stage_barrier(rank: int, stage: str):
     info_rank(rank, f"{stage}: exit barrier")
 
 
+def summarize_value(value) -> str:
+    if isinstance(value, torch.Tensor):
+        return f"Tensor(shape={tuple(value.shape)}, dtype={value.dtype})"
+    if isinstance(value, (list, tuple)):
+        parts = [summarize_value(item) for item in value[:4]]
+        suffix = "" if len(value) <= 4 else ", ..."
+        return f"{type(value).__name__}(len={len(value)}, items=[{', '.join(parts)}{suffix}])"
+    return f"{type(value).__name__}({value})"
+
+
 def set_env_if_provided(name: str, value):
     if value is not None:
         os.environ[name] = str(value)
@@ -417,6 +427,7 @@ def run_mc2_dispatch(
         ep_rank_id,
         f"dispatch: recv_x={tuple(output[0].shape)}/{output[0].dtype} "
         f"recv_x_scale={tuple(output[1].shape)}/{output[1].dtype} "
+        f"assist_info={summarize_value(output[2])} "
         f"group_list={tuple(output[3].shape)}/{output[3].dtype} "
         f"ep_recv_counts={tuple(output[4].shape)}/{output[4].dtype} "
         f"tp_recv_counts={tuple(output[5].shape)}/{output[5].dtype} "
@@ -450,6 +461,7 @@ def run_mc2_combine(
         f"ep_recv_counts={tuple(ep_recv_counts.shape)}/{ep_recv_counts.dtype} "
         f"tp_recv_counts={tuple(tp_recv_counts.shape)}/{tp_recv_counts.dtype} "
         f"expand_scales={tuple(expand_scales.shape)}/{expand_scales.dtype} "
+        f"assist_info={summarize_value(assist_info_for_combine)} "
         f"group_ep={group_ep} ep_world_size={ep_world_size}",
     )
     kwargs = {
