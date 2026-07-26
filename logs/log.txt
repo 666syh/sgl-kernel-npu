@@ -1,0 +1,267 @@
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+[W726 17:02:17.127073260 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:17.270371080 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:18.033700100 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:18.326800350 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:18.341272750 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:19.455669560 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:19.796876410 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:19.939685500 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.524233970 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.703254010 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.704295060 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.715486830 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.104977350 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.298018120 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.309653750 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:02:20.345447550 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[rank0] baseline_group_ep=group_name_2 mega_group_ep=group_name_3
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+[rank11] baseline: start
+[rank11] dispatch_pre: enter barrier
+[rank14] baseline: start
+[rank14] dispatch_pre: enter barrier
+[rank5] baseline: start
+[rank5] dispatch_pre: enter barrier
+ninja: no work to do.
+ninja: no work to do.
+[rank12] baseline: start
+[rank12] dispatch_pre: enter barrier
+[rank3] baseline: start
+[rank3] dispatch_pre: enter barrier
+[rank8] baseline: start
+[rank8] dispatch_pre: enter barrier
+[rank2] baseline: start
+[rank2] dispatch_pre: enter barrier
+ninja: no work to do.
+[rank6] baseline: start
+[rank6] dispatch_pre: enter barrier
+[rank15] baseline: start
+[rank15] dispatch_pre: enter barrier
+[rank0] baseline: start
+[rank0] dispatch_pre: enter barrier
+/usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank10] baseline: start
+[rank10] dispatch_pre: enter barrier
+[rank7] baseline: start
+[rank7] dispatch_pre: enter barrier
+[rank1] baseline: start
+[rank1] dispatch_pre: enter barrier
+[rank4] baseline: start
+[rank4] dispatch_pre: enter barrier
+[rank13] baseline: start
+[rank13] dispatch_pre: enter barrier
+[rank9] baseline: start
+[rank9] dispatch_pre: enter barrier
+[rank13] dispatch_pre: exit barrier
+[rank15] dispatch_pre: exit barrier
+[rank10] dispatch_pre: exit barrier
+[rank2] dispatch_pre: exit barrier
+[rank14] dispatch_pre: exit barrier
+[rank12] dispatch_pre: exit barrier
+[rank1] dispatch_pre: exit barrier
+[rank4] dispatch_pre: exit barrier
+[rank0] dispatch_pre: exit barrier
+[rank13] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank6] dispatch_pre: exit barrier
+[rank7] dispatch_pre: exit barrier
+[rank15] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank10] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank11] dispatch_pre: exit barrier
+[rank2] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank8] dispatch_pre: exit barrier
+[rank1] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank14] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank4] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank3] dispatch_pre: exit barrier
+[rank12] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank9] dispatch_pre: exit barrier
+[rank5] dispatch_pre: exit barrier
+[rank0] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank7] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank6] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank8] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank11] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank5] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank9] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank3] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank1] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank1] dispatch_post: enter barrier
+[rank14] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank14] dispatch_post: enter barrier
+[rank4] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank4] dispatch_post: enter barrier
+[rank12] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank12] dispatch_post: enter barrier
+[rank7] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank7] dispatch_post: enter barrier
+[rank11] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank11] dispatch_post: enter barrier
+[rank3] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank3] dispatch_post: enter barrier
+[rank8] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank8] dispatch_post: enter barrier
+[rank15] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank15] dispatch_post: enter barrier
+[rank5] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank5] dispatch_post: enter barrier
+[rank13] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank13] dispatch_post: enter barrier
+[rank0] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank0] dispatch_post: enter barrier
+/usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank6] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank6] dispatch_post: enter barrier
+[rank10] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank10] dispatch_post: enter barrier
+[rank2] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank2] dispatch_post: enter barrier
+[rank9] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank9] dispatch_post: enter barrier
+[rank4] dispatch_post: exit barrier
+[rank12] dispatch_post: exit barrier
+[rank11] dispatch_post: exit barrier
+[rank0] dispatch_post: exit barrier
+[rank14] dispatch_post: exit barrier
+[rank4] gmm1_pre: enter barrier
+[rank1] dispatch_post: exit barrier
+[rank15] dispatch_post: exit barrier
+[rank6] dispatch_post: exit barrier
+[rank7] dispatch_post: exit barrier
+[rank12] gmm1_pre: enter barrier
+[rank8] dispatch_post: exit barrier
+[rank11] gmm1_pre: enter barrier
+[rank0] gmm1_pre: enter barrier
+[rank14] gmm1_pre: enter barrier
+[rank3] dispatch_post: exit barrier
+[rank1] gmm1_pre: enter barrier
+[rank15] gmm1_pre: enter barrier
+[rank2] dispatch_post: exit barrier
+[rank6] gmm1_pre: enter barrier
+[rank7] gmm1_pre: enter barrier
+[rank13] dispatch_post: exit barrier
+[rank8] gmm1_pre: enter barrier
+[rank3] gmm1_pre: enter barrier
+[rank5] dispatch_post: exit barrier
+[rank2] gmm1_pre: enter barrier
+[rank13] gmm1_pre: enter barrier
+[rank5] gmm1_pre: enter barrier
+[rank10] dispatch_post: exit barrier
+[rank10] gmm1_pre: enter barrier
+[rank9] dispatch_post: exit barrier
+[rank9] gmm1_pre: enter barrier
+[rank11] gmm1_pre: exit barrier
+[rank1] gmm1_pre: exit barrier
+[rank4] gmm1_pre: exit barrier
+[rank3] gmm1_pre: exit barrier
+[rank12] gmm1_pre: exit barrier
+[rank13] gmm1_pre: exit barrier
+[rank15] gmm1_pre: exit barrier
+[rank8] gmm1_pre: exit barrier
+[rank2] gmm1_pre: exit barrier
+[rank10] gmm1_pre: exit barrier
+[rank5] gmm1_pre: exit barrier
+[rank7] gmm1_pre: exit barrier
+[rank6] gmm1_pre: exit barrier
+[rank14] gmm1_pre: exit barrier
+[rank9] gmm1_pre: exit barrier
+[rank4] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank1] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank11] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank15] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank0] gmm1_pre: exit barrier
+[rank3] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank2] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank14] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank6] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank12] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank7] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank13] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank5] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank8] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank10] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank0] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank9] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank4]:[W726 17:02:41.186602720 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank11]:[W726 17:02:41.187394690 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank1]:[W726 17:02:41.187829440 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank15]:[W726 17:02:41.191556100 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank13]:[W726 17:02:41.192595340 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank8]:[W726 17:02:41.192797450 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank0]:[W726 17:02:41.193199630 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank3]:[W726 17:02:41.196115760 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank2]:[W726 17:02:41.196495590 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank7]:[W726 17:02:41.196592670 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank10]:[W726 17:02:41.198089160 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank14]:[W726 17:02:41.199754910 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank6]:[W726 17:02:41.200574160 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank9]:[W726 17:02:41.200655790 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank5]:[W726 17:02:41.200754470 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+[rank12]:[W726 17:02:41.202737650 ToKernelNpu.cpp:41] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
+W0726 17:02:50.982000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369711 via signal SIGTERM
+W0726 17:02:50.983000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369712 via signal SIGTERM
+W0726 17:02:50.983000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369714 via signal SIGTERM
+W0726 17:02:50.984000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369715 via signal SIGTERM
+W0726 17:02:50.984000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369716 via signal SIGTERM
+W0726 17:02:50.984000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369717 via signal SIGTERM
+W0726 17:02:50.984000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369718 via signal SIGTERM
+W0726 17:02:50.985000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369719 via signal SIGTERM
+W0726 17:02:50.986000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369720 via signal SIGTERM
+W0726 17:02:50.986000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369721 via signal SIGTERM
+W0726 17:02:50.986000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369722 via signal SIGTERM
+W0726 17:02:50.986000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369723 via signal SIGTERM
+W0726 17:02:50.987000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369724 via signal SIGTERM
+W0726 17:02:50.987000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369725 via signal SIGTERM
+W0726 17:02:50.987000 369629 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 369726 via signal SIGTERM
+Traceback (most recent call last):
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 846, in <module>
+    torch.multiprocessing.spawn(
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 211, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 2 terminated with the following error:
+Traceback (most recent call last):
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+    fn(i, *args)
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 808, in test_loop
+    test_main(
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 776, in test_main
+    run_case(
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 692, in run_case
+    baseline_out, baseline_counts = run_baseline_reference(
+                                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 516, in run_baseline_reference
+    gate_up = run_grouped_matmul_w4a8(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 359, in run_grouped_matmul_w4a8
+    out = torch_npu.npu_grouped_matmul(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/utils/_device.py", line 109, in __torch_function__
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Overloaded torch operator invoked from Python failed to match any schema:
+npu::npu_grouped_matmul() Expected a value of type 'Optional[List[Tensor]]' for argument 'bias' but instead found type 'Tensor'.
+Position: 2
+ERROR] 2026-07-26-17:02:51 (PID:369629, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
