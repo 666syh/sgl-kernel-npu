@@ -346,7 +346,8 @@ def run_grouped_matmul_w4a8(
     stage_name: str,
 ) -> torch.Tensor:
     stage_barrier(rank, f"{stage_name}_pre")
-    bias_tensor = bias[0] if isinstance(bias, list) else bias
+    bias_list = bias if isinstance(bias, list) else [bias]
+    bias_tensor = bias_list[0]
     info_rank(
         rank,
         f"{stage_name}: x={tuple(x_int8.shape)}/{x_int8.dtype} "
@@ -360,7 +361,7 @@ def run_grouped_matmul_w4a8(
         x=[x_int8],
         weight=weight,
         scale=[scale[0].to(scale[0].dtype)],
-        bias=bias_tensor,
+        bias=bias_list,
         per_token_scale=[per_token_scale],
         split_item=2,
         group_list_type=EXPERT_TOKEN_NUMS_TYPE_CUMSUM,
