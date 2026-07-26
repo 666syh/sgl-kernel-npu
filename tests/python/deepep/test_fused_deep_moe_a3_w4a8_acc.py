@@ -176,12 +176,7 @@ def process_scale(
     n_dim = n_packed * 2 if new_quant_version else n_packed
     per_group_scale = per_group_scale.reshape(group_num, -1, n_dim)
     _, quant_group_num, n_dim = per_group_scale.shape
-
-    weight_high = weight.to(torch.float32).reshape(
-        group_num, quant_group_num, -1, n_dim
-    ) * per_group_scale.reshape(group_num, quant_group_num, 1, n_dim)
-    weight_high = weight_high.reshape(group_num, k_dim, n_dim)
-    bias = 8 * (weight_high.to(torch.float32) * scale).sum(axis=1)
+    bias = torch.randn((group_num, n_dim), dtype=torch.float32, device=weight.device)
 
     scale_fp32 = (scale * per_group_scale).to(torch.float16).to(torch.float32)
     scale_fp32_np = scale_fp32.cpu().numpy()
@@ -581,7 +576,7 @@ def run_case(
     fused_buffer: deep_ep.Buffer,
     case: dict,
     iteration: int,
-    group_ep: str,
+    baseline_group_ep: str,
     enable_dispatch_v2: bool,
 ):
     device = torch.device(f"npu:{torch.npu.current_device()}")
@@ -612,7 +607,7 @@ def run_case(
         case["beta"],
         case["linear_beta"],
         case["activation_clamp"],
-        group_ep,
+        baseline_group_ep,
         num_ranks,
         rank,
         enable_dispatch_v2,
@@ -669,7 +664,8 @@ def test_main(
     rank: int,
     num_ranks: int,
     fused_buffer: deep_ep.Buffer,
-    group_ep: str,
+    baseline_group_ep: str,
+    mega_group_ep: str,
     enable_dispatch_v2: bool,
 ):
     if args.num_experts % num_ranks != 0:
@@ -679,6 +675,10 @@ def test_main(
 
     iterations = args.performance_iters if args.enable_performance else 1
     cases = build_case_matrix(args)
+    info_rank0(
+        rank,
+        f"baseline_group_ep={baseline_group_ep} mega_group_ep={mega_group_ep}",
+    )
     for iteration in range(iterations):
         for case in cases:
             run_case(
@@ -688,27 +688,40 @@ def test_main(
                 fused_buffer,
                 case,
                 iteration,
-                group_ep,
+                baseline_group_ep,
                 enable_dispatch_v2,
             )
     info_rank0(rank, "A3 W4A8 fused_deep_moe accuracy test completed")
 
 
 def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
-    rank, num_ranks, group = init_dist(local_rank, num_local_ranks)
-    backend = group._get_backend(torch.device("npu"))
-    group_ep = backend.get_hccl_comm_name(rank)
+    rank, num_ranks, _ = init_dist(local_rank, num_local_ranks)
+    ranks = list(range(num_ranks))
+    baseline_group = dist.new_group(ranks=ranks, backend="hccl")
+    mega_group = dist.new_group(ranks=ranks, backend="hccl")
+    baseline_backend = baseline_group._get_backend(torch.device("npu"))
+    mega_backend = mega_group._get_backend(torch.device("npu"))
+    baseline_group_ep = baseline_backend.get_hccl_comm_name(rank)
+    mega_group_ep = mega_backend.get_hccl_comm_name(rank)
     enable_dispatch_v2 = hasattr(torch_npu, "npu_moe_distribute_dispatch_v2")
 
     fused_buffer = deep_ep.Buffer(
-        group,
+        mega_group,
         int(2e9),
         0,
         low_latency_mode=False,
         num_qps_per_rank=1,
     )
 
-    test_main(args, rank, num_ranks, fused_buffer, group_ep, enable_dispatch_v2)
+    test_main(
+        args,
+        rank,
+        num_ranks,
+        fused_buffer,
+        baseline_group_ep,
+        mega_group_ep,
+        enable_dispatch_v2,
+    )
     dist.barrier()
     dist.destroy_process_group()
 
