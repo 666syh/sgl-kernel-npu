@@ -489,8 +489,8 @@ def prepare_scene_weights(
 
     baseline_l1_weight_stacked = [w13_weight_packed_stacked]
     baseline_l2_weight_stacked = [w2_weight_packed_stacked]
-    baseline_l1_scale_stacked = [w13_scale_int64]
-    baseline_l2_scale_stacked = [w2_scale_int64]
+    baseline_l1_scale_stacked = [w13_scale_int64.unsqueeze(1).contiguous()]
+    baseline_l2_scale_stacked = [w2_scale_int64.contiguous()]
     baseline_l1_bias_stacked = [w13_bias.contiguous()]
     baseline_l2_bias_stacked = [w2_bias.contiguous()]
 
