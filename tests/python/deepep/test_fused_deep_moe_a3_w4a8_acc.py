@@ -17,6 +17,7 @@ os.environ["MOE_EXPERT_TOKEN_NUMS_TYPE"] = "1"
 ACL_FORMAT_FRACTAL_NZ = torch_npu.Format.FRACTAL_NZ
 W4A8_DIFF_WARNING_THRESHOLD = 5e-3
 EXPERT_TOKEN_NUMS_TYPE_CUMSUM = 0
+EXPERT_TOKEN_NUMS_TYPE_COUNT = 1
 COMM_QUANT_MODE_INT8 = 2
 
 
@@ -243,9 +244,9 @@ def unpack_int4(packed: torch.Tensor, pack_dim: int) -> torch.Tensor:
         val = (packed >> shift) & 0xF
         vals_list.append(val.unsqueeze(-1))
     vals = torch.cat(vals_list, dim=-1)  # [K, N, 8]
-    
+
     vals = torch.where(vals >= 8, vals - 16, vals).to(torch.int8)
-    
+
     if pack_dim == 1:
         out = vals.reshape(K, -1)
     else:
@@ -291,6 +292,12 @@ def compute_bias(
     return (w_int4 * scale_fp32).sum(dim=0) * 8.0
 
 
+def convert_cumsum_group_list_to_count(group_list: torch.Tensor) -> torch.Tensor:
+    if group_list.dim() != 1:
+        raise ValueError(f"group_list must be 1D, got {tuple(group_list.shape)}.")
+    return torch.cat([group_list[:1], torch.diff(group_list, dim=0)])
+
+
 def prepare_scene_weights(
     hidden: int,
     intermediate_hidden: int,
@@ -325,7 +332,7 @@ def prepare_scene_weights(
         device=device,
     )
     w2_weight_scale = torch.randn(
-        (num_local_experts, hidden), dtype=torch.float32, device=device
+        (num_local_experts, 1, hidden), dtype=torch.float32, device=device
     )
     info_rank(
         rank,
@@ -382,7 +389,7 @@ def prepare_scene_weights(
     w13_scale_int64 = pack_float_into_int64(w13_weight_scale.contiguous())
     w2_scale_int64 = pack_float_into_int64(w2_weight_scale.contiguous())
     expected_w13_scale_shape = (num_local_experts, 2 * intermediate_hidden)
-    expected_w2_scale_shape = (num_local_experts, hidden)
+    expected_w2_scale_shape = (num_local_experts, 1, hidden)
     if tuple(w13_scale_int64.shape) != expected_w13_scale_shape:
         raise ValueError(
             f"Invalid packed int64 w13 scale shape: got {tuple(w13_scale_int64.shape)}, "
@@ -600,6 +607,7 @@ def run_grouped_matmul_w4a8(
     x_int8: torch.Tensor,
     per_token_scale: torch.Tensor,
     group_list: torch.Tensor,
+    group_list_type: int,
     weight: List[torch.Tensor],
     scale: List[torch.Tensor],
     bias,
@@ -615,6 +623,7 @@ def run_grouped_matmul_w4a8(
         f"{stage_name}: x={tuple(x_int8.shape)}/{x_int8.dtype} "
         f"per_token_scale={tuple(per_token_scale.shape)}/{per_token_scale.dtype} "
         f"group_list={tuple(group_list.shape)}/{group_list.dtype} "
+        f"group_list_type={group_list_type} "
         f"weight0={tuple(weight[0].shape)}/{weight[0].dtype} "
         f"scale0={tuple(scale[0].shape)}/{scale[0].dtype} "
         f"bias={tuple(bias_tensor.shape)}/{bias_tensor.dtype}",
@@ -626,7 +635,7 @@ def run_grouped_matmul_w4a8(
         bias=bias_list,
         per_token_scale=[per_token_scale],
         split_item=2,
-        group_list_type=EXPERT_TOKEN_NUMS_TYPE_CUMSUM,
+        group_list_type=group_list_type,
         group_type=0,
         group_list=group_list,
         output_dtype=torch.bfloat16,
@@ -674,7 +683,7 @@ def run_mc2_dispatch(
         "group_ep": group_ep,
         "ep_world_size": ep_world_size,
         "ep_rank_id": ep_rank_id,
-        "expert_token_nums_type": EXPERT_TOKEN_NUMS_TYPE_CUMSUM,
+        "expert_token_nums_type": EXPERT_TOKEN_NUMS_TYPE_COUNT,
     }
     output = (
         torch_npu.npu_moe_distribute_dispatch_v2(**kwargs)
@@ -797,11 +806,20 @@ def run_baseline_reference(
         ep_rank_id=ep_rank_id,
         enable_dispatch_v2=enable_dispatch_v2,
     )
+    group_list_type = EXPERT_TOKEN_NUMS_TYPE_COUNT
+    if group_list.numel() != num_experts // dist.get_world_size():
+        group_list = convert_cumsum_group_list_to_count(group_list)
+    info_rank(
+        ep_rank_id,
+        f"baseline: normalized_group_list={tuple(group_list.shape)}/{group_list.dtype} "
+        f"group_list_type={group_list_type}",
+    )
 
     gate_up = run_grouped_matmul_w4a8(
         recv_x_int8,
         recv_x_scale,
         group_list,
+        group_list_type,
         weights["baseline_l1_weight_stacked"],
         weights["baseline_l1_scale_stacked"],
         weights["baseline_l1_bias_stacked"],
@@ -842,6 +860,7 @@ def run_baseline_reference(
         act_int8,
         act_scale,
         group_list,
+        group_list_type,
         weights["baseline_l2_weight_stacked"],
         weights["baseline_l2_scale_stacked"],
         weights["baseline_l2_bias_stacked"],
@@ -865,10 +884,9 @@ def run_baseline_reference(
         ep_rank_id=ep_rank_id,
         enable_dispatch_v2=enable_dispatch_v2,
     )
-    group_counts = torch.cat([group_list[:1], torch.diff(group_list, dim=0)])
     info_rank(ep_rank_id, "baseline: end")
     return combined_x, normalize_expert_counts(
-        group_counts,
+        group_list,
         num_experts // dist.get_world_size(),
         x.device,
     )
