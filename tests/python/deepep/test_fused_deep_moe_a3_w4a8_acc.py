@@ -413,14 +413,14 @@ def prepare_scene_weights(
     info_rank(rank, "prepare_scene_weights: bias computation start")
     w13_bias = torch.stack(
         [
-            compute_bias(w, s, 1)
+            compute_bias(w, s, 0)
             for w, s in zip(w13_weight_packed_stacked, w13_scale_int64)
         ],
         dim=0,
     ).to(torch.float32)
     w2_bias = torch.stack(
         [
-            compute_bias(w, s, 1)
+            compute_bias(w, s, 0)
             for w, s in zip(w2_weight_packed_stacked, w2_scale_int64)
         ],
         dim=0,
@@ -505,11 +505,11 @@ def prepare_scene_weights(
         w.reshape(-1).view(torch.uint64) for w in w2_scale_int64.unbind(dim=0)
     ]
     fused_l1_bias = [
-        compute_bias(weight, scale, 1).reshape(-1).to(torch.float32)
+        compute_bias(weight, scale, 0).reshape(-1).to(torch.float32)
         for weight, scale in zip(fused_l1_weights, w13_scale_int64.unbind(dim=0))
     ]
     fused_l2_bias = [
-        compute_bias(weight, scale, 1).reshape(-1).to(torch.float32)
+        compute_bias(weight, scale, 0).reshape(-1).to(torch.float32)
         for weight, scale in zip(fused_l2_weights, w2_scale_int64.unbind(dim=0))
     ]
     info_rank(
