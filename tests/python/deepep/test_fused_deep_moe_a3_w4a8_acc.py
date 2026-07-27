@@ -290,14 +290,12 @@ def prepare_scene_weights(
         group_size=group_size,
     )
 
-    w13_weight_packed = torch_npu.npu_format_cast(
-        pack_to_int32(w13_weight, new_quant_version=new_quant_version),
-        ACL_FORMAT_FRACTAL_NZ,
-    )
-    w2_weight_packed = torch_npu.npu_format_cast(
-        pack_to_int32(w2_weight, new_quant_version=new_quant_version),
-        ACL_FORMAT_FRACTAL_NZ,
-    )
+    # Align with the standard A3 W4A8 small-op preparation: cast logical int8
+    # weights to FRACTAL_NZ first, then reinterpret packed int4x2 data as int32.
+    w13_weight = torch_npu.npu_format_cast(w13_weight, ACL_FORMAT_FRACTAL_NZ)
+    w2_weight = torch_npu.npu_format_cast(w2_weight, ACL_FORMAT_FRACTAL_NZ)
+    w13_weight_packed = pack_to_int32(w13_weight, new_quant_version=new_quant_version)
+    w2_weight_packed = pack_to_int32(w2_weight, new_quant_version=new_quant_version)
 
     baseline_l1_weight_stacked = [w13_weight_packed]
     baseline_l2_weight_stacked = [w2_weight_packed]
