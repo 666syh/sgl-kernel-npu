@@ -194,6 +194,10 @@ def process_scale(
     new_quant_version: bool,
     group_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    # MegaMoe W4A8 keeps the weight in packed-int8 logical layout directly:
+    #   l1: [E, hidden, intermediate_hidden]
+    #   l2: [E, intermediate_hidden, hidden // 2]
+    # where the last dim stores two INT4 values per INT8 element.
     scale = scale.transpose(1, 2).contiguous()
     per_group_scale = per_group_scale.transpose(1, 2).contiguous()
 
@@ -238,18 +242,19 @@ def prepare_scene_weights(
     if intermediate_hidden % group_size != 0:
         raise ValueError("W4A8 requires intermediate_hidden divisible by 256.")
 
-    # Same source tensors for both paths, matching the demos' new-version layout.
+    # Keep the raw packed-int8 layout directly in mega_moe-compatible order.
+    # Each int8 stores two logical int4 weights along the output-channel dim.
     w13_weight = torch.randint(
         -8,
         8,
-        (num_local_experts, intermediate_hidden, hidden),
+        (num_local_experts, hidden, intermediate_hidden),
         dtype=torch.int8,
         device=device,
     )
     w2_weight = torch.randint(
         -8,
         8,
-        (num_local_experts, hidden // 2, intermediate_hidden),
+        (num_local_experts, intermediate_hidden, hidden // 2),
         dtype=torch.int8,
         device=device,
     )
@@ -271,9 +276,6 @@ def prepare_scene_weights(
         dtype=torch.float32,
         device=device,
     )
-
-    # w13_weight = w13_weight.transpose(1, 2).contiguous()
-    # w2_weight = w2_weight.transpose(1, 2).contiguous()
 
     w13_scale_int64, w13_bias = process_scale(
         w13_weight,
