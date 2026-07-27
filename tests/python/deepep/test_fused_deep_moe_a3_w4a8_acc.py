@@ -164,10 +164,14 @@ def pack_scale_to_int64(scale: torch.Tensor) -> torch.Tensor:
 
 
 def pack_int4_to_int8(weight: torch.Tensor) -> torch.Tensor:
+    if weight.shape[-1] % 2 != 0:
+        raise ValueError(
+            f"logical int4 weight last dim must be divisible by 2, got {weight.shape}."
+        )
     packed = (
         (weight.to(torch.int16) + 8)
         .to(torch.uint8)
-        .reshape(weight.shape[0], weight.shape[1] // 2, 2)
+        .reshape(*weight.shape[:-1], weight.shape[-1] // 2, 2)
     )
     return ((packed[..., 1] << 4) | packed[..., 0]).view(torch.int8)
 
@@ -194,7 +198,7 @@ def process_scale(
     new_quant_version: bool,
     group_size: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    # MegaMoe W4A8 keeps the weight in packed-int8 logical layout directly:
+    # Process scale/bias for packed-int8 weights:
     #   l1: [E, hidden, intermediate_hidden]
     #   l2: [E, intermediate_hidden, hidden // 2]
     # where the last dim stores two INT4 values per INT8 element.
@@ -245,20 +249,20 @@ def prepare_scene_weights(
         raise ValueError("W4A8 requires intermediate_hidden divisible by 256.")
 
     stage_barrier(rank, "prepare_scene_weights_pre", group=barrier_group)
-    info_rank(rank, "prepare_scene_weights: raw tensor generation start")
-    # Keep the raw packed-int8 layout directly in mega_moe-compatible order.
-    # Each int8 stores two logical int4 weights along the output-channel dim.
-    w13_weight = torch.randint(
+    info_rank(rank, "prepare_scene_weights: raw logical int4 tensor generation start")
+    # Generate logical int4 weights in int8 containers first. These tensors are
+    # not packed yet; the last dim still represents the full output-channel dim.
+    w13_weight_raw_int4 = torch.randint(
         -8,
         8,
-        (num_local_experts, hidden, intermediate_hidden),
+        (num_local_experts, hidden, 2 * intermediate_hidden),
         dtype=torch.int8,
         device=device,
     )
-    w2_weight = torch.randint(
+    w2_weight_raw_int4 = torch.randint(
         -8,
         8,
-        (num_local_experts, intermediate_hidden, hidden // 2),
+        (num_local_experts, intermediate_hidden, hidden),
         dtype=torch.int8,
         device=device,
     )
@@ -282,22 +286,38 @@ def prepare_scene_weights(
     )
     info_rank(
         rank,
-        "prepare_scene_weights: raw tensor generation done "
-        f"w13_weight={tuple(w13_weight.shape)}/{w13_weight.dtype} "
-        f"w2_weight={tuple(w2_weight.shape)}/{w2_weight.dtype} "
+        "prepare_scene_weights: raw logical int4 tensor generation done "
+        f"w13_weight_raw_int4={tuple(w13_weight_raw_int4.shape)}/{w13_weight_raw_int4.dtype} "
+        f"w2_weight_raw_int4={tuple(w2_weight_raw_int4.shape)}/{w2_weight_raw_int4.dtype} "
         f"w13_scale={tuple(w13_weight_scale.shape)}/{w13_weight_scale.dtype} "
         f"w2_scale={tuple(w2_weight_scale.shape)}/{w2_weight_scale.dtype}",
     )
     stage_barrier(
         rank,
-        "prepare_scene_weights_raw_tensors",
+        "prepare_scene_weights_raw_logical_int4_tensors",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+
+    info_rank(rank, "prepare_scene_weights: pack_int4_to_int8 start")
+    w13_weight_packed_int8 = pack_int4_to_int8(w13_weight_raw_int4)
+    w2_weight_packed_int8 = pack_int4_to_int8(w2_weight_raw_int4)
+    info_rank(
+        rank,
+        "prepare_scene_weights: pack_int4_to_int8 done "
+        f"w13_weight_packed_int8={tuple(w13_weight_packed_int8.shape)}/{w13_weight_packed_int8.dtype} "
+        f"w2_weight_packed_int8={tuple(w2_weight_packed_int8.shape)}/{w2_weight_packed_int8.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_packed_int8_tensors",
         group=barrier_group,
         synchronize_npu=True,
     )
 
     info_rank(rank, "prepare_scene_weights: process_scale l1 start")
     w13_scale_int64, w13_bias = process_scale(
-        w13_weight,
+        w13_weight_packed_int8,
         w13_weight_scale,
         w13_weight_scale_second,
         new_quant_version=new_quant_version,
@@ -318,7 +338,7 @@ def prepare_scene_weights(
 
     info_rank(rank, "prepare_scene_weights: process_scale l2 start")
     w2_scale_int64, w2_bias = process_scale(
-        w2_weight,
+        w2_weight_packed_int8,
         w2_weight_scale,
         w2_weight_scale_second,
         new_quant_version=new_quant_version,
@@ -339,8 +359,12 @@ def prepare_scene_weights(
 
     # Build a dedicated NZ view for the fused MegaMoe path. Baseline keeps using
     # the stacked packed tensor path and must not depend on expert-wise splitting.
-    w13_weight_nz = torch_npu.npu_format_cast(w13_weight, ACL_FORMAT_FRACTAL_NZ)
-    w2_weight_nz = torch_npu.npu_format_cast(w2_weight, ACL_FORMAT_FRACTAL_NZ)
+    w13_weight_nz = torch_npu.npu_format_cast(
+        w13_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
+    )
+    w2_weight_nz = torch_npu.npu_format_cast(
+        w2_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
+    )
     info_rank(
         rank,
         "prepare_scene_weights: fused weight NZ cast done "
