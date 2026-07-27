@@ -222,39 +222,6 @@ def normalize_expert_counts(
     return out
 
 
-def process_scale(
-    weight: torch.Tensor,
-    scale: torch.Tensor,
-    per_group_scale: torch.Tensor,
-    *,
-    new_quant_version: bool,
-    group_size: int,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    # Process scale/bias for packed-int8 weights:
-    #   l1: [E, hidden, intermediate_hidden]
-    #   l2: [E, intermediate_hidden, hidden // 2]
-    # where the last dim stores two INT4 values per INT8 element.
-    scale = scale.transpose(1, 2).contiguous()
-    per_group_scale = per_group_scale.transpose(1, 2).contiguous()
-
-    group_num, k_dim, n_packed = weight.shape
-    n_dim = n_packed * 2 if new_quant_version else n_packed
-    per_group_scale = per_group_scale.reshape(group_num, -1, n_dim)
-    _, quant_group_num, n_dim = per_group_scale.shape
-    bias = torch.randn((group_num, n_dim), dtype=torch.float32, device=weight.device)
-
-    scale_fp32 = (scale * per_group_scale).to(torch.float16).to(torch.float32)
-    scale_fp32_np = scale_fp32.cpu().numpy()
-    scale_fp32_np.dtype = np.uint32
-    packed = np.zeros((group_num, quant_group_num, n_dim * 2), dtype=np.uint32)
-    packed[..., ::2] = scale_fp32_np
-    packed_buffer = np.frombuffer(packed.tobytes(), dtype=np.int64).copy()
-    packed_tensor = (
-        torch.from_numpy(packed_buffer).reshape(group_num, quant_group_num, n_dim).npu()
-    )
-    return packed_tensor, bias
-
-
 def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Tensor:
     if not new_quant_version:
         raise ValueError("This test only supports new_quant_version=True for A3 W4A8.")
@@ -263,6 +230,7 @@ def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Ten
             f"Packed int4 weight last dim must be divisible by 4, got {weight.shape}."
         )
     return weight.view(torch.int32)
+
 
 def unpack_int4(packed: torch.Tensor, pack_dim: int) -> torch.Tensor:
     """Unpack int32 → int8. Returns int8 tensor."""
@@ -275,22 +243,34 @@ def unpack_int4(packed: torch.Tensor, pack_dim: int) -> torch.Tensor:
     else:
         return vals.permute(0, 2, 1).reshape(-1, N)
 
+
 def pack_float_into_int64(dequant_scale_origin: torch.Tensor) -> torch.Tensor:
     """Pack float32 scale into int64 with marker bit."""
     scale_int = dequant_scale_origin.view(torch.int32)
     scale_int = scale_int & 0xFFFFE000  # clear low 13 mantissa bits
     # Convert to int64 without sign-extension: view as unsigned first
-    out = torch.bitwise_and(scale_int.to(torch.int64),
-                            torch.tensor(0xFFFFFFFF, dtype=torch.int64))
+    out = torch.bitwise_and(
+        scale_int.to(torch.int64), torch.tensor(0xFFFFFFFF, dtype=torch.int64)
+    )
     return out
 
 
-def compute_bias(weight_packed: torch.Tensor, scale_packed: torch.Tensor,
-                 pack_dim: int = 1) -> torch.Tensor:
+def extract_float_from_int64(scale_packed: torch.Tensor) -> torch.Tensor:
+    scale_int32 = torch.bitwise_and(
+        scale_packed.to(torch.int64),
+        torch.tensor(0xFFFFFFFF, dtype=torch.int64, device=scale_packed.device),
+    ).to(torch.int32)
+    return scale_int32.view(torch.float32)
+
+
+def compute_bias(
+    weight_packed: torch.Tensor, scale_packed: torch.Tensor, pack_dim: int = 1
+) -> torch.Tensor:
     """Compute bias = sum(unpacked_weight * scale, dim=0) * 8."""
     w_int4 = unpack_int4(weight_packed, pack_dim).float()
     scale_fp32 = extract_float_from_int64(scale_packed)
     return (w_int4 * scale_fp32).sum(dim=0) * 8.0
+
 
 def prepare_scene_weights(
     hidden: int,
@@ -300,12 +280,7 @@ def prepare_scene_weights(
 ) -> dict:
     rank = dist.get_rank()
     barrier_group = dist.group.WORLD
-    group_size = 256
     new_quant_version = True
-    if hidden % group_size != 0:
-        raise ValueError("W4A8 requires hidden divisible by 256.")
-    if intermediate_hidden % group_size != 0:
-        raise ValueError("W4A8 requires intermediate_hidden divisible by 256.")
 
     stage_barrier(rank, "prepare_scene_weights_pre", group=barrier_group)
     info_rank(rank, "prepare_scene_weights: raw logical int4 tensor generation start")
@@ -326,22 +301,12 @@ def prepare_scene_weights(
         device=device,
     )
     w13_weight_scale = torch.randn(
-        (num_local_experts, 2 * intermediate_hidden, 1),
+        (num_local_experts, 2 * intermediate_hidden),
         dtype=torch.float32,
         device=device,
     )
     w2_weight_scale = torch.randn(
-        (num_local_experts, hidden, 1), dtype=torch.float32, device=device
-    )
-    w13_weight_scale_second = torch.randn(
-        (num_local_experts, 2 * intermediate_hidden, hidden // group_size),
-        dtype=torch.float32,
-        device=device,
-    )
-    w2_weight_scale_second = torch.randn(
-        (num_local_experts, hidden, intermediate_hidden // group_size),
-        dtype=torch.float32,
-        device=device,
+        (num_local_experts, hidden), dtype=torch.float32, device=device
     )
     info_rank(
         rank,
@@ -394,44 +359,30 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
-    info_rank(rank, "prepare_scene_weights: process_scale l1 start")
-    w13_scale_int64, w13_bias = process_scale(
-        w13_weight_packed_int8,
-        w13_weight_scale,
-        w13_weight_scale_second,
-        new_quant_version=new_quant_version,
-        group_size=group_size,
-    )
+    info_rank(rank, "prepare_scene_weights: per-channel scale generation start")
+    w13_scale_int64 = pack_float_into_int64(w13_weight_scale.contiguous())
+    w2_scale_int64 = pack_float_into_int64(w2_weight_scale.contiguous())
+    expected_w13_scale_shape = (num_local_experts, 2 * intermediate_hidden)
+    expected_w2_scale_shape = (num_local_experts, hidden)
+    if tuple(w13_scale_int64.shape) != expected_w13_scale_shape:
+        raise ValueError(
+            f"Invalid packed int64 w13 scale shape: got {tuple(w13_scale_int64.shape)}, "
+            f"expected {expected_w13_scale_shape}."
+        )
+    if tuple(w2_scale_int64.shape) != expected_w2_scale_shape:
+        raise ValueError(
+            f"Invalid packed int64 w2 scale shape: got {tuple(w2_scale_int64.shape)}, "
+            f"expected {expected_w2_scale_shape}."
+        )
     info_rank(
         rank,
-        "prepare_scene_weights: process_scale l1 done "
-        f"scale={tuple(w13_scale_int64.shape)}/{w13_scale_int64.dtype} "
-        f"bias={tuple(w13_bias.shape)}/{w13_bias.dtype}",
+        "prepare_scene_weights: per-channel scale packed int64 done "
+        f"w13_scale={tuple(w13_scale_int64.shape)}/{w13_scale_int64.dtype} "
+        f"w2_scale={tuple(w2_scale_int64.shape)}/{w2_scale_int64.dtype}",
     )
     stage_barrier(
         rank,
-        "prepare_scene_weights_process_scale_l1",
-        group=barrier_group,
-        synchronize_npu=True,
-    )
-
-    info_rank(rank, "prepare_scene_weights: process_scale l2 start")
-    w2_scale_int64, w2_bias = process_scale(
-        w2_weight_packed_int8,
-        w2_weight_scale,
-        w2_weight_scale_second,
-        new_quant_version=new_quant_version,
-        group_size=group_size,
-    )
-    info_rank(
-        rank,
-        "prepare_scene_weights: process_scale l2 done "
-        f"scale={tuple(w2_scale_int64.shape)}/{w2_scale_int64.dtype} "
-        f"bias={tuple(w2_bias.shape)}/{w2_bias.dtype}",
-    )
-    stage_barrier(
-        rank,
-        "prepare_scene_weights_process_scale_l2",
+        "prepare_scene_weights_per_channel_scale",
         group=barrier_group,
         synchronize_npu=True,
     )
@@ -458,6 +409,46 @@ def prepare_scene_weights(
     stage_barrier(
         rank,
         "prepare_scene_weights_baseline_stacked_pack",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+
+    info_rank(rank, "prepare_scene_weights: bias computation start")
+    w13_bias = torch.stack(
+        [
+            compute_bias(w, s, 1)
+            for w, s in zip(w13_weight_packed_stacked, w13_scale_int64)
+        ],
+        dim=0,
+    ).to(torch.float32)
+    w2_bias = torch.stack(
+        [
+            compute_bias(w, s, 1)
+            for w, s in zip(w2_weight_packed_stacked, w2_scale_int64)
+        ],
+        dim=0,
+    ).to(torch.float32)
+    expected_w13_bias_shape = (num_local_experts, 2 * intermediate_hidden)
+    expected_w2_bias_shape = (num_local_experts, hidden)
+    if tuple(w13_bias.shape) != expected_w13_bias_shape:
+        raise ValueError(
+            f"Invalid computed w13 bias shape: got {tuple(w13_bias.shape)}, "
+            f"expected {expected_w13_bias_shape}."
+        )
+    if tuple(w2_bias.shape) != expected_w2_bias_shape:
+        raise ValueError(
+            f"Invalid computed w2 bias shape: got {tuple(w2_bias.shape)}, "
+            f"expected {expected_w2_bias_shape}."
+        )
+    info_rank(
+        rank,
+        "prepare_scene_weights: bias computed done "
+        f"w13_bias={tuple(w13_bias.shape)}/{w13_bias.dtype} "
+        f"w2_bias={tuple(w2_bias.shape)}/{w2_bias.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_bias_computed",
         group=barrier_group,
         synchronize_npu=True,
     )
@@ -516,8 +507,14 @@ def prepare_scene_weights(
     fused_l2_scales = [
         w.reshape(-1).view(torch.uint64) for w in w2_scale_int64.unbind(dim=0)
     ]
-    fused_l1_bias = [w.reshape(-1) for w in w13_bias.unbind(dim=0)]
-    fused_l2_bias = [w.reshape(-1) for w in w2_bias.unbind(dim=0)]
+    fused_l1_bias = [
+        compute_bias(weight, scale, 1).reshape(-1).to(torch.float32)
+        for weight, scale in zip(fused_l1_weights, w13_scale_int64.unbind(dim=0))
+    ]
+    fused_l2_bias = [
+        compute_bias(weight, scale, 1).reshape(-1).to(torch.float32)
+        for weight, scale in zip(fused_l2_weights, w2_scale_int64.unbind(dim=0))
+    ]
     info_rank(
         rank,
         "prepare_scene_weights: fused scale/bias list build done "
