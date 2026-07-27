@@ -255,12 +255,9 @@ def pack_float_into_int64(dequant_scale_origin: torch.Tensor) -> torch.Tensor:
     return out
 
 
-def extract_float_from_int64(scale_packed: torch.Tensor) -> torch.Tensor:
-    scale_int32 = torch.bitwise_and(
-        scale_packed.to(torch.int64),
-        torch.tensor(0xFFFFFFFF, dtype=torch.int64, device=scale_packed.device),
-    ).to(torch.int32)
-    return scale_int32.view(torch.float32)
+def extract_float_from_int64(packed_int64: torch.Tensor) -> torch.Tensor:
+    """Extract low 32 bits of int64 as float32."""
+    return packed_int64.to(torch.int32).view(torch.float32)
 
 
 def compute_bias(
