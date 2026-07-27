@@ -163,6 +163,23 @@ def pack_scale_to_int64(scale: torch.Tensor) -> torch.Tensor:
     return scale.contiguous().view(torch.int32).to(torch.int64)
 
 
+def pack_int4(values: torch.Tensor, pack_dim: int) -> torch.Tensor:
+    """Pack int8 values [-8,7] into int32 (8 values per int32)."""
+    values = values.clamp(-8, 7)
+    values_unsigned = torch.where(values < 0, values + 16, values).to(torch.int32)
+    if pack_dim == 1:
+        K, N_unpacked = values_unsigned.shape
+        N_packed = N_unpacked // 8
+        vals = values_unsigned.view(K, N_packed, 8)
+    else:
+        K_unpacked, N = values_unsigned.shape
+        K_packed = K_unpacked // 8
+        vals = values_unsigned.view(K_packed, 8, N).permute(0, 2, 1)
+    packed = torch.zeros(vals.shape[0], vals.shape[1], dtype=torch.int32)
+    for i in range(8):
+        packed |= (vals[..., i].to(torch.int32) << (i * 4)).to(torch.int32)
+    return packed
+
 def pack_int4_to_int8(weight: torch.Tensor) -> torch.Tensor:
     if weight.shape[-1] % 2 != 0:
         raise ValueError(
@@ -300,8 +317,8 @@ def prepare_scene_weights(
     )
 
     info_rank(rank, "prepare_scene_weights: pack_int4_to_int8 start")
-    w13_weight_packed_int8 = pack_int4_to_int8(w13_weight_raw_int4)
-    w2_weight_packed_int8 = pack_int4_to_int8(w2_weight_raw_int4)
+    w13_weight_packed_int8 = pack_int4(w13_weight_raw_int4, 1)
+    w2_weight_packed_int8 = pack_int4(w2_weight_raw_int4, 1)
     info_rank(
         rank,
         "prepare_scene_weights: pack_int4_to_int8 done "
