@@ -1,7 +1,7 @@
 import argparse
 import os
 import random
-from typing import Any, List, Optional
+from typing import List, Optional
 
 import deep_ep
 import numpy as np
@@ -533,188 +533,6 @@ def prepare_scene_weights(
     }
 
 
-def to_runtime_dump(value: Any):
-    if isinstance(value, torch.Tensor):
-        return value.detach().clone()
-    if isinstance(value, list):
-        return [to_runtime_dump(item) for item in value]
-    if isinstance(value, tuple):
-        return tuple(to_runtime_dump(item) for item in value)
-    if isinstance(value, dict):
-        return {key: to_runtime_dump(item) for key, item in value.items()}
-    return value
-
-
-def tensor_meta(tensor: torch.Tensor) -> dict:
-    meta = {
-        "shape": tuple(tensor.shape),
-        "dtype": str(tensor.dtype),
-        "device": str(tensor.device),
-    }
-    if tensor.device.type == "npu" and hasattr(torch_npu, "get_npu_format"):
-        try:
-            meta["npu_format"] = torch_npu.get_npu_format(tensor)
-        except Exception:
-            meta["npu_format"] = "unavailable"
-    return meta
-
-
-def nested_meta(value: Any):
-    if isinstance(value, torch.Tensor):
-        return tensor_meta(value)
-    if isinstance(value, list):
-        return [nested_meta(item) for item in value]
-    if isinstance(value, tuple):
-        return [nested_meta(item) for item in value]
-    if isinstance(value, dict):
-        return {key: nested_meta(item) for key, item in value.items()}
-    return value
-
-
-def dump_case_once(
-    args: argparse.Namespace,
-    rank: int,
-    *,
-    iteration: int,
-    case_index: int,
-    case: dict,
-    x: torch.Tensor,
-    topk_idx: torch.Tensor,
-    topk_weights: torch.Tensor,
-    weights: dict,
-    baseline_out: torch.Tensor,
-    baseline_counts: torch.Tensor,
-    fused_out: torch.Tensor,
-    fused_counts: torch.Tensor,
-):
-    if not args.dump_data:
-        return
-    if iteration != 0 or case_index != 0:
-        return
-
-    torch.npu.synchronize()
-    dist.barrier()
-
-    if rank == 0:
-        dump_dir = os.path.dirname(args.dump_path)
-        if dump_dir:
-            os.makedirs(dump_dir, exist_ok=True)
-        payload = {
-            "meta": {
-                "seed": args.seed,
-                "iteration": iteration,
-                "case_index": case_index,
-                "case": {
-                    "activation": case["activation"],
-                    "beta": case["beta"],
-                    "linear_beta": case["linear_beta"],
-                    "activation_clamp": case["activation_clamp"],
-                },
-                "num_tokens": args.num_tokens,
-                "hidden": args.hidden,
-                "num_topk": args.num_topk,
-                "num_experts": args.num_experts,
-                "moe_intermediate_size": args.moe_intermediate_size,
-            },
-            "runtime_npu": to_runtime_dump(
-                {
-                    "inputs": {
-                        "x": x,
-                        "topk_idx": topk_idx,
-                        "topk_weights": topk_weights,
-                    },
-                    "source": {
-                        "w13_weight_raw_int4": weights["source"]["w13_weight_raw_int4"],
-                        "w2_weight_raw_int4": weights["source"]["w2_weight_raw_int4"],
-                        "w13_weight_packed_int8": weights["source"][
-                            "w13_weight_packed_int8"
-                        ],
-                        "w2_weight_packed_int8": weights["source"][
-                            "w2_weight_packed_int8"
-                        ],
-                        "w13_scale_int64": weights["source"]["w13_scale_int64"],
-                        "w2_scale_int64": weights["source"]["w2_scale_int64"],
-                        "w13_bias": weights["source"]["w13_bias"],
-                        "w2_bias": weights["source"]["w2_bias"],
-                    },
-                    """
-                    "baseline": {
-                        "l1_weight_stacked": weights["baseline_l1_weight_stacked"],
-                        "l2_weight_stacked": weights["baseline_l2_weight_stacked"],
-                        "l1_scale_stacked": weights["baseline_l1_scale_stacked"],
-                        "l2_scale_stacked": weights["baseline_l2_scale_stacked"],
-                        "l1_bias_stacked": weights["baseline_l1_bias_stacked"],
-                        "l2_bias_stacked": weights["baseline_l2_bias_stacked"],
-                    },
-                    "fused": {
-                        "l1_weights": weights["fused_l1_weights"],
-                        "l2_weights": weights["fused_l2_weights"],
-                        "l1_scales": weights["fused_l1_scales"],
-                        "l2_scales": weights["fused_l2_scales"],
-                        "l1_bias": weights["fused_l1_bias"],
-                        "l2_bias": weights["fused_l2_bias"],
-                    },
-                    """
-                    "outputs": {
-                        "baseline_out": baseline_out,
-                        "baseline_counts": baseline_counts,
-                        "fused_out": fused_out,
-                        "fused_counts": fused_counts,
-                    },
-                }
-            ),
-            "runtime_meta": nested_meta(
-                {
-                    "inputs": {
-                        "x": x,
-                        "topk_idx": topk_idx,
-                        "topk_weights": topk_weights,
-                    },
-                    "source": {
-                        "w13_weight_raw_int4": weights["source"]["w13_weight_raw_int4"],
-                        "w2_weight_raw_int4": weights["source"]["w2_weight_raw_int4"],
-                        "w13_weight_packed_int8": weights["source"][
-                            "w13_weight_packed_int8"
-                        ],
-                        "w2_weight_packed_int8": weights["source"][
-                            "w2_weight_packed_int8"
-                        ],
-                        "w13_scale_int64": weights["source"]["w13_scale_int64"],
-                        "w2_scale_int64": weights["source"]["w2_scale_int64"],
-                        "w13_bias": weights["source"]["w13_bias"],
-                        "w2_bias": weights["source"]["w2_bias"],
-                    },
-                    "baseline": {
-                        "l1_weight_stacked": weights["baseline_l1_weight_stacked"],
-                        "l2_weight_stacked": weights["baseline_l2_weight_stacked"],
-                        "l1_scale_stacked": weights["baseline_l1_scale_stacked"],
-                        "l2_scale_stacked": weights["baseline_l2_scale_stacked"],
-                        "l1_bias_stacked": weights["baseline_l1_bias_stacked"],
-                        "l2_bias_stacked": weights["baseline_l2_bias_stacked"],
-                    },
-                    "fused": {
-                        "l1_weights": weights["fused_l1_weights"],
-                        "l2_weights": weights["fused_l2_weights"],
-                        "l1_scales": weights["fused_l1_scales"],
-                        "l2_scales": weights["fused_l2_scales"],
-                        "l1_bias": weights["fused_l1_bias"],
-                        "l2_bias": weights["fused_l2_bias"],
-                    },
-                    "outputs": {
-                        "baseline_out": baseline_out,
-                        "baseline_counts": baseline_counts,
-                        "fused_out": fused_out,
-                        "fused_counts": fused_counts,
-                    },
-                }
-            ),
-        }
-        torch.save(payload, args.dump_path)
-        info_rank0(rank, f"saved dump payload to {args.dump_path}")
-
-    dist.barrier()
-
-
 def run_grouped_matmul_w4a8(
     x_int8: torch.Tensor,
     per_token_scale: torch.Tensor,
@@ -1079,22 +897,6 @@ def finalize_case(
     fused_out = launched_case["fused_out"]
     fused_counts = launched_case["fused_counts"]
 
-    dump_case_once(
-        args,
-        rank,
-        iteration=iteration,
-        case_index=case_index,
-        case=case,
-        x=x,
-        topk_idx=topk_idx,
-        topk_weights=topk_weights,
-        weights=weights,
-        baseline_out=baseline_out,
-        baseline_counts=baseline_counts,
-        fused_out=fused_out,
-        fused_counts=fused_counts,
-    )
-
     local_diff = calc_diff(
         baseline_out.float(),
         fused_out.float(),
@@ -1289,14 +1091,8 @@ if __name__ == "__main__":
     parser.add_argument("--linear-beta", type=str, default="25.0")
     parser.add_argument("--activation-clamp", type=str, default="0")
     parser.add_argument("--seed", type=int, default=2026)
-    parser.add_argument("--dump-data", action="store_true")
     parser.add_argument("--enable-performance", action="store_true")
     parser.add_argument("--performance-iters", type=int, default=30)
-    parser.add_argument(
-        "--dump-path",
-        type=str,
-        default="/home/z30071866/dump_data/a3_w4a8_full_dump.pt",
-    )
     args = parser.parse_args()
     if args.num_ranks_per_server is None:
         args.num_ranks_per_server = args.num_processes
