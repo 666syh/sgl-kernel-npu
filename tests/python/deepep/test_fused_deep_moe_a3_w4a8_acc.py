@@ -180,6 +180,21 @@ def pack_int4(values: torch.Tensor, pack_dim: int) -> torch.Tensor:
         packed |= (vals[..., i].to(torch.int32) << (i * 4)).to(torch.int32)
     return packed
 
+
+def pack_int4_experts_to_int8(weights: torch.Tensor) -> torch.Tensor:
+    if weights.dim() != 3:
+        raise ValueError(f"Expected expert-stacked 3D weight, got {weights.shape}.")
+    if weights.shape[-1] % 8 != 0:
+        raise ValueError(
+            f"logical int4 weight last dim must be divisible by 8, got {weights.shape}."
+        )
+    packed = [
+        pack_int4(weight.contiguous(), 1).view(torch.int8)
+        for weight in weights.unbind(dim=0)
+    ]
+    return torch.stack(packed, dim=0).contiguous()
+
+
 def pack_int4_to_int8(weight: torch.Tensor) -> torch.Tensor:
     if weight.shape[-1] % 2 != 0:
         raise ValueError(
@@ -317,8 +332,28 @@ def prepare_scene_weights(
     )
 
     info_rank(rank, "prepare_scene_weights: pack_int4_to_int8 start")
-    w13_weight_packed_int8 = pack_int4(w13_weight_raw_int4, 1).view(torch.int8)
-    w2_weight_packed_int8 = pack_int4(w2_weight_raw_int4, 1).view(torch.int8)
+    w13_weight_packed_int8 = pack_int4_experts_to_int8(w13_weight_raw_int4)
+    w2_weight_packed_int8 = pack_int4_experts_to_int8(w2_weight_raw_int4)
+    expected_w13_packed_int8_shape = (
+        num_local_experts,
+        hidden,
+        intermediate_hidden,
+    )
+    expected_w2_packed_int8_shape = (
+        num_local_experts,
+        intermediate_hidden,
+        hidden // 2,
+    )
+    if tuple(w13_weight_packed_int8.shape) != expected_w13_packed_int8_shape:
+        raise ValueError(
+            f"Invalid packed int8 w13 shape: got {tuple(w13_weight_packed_int8.shape)}, "
+            f"expected {expected_w13_packed_int8_shape}."
+        )
+    if tuple(w2_weight_packed_int8.shape) != expected_w2_packed_int8_shape:
+        raise ValueError(
+            f"Invalid packed int8 w2 shape: got {tuple(w2_weight_packed_int8.shape)}, "
+            f"expected {expected_w2_packed_int8_shape}."
+        )
     info_rank(
         rank,
         "prepare_scene_weights: pack_int4_to_int8 done "
