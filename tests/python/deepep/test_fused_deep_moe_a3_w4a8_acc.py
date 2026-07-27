@@ -234,14 +234,23 @@ def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Ten
 
 def unpack_int4(packed: torch.Tensor, pack_dim: int) -> torch.Tensor:
     """Unpack int32 → int8. Returns int8 tensor."""
+    print(
+        f"[debug] unpack_int4: packed_shape={tuple(packed.shape)} packed_dtype={packed.dtype} pack_dim={pack_dim}",
+        flush=True,
+    )
     K, N = packed.shape
     shifts = torch.tensor([0, 4, 8, 12, 16, 20, 24, 28], device=packed.device)
     vals = (packed.unsqueeze(-1) >> shifts) & 0xF
     vals = torch.where(vals >= 8, vals - 16, vals).to(torch.int8)
     if pack_dim == 1:
-        return vals.reshape(K, -1)
+        out = vals.reshape(K, -1)
     else:
-        return vals.permute(0, 2, 1).reshape(-1, N)
+        out = vals.permute(0, 2, 1).reshape(-1, N)
+    print(
+        f"[debug] unpack_int4: out_shape={tuple(out.shape)} out_dtype={out.dtype}",
+        flush=True,
+    )
+    return out
 
 
 def pack_float_into_int64(dequant_scale_origin: torch.Tensor) -> torch.Tensor:
@@ -264,8 +273,17 @@ def compute_bias(
     weight_packed: torch.Tensor, scale_packed: torch.Tensor, pack_dim: int = 1
 ) -> torch.Tensor:
     """Compute bias = sum(unpacked_weight * scale, dim=0) * 8."""
+    print(
+        f"[debug] compute_bias: weight_shape={tuple(weight_packed.shape)} weight_dtype={weight_packed.dtype} "
+        f"scale_shape={tuple(scale_packed.shape)} scale_dtype={scale_packed.dtype} pack_dim={pack_dim}",
+        flush=True,
+    )
     w_int4 = unpack_int4(weight_packed, pack_dim).float()
     scale_fp32 = extract_float_from_int64(scale_packed)
+    print(
+        f"[debug] compute_bias: unpacked_shape={tuple(w_int4.shape)} scale_fp32_shape={tuple(scale_fp32.shape)}",
+        flush=True,
+    )
     return (w_int4 * scale_fp32).sum(dim=0) * 8.0
 
 
