@@ -235,6 +235,8 @@ def prepare_scene_weights(
     num_local_experts: int,
     device: torch.device,
 ) -> dict:
+    rank = dist.get_rank()
+    barrier_group = dist.group.WORLD
     group_size = 256
     new_quant_version = True
     if hidden % group_size != 0:
@@ -242,6 +244,8 @@ def prepare_scene_weights(
     if intermediate_hidden % group_size != 0:
         raise ValueError("W4A8 requires intermediate_hidden divisible by 256.")
 
+    stage_barrier(rank, "prepare_scene_weights_pre", group=barrier_group)
+    info_rank(rank, "prepare_scene_weights: raw tensor generation start")
     # Keep the raw packed-int8 layout directly in mega_moe-compatible order.
     # Each int8 stores two logical int4 weights along the output-channel dim.
     w13_weight = torch.randint(
@@ -276,7 +280,22 @@ def prepare_scene_weights(
         dtype=torch.float32,
         device=device,
     )
+    info_rank(
+        rank,
+        "prepare_scene_weights: raw tensor generation done "
+        f"w13_weight={tuple(w13_weight.shape)}/{w13_weight.dtype} "
+        f"w2_weight={tuple(w2_weight.shape)}/{w2_weight.dtype} "
+        f"w13_scale={tuple(w13_weight_scale.shape)}/{w13_weight_scale.dtype} "
+        f"w2_scale={tuple(w2_weight_scale.shape)}/{w2_weight_scale.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_raw_tensors",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
 
+    info_rank(rank, "prepare_scene_weights: process_scale l1 start")
     w13_scale_int64, w13_bias = process_scale(
         w13_weight,
         w13_weight_scale,
@@ -284,12 +303,38 @@ def prepare_scene_weights(
         new_quant_version=new_quant_version,
         group_size=group_size,
     )
+    info_rank(
+        rank,
+        "prepare_scene_weights: process_scale l1 done "
+        f"scale={tuple(w13_scale_int64.shape)}/{w13_scale_int64.dtype} "
+        f"bias={tuple(w13_bias.shape)}/{w13_bias.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_process_scale_l1",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+
+    info_rank(rank, "prepare_scene_weights: process_scale l2 start")
     w2_scale_int64, w2_bias = process_scale(
         w2_weight,
         w2_weight_scale,
         w2_weight_scale_second,
         new_quant_version=new_quant_version,
         group_size=group_size,
+    )
+    info_rank(
+        rank,
+        "prepare_scene_weights: process_scale l2 done "
+        f"scale={tuple(w2_scale_int64.shape)}/{w2_scale_int64.dtype} "
+        f"bias={tuple(w2_bias.shape)}/{w2_bias.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_process_scale_l2",
+        group=barrier_group,
+        synchronize_npu=True,
     )
 
     # Keep baseline and fused weight preparation separate.
@@ -298,11 +343,24 @@ def prepare_scene_weights(
     # MegaMoe follows the demo/op-plugin style more closely: each local expert
     # weight is cast to FRACTAL_NZ as a 2D int8 tensor first, then reinterpreted
     # as int32 packed-int4.
+    info_rank(rank, "prepare_scene_weights: baseline pack_to_int32 start")
     w13_weight_packed = pack_to_int32(
         w13_weight.contiguous(), new_quant_version=new_quant_version
     )
     w2_weight_packed = pack_to_int32(
         w2_weight.contiguous(), new_quant_version=new_quant_version
+    )
+    info_rank(
+        rank,
+        "prepare_scene_weights: baseline pack_to_int32 done "
+        f"w13={tuple(w13_weight_packed.shape)}/{w13_weight_packed.dtype} "
+        f"w2={tuple(w2_weight_packed.shape)}/{w2_weight_packed.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_baseline_pack",
+        group=barrier_group,
+        synchronize_npu=True,
     )
 
     baseline_l1_weight_stacked = [w13_weight_packed.contiguous()]
@@ -312,6 +370,7 @@ def prepare_scene_weights(
     baseline_l1_bias_stacked = [w13_bias.contiguous()]
     baseline_l2_bias_stacked = [w2_bias.contiguous()]
 
+    info_rank(rank, "prepare_scene_weights: fused NZ+pack l1 start")
     fused_l1_weights = [
         pack_to_int32(
             torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
@@ -319,6 +378,19 @@ def prepare_scene_weights(
         ).clone()
         for w in w13_weight.unbind(dim=0)
     ]
+    info_rank(
+        rank,
+        "prepare_scene_weights: fused NZ+pack l1 done "
+        f"num={len(fused_l1_weights)} first={tuple(fused_l1_weights[0].shape)}/{fused_l1_weights[0].dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_fused_l1_pack",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+
+    info_rank(rank, "prepare_scene_weights: fused NZ+pack l2 start")
     fused_l2_weights = [
         pack_to_int32(
             torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
@@ -326,6 +398,19 @@ def prepare_scene_weights(
         ).clone()
         for w in w2_weight.unbind(dim=0)
     ]
+    info_rank(
+        rank,
+        "prepare_scene_weights: fused NZ+pack l2 done "
+        f"num={len(fused_l2_weights)} first={tuple(fused_l2_weights[0].shape)}/{fused_l2_weights[0].dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_fused_l2_pack",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+
+    info_rank(rank, "prepare_scene_weights: fused scale/bias list build start")
     fused_l1_scales = [
         w.reshape(-1).view(torch.uint64) for w in w13_scale_int64.unbind(dim=0)
     ]
@@ -334,9 +419,24 @@ def prepare_scene_weights(
     ]
     fused_l1_bias = [w.reshape(-1) for w in w13_bias.unbind(dim=0)]
     fused_l2_bias = [w.reshape(-1) for w in w2_bias.unbind(dim=0)]
+    info_rank(
+        rank,
+        "prepare_scene_weights: fused scale/bias list build done "
+        f"l1_scale0={tuple(fused_l1_scales[0].shape)}/{fused_l1_scales[0].dtype} "
+        f"l2_scale0={tuple(fused_l2_scales[0].shape)}/{fused_l2_scales[0].dtype} "
+        f"l1_bias0={tuple(fused_l1_bias[0].shape)}/{fused_l1_bias[0].dtype} "
+        f"l2_bias0={tuple(fused_l2_bias[0].shape)}/{fused_l2_bias[0].dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_fused_lists",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
 
     expected_l1_shape = (hidden, (2 * intermediate_hidden) // 8)
     expected_l2_shape = (intermediate_hidden, hidden // 8)
+    info_rank(rank, "prepare_scene_weights: fused shape validation start")
     for weight in fused_l1_weights:
         if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l1_shape:
             raise ValueError(
@@ -349,6 +449,13 @@ def prepare_scene_weights(
                 f"Invalid fused l2 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
                 f"expected {expected_l2_shape} torch.int32."
             )
+    info_rank(rank, "prepare_scene_weights: fused shape validation done")
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_post",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
 
     return {
         "baseline_l1_weight_stacked": baseline_l1_weight_stacked,
