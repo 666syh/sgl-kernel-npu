@@ -4,1082 +4,574 @@ ninja: no work to do.
 ninja: no work to do.
 ninja: no work to do.
 ninja: no work to do.
-[W726 17:11:21.419666580 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:21.053832840 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:21.328613420 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.630111380 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.960665900 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.974192670 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.987909480 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.000463050 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.000485770 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:22.009054870 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:23.422904800 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:23.668043870 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:23.699207970 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:23.120044810 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:24.388466020 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:24.413522230 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:11:39.438837960 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:16:59.528500200 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:16:59.057433560 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:16:59.308986070 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:16:59.340701110 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:16:59.358023390 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:00.662515200 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:00.840636700 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:00.918719850 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:00.941226050 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:00.114436510 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:00.252615320 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:01.431183760 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:01.472066070 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:01.483795820 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:01.487831740 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:01.162339230 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W726 17:17:17.547199700 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
 [rank0] baseline_group_ep=group_name_2 mega_group_ep=group_name_3
 ninja: no work to do.
 ninja: no work to do.
+[rank10] baseline: start
+[rank10] dispatch_pre: enter barrier
+ninja: no work to do.
+[rank4] baseline: start
+[rank4] dispatch_pre: enter barrier
 ninja: no work to do.
 [rank14] baseline: start
 [rank14] dispatch_pre: enter barrier
-ninja: no work to do.
+[rank5] baseline: start
+[rank5] dispatch_pre: enter barrier
+[rank15] baseline: start
+[rank15] dispatch_pre: enter barrier
+[rank1] baseline: start
+[rank1] dispatch_pre: enter barrier
 [rank0] baseline: start
 [rank0] dispatch_pre: enter barrier
 /usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
   return func(*args, **kwargs)
-[rank6] baseline: start
-[rank6] dispatch_pre: enter barrier
-[rank10] baseline: start
-[rank10] dispatch_pre: enter barrier
-[rank5] baseline: start
-[rank5] dispatch_pre: enter barrier
 ninja: no work to do.
-[rank8] baseline: start
-[rank8] dispatch_pre: enter barrier
-[rank1] baseline: start
-[rank1] dispatch_pre: enter barrier
-ninja: no work to do.
-[rank11] baseline: start
-[rank11] dispatch_pre: enter barrier
-[rank4] baseline: start
-[rank4] dispatch_pre: enter barrier
-[rank9] baseline: start
-[rank9] dispatch_pre: enter barrier
-[rank7] baseline: start
-[rank7] dispatch_pre: enter barrier
-[rank13] baseline: start
-[rank13] dispatch_pre: enter barrier
 [rank12] baseline: start
 [rank12] dispatch_pre: enter barrier
-[rank2] baseline: start
-[rank2] dispatch_pre: enter barrier
-[rank15] baseline: start
-[rank15] dispatch_pre: enter barrier
+[rank6] baseline: start
+[rank6] dispatch_pre: enter barrier
 [rank3] baseline: start
 [rank3] dispatch_pre: enter barrier
-[rank13] dispatch_pre: exit barrier
-[rank14] dispatch_pre: exit barrier
-[rank5] dispatch_pre: exit barrier
-[rank8] dispatch_pre: exit barrier
-[rank2] dispatch_pre: exit barrier
-[rank4] dispatch_pre: exit barrier
+[rank9] baseline: start
+[rank9] dispatch_pre: enter barrier
+[rank13] baseline: start
+[rank13] dispatch_pre: enter barrier
+[rank7] baseline: start
+[rank7] dispatch_pre: enter barrier
+[rank2] baseline: start
+[rank2] dispatch_pre: enter barrier
+[rank11] baseline: start
+[rank11] dispatch_pre: enter barrier
+[rank8] baseline: start
+[rank8] dispatch_pre: enter barrier
+[rank3] dispatch_pre: exit barrier
 [rank12] dispatch_pre: exit barrier
 [rank9] dispatch_pre: exit barrier
 [rank15] dispatch_pre: exit barrier
-[rank7] dispatch_pre: exit barrier
+[rank4] dispatch_pre: exit barrier
+[rank2] dispatch_pre: exit barrier
+[rank6] dispatch_pre: exit barrier
+[rank13] dispatch_pre: exit barrier
+[rank1] dispatch_pre: exit barrier
+[rank3] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank12] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank9] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
 [rank10] dispatch_pre: exit barrier
+[rank4] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank14] dispatch_pre: exit barrier
+[rank15] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank2] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank5] dispatch_pre: exit barrier
+[rank6] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank1] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
 [rank13] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank10] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
 [rank14] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
 [rank5] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank11] dispatch_pre: exit barrier
-[rank1] dispatch_pre: exit barrier
 [rank0] dispatch_pre: exit barrier
-[rank8] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank2] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank6] dispatch_pre: exit barrier
-[rank4] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank12] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank3] dispatch_pre: exit barrier
-[rank9] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank15] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank10] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank7] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank11] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank7] dispatch_pre: exit barrier
+[rank11] dispatch_pre: exit barrier
 [rank0] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank3] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank1] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank6] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank4] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank4] dispatch_post: enter barrier
-[rank10] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank10] dispatch_post: enter barrier
+[rank8] dispatch_pre: exit barrier
+[rank8] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank11] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank7] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank14] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank6] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank1] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
 [rank0] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank15] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank7] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank13] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank3] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank5] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank9] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank4] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank2] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank10] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank12] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank8] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank11] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank6] dispatch_post: enter barrier
+[rank14] dispatch_post: enter barrier
 [rank0] dispatch_post: enter barrier
+[rank10] dispatch_post: enter barrier
+[rank4] dispatch_post: enter barrier
+[rank8] dispatch_post: enter barrier
+[rank1] dispatch_post: enter barrier
+[rank13] dispatch_post: enter barrier
+[rank11] dispatch_post: enter barrier
+[rank5] dispatch_post: enter barrier
+[rank7] dispatch_post: enter barrier
+[rank15] dispatch_post: enter barrier
+[rank3] dispatch_post: enter barrier
+[rank12] dispatch_post: enter barrier
+[rank9] dispatch_post: enter barrier
+[rank2] dispatch_post: enter barrier
 /usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
   return func(*args, **kwargs)
-[rank2] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank2] dispatch_post: enter barrier
-[rank13] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank13] dispatch_post: enter barrier
-[rank9] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank9] dispatch_post: enter barrier
-[rank14] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank14] dispatch_post: enter barrier
-[rank7] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank7] dispatch_post: enter barrier
-[rank5] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank5] dispatch_post: enter barrier
-[rank11] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank11] dispatch_post: enter barrier
-[rank3] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank3] dispatch_post: enter barrier
-[rank12] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank12] dispatch_post: enter barrier
-[rank15] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank15] dispatch_post: enter barrier
-[rank8] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank8] dispatch_post: enter barrier
-[rank6] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank6] dispatch_post: enter barrier
-[rank1] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank1] dispatch_post: enter barrier
 [rank13] dispatch_post: exit barrier
 [rank14] dispatch_post: exit barrier
-[rank7] dispatch_post: exit barrier
-[rank2] dispatch_post: exit barrier
-[rank5] dispatch_post: exit barrier
-[rank13] gmm1_pre: enter barrier
-[rank9] dispatch_post: exit barrier
 [rank10] dispatch_post: exit barrier
-[rank14] gmm1_pre: enter barrier
-[rank7] gmm1_pre: enter barrier
 [rank1] dispatch_post: exit barrier
-[rank2] gmm1_pre: enter barrier
-[rank5] gmm1_pre: enter barrier
-[rank9] gmm1_pre: enter barrier
-[rank15] dispatch_post: exit barrier
-[rank10] gmm1_pre: enter barrier
-[rank11] dispatch_post: exit barrier
-[rank15] gmm1_pre: enter barrier
 [rank6] dispatch_post: exit barrier
-[rank11] gmm1_pre: enter barrier
-[rank6] gmm1_pre: enter barrier
-[rank1] gmm1_pre: enter barrier
-[rank8] dispatch_post: exit barrier
-[rank8] gmm1_pre: enter barrier
-[rank12] dispatch_post: exit barrier
-[rank12] gmm1_pre: enter barrier
-[rank3] dispatch_post: exit barrier
 [rank0] dispatch_post: exit barrier
-[rank3] gmm1_pre: enter barrier
+[rank12] dispatch_post: exit barrier
+[rank5] dispatch_post: exit barrier
+[rank8] dispatch_post: exit barrier
+[rank11] dispatch_post: exit barrier
+[rank3] dispatch_post: exit barrier
+[rank2] dispatch_post: exit barrier
+[rank13] gmm1_pre: enter barrier
+[rank14] gmm1_pre: enter barrier
+[rank1] gmm1_pre: enter barrier
+[rank10] gmm1_pre: enter barrier
+[rank6] gmm1_pre: enter barrier
+[rank9] dispatch_post: exit barrier
 [rank0] gmm1_pre: enter barrier
+[rank12] gmm1_pre: enter barrier
 [rank4] dispatch_post: exit barrier
+[rank8] gmm1_pre: enter barrier
+[rank15] dispatch_post: exit barrier
+[rank5] gmm1_pre: enter barrier
+[rank7] dispatch_post: exit barrier
+[rank3] gmm1_pre: enter barrier
+[rank2] gmm1_pre: enter barrier
+[rank11] gmm1_pre: enter barrier
+[rank9] gmm1_pre: enter barrier
+[rank15] gmm1_pre: enter barrier
 [rank4] gmm1_pre: enter barrier
-[rank10] gmm1_pre: exit barrier
-[rank15] gmm1_pre: exit barrier
+[rank7] gmm1_pre: enter barrier
 [rank13] gmm1_pre: exit barrier
+[rank6] gmm1_pre: exit barrier
+[rank10] gmm1_pre: exit barrier
+[rank5] gmm1_pre: exit barrier
+[rank0] gmm1_pre: exit barrier
+[rank12] gmm1_pre: exit barrier
+[rank14] gmm1_pre: exit barrier
+[rank1] gmm1_pre: exit barrier
+[rank8] gmm1_pre: exit barrier
+[rank3] gmm1_pre: exit barrier
+[rank15] gmm1_pre: exit barrier
 [rank11] gmm1_pre: exit barrier
 [rank9] gmm1_pre: exit barrier
-[rank4] gmm1_pre: exit barrier
-[rank6] gmm1_pre: exit barrier
-[rank3] gmm1_pre: exit barrier
-[rank5] gmm1_pre: exit barrier
 [rank2] gmm1_pre: exit barrier
-[rank8] gmm1_pre: exit barrier
-[rank12] gmm1_pre: exit barrier
-[rank0] gmm1_pre: exit barrier
-[rank1] gmm1_pre: exit barrier
+[rank4] gmm1_pre: exit barrier
 [rank7] gmm1_pre: exit barrier
-[rank14] gmm1_pre: exit barrier
-[rank13] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank9] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank15] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank5] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank2] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank11] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
 [rank6] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank10] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank8] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank4] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank7] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank13] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank5] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
 [rank1] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank12] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank14] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank0] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank10] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
 [rank3] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank1] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank1] gmm1_post: enter barrier
-[rank9] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank15] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank9] gmm1_post: enter barrier
-[rank15] gmm1_post: enter barrier
-[rank10] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank10] gmm1_post: enter barrier
-[rank4] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank4] gmm1_post: enter barrier
-[rank5] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank5] gmm1_post: enter barrier
-[rank2] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank2] gmm1_post: enter barrier
-[rank13] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank13] gmm1_post: enter barrier
-[rank7] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank7] gmm1_post: enter barrier
+[rank8] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank12] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank0] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank2] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank14] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank4] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank15] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank9] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank11] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank7] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
 [rank0] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank0] gmm1_post: enter barrier
-[rank14] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank14] gmm1_post: enter barrier
-[rank8] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank8] gmm1_post: enter barrier
-[rank11] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank11] gmm1_post: enter barrier
 [rank6] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank1] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank14] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank4] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank9] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank0] gmm1_post: enter barrier
 [rank6] gmm1_post: enter barrier
+[rank1] gmm1_post: enter barrier
+[rank14] gmm1_post: enter barrier
+[rank10] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank3] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank2] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank9] gmm1_post: enter barrier
+[rank4] gmm1_post: enter barrier
+[rank13] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank8] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank5] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank10] gmm1_post: enter barrier
+[rank2] gmm1_post: enter barrier
+[rank15] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank3] gmm1_post: enter barrier
+[rank13] gmm1_post: enter barrier
+[rank8] gmm1_post: enter barrier
+[rank15] gmm1_post: enter barrier
+[rank5] gmm1_post: enter barrier
 [rank12] gmm1: out=(4096, 6144)/torch.bfloat16
 [rank12] gmm1_post: enter barrier
-[rank3] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank3] gmm1_post: enter barrier
-[rank13] gmm1_post: exit barrier
-[rank15] gmm1_post: exit barrier
-[rank10] gmm1_post: exit barrier
-[rank9] gmm1_post: exit barrier
-[rank10] activation_pre: enter barrier
-[rank11] gmm1_post: exit barrier
-[rank2] gmm1_post: exit barrier
-[rank1] gmm1_post: exit barrier
-[rank4] gmm1_post: exit barrier
-[rank13] activation_pre: enter barrier
-[rank7] gmm1_post: exit barrier
-[rank6] gmm1_post: exit barrier
+[rank7] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank11] gmm1: out=(4096, 6144)/torch.bfloat16
+[rank7] gmm1_post: enter barrier
+[rank11] gmm1_post: enter barrier
 [rank14] gmm1_post: exit barrier
-[rank15] activation_pre: enter barrier
-[rank8] gmm1_post: exit barrier
+[rank6] gmm1_post: exit barrier
+[rank13] gmm1_post: exit barrier
+[rank10] gmm1_post: exit barrier
+[rank1] gmm1_post: exit barrier
 [rank12] gmm1_post: exit barrier
 [rank0] gmm1_post: exit barrier
-[rank5] gmm1_post: exit barrier
-[rank9] activation_pre: enter barrier
-[rank3] gmm1_post: exit barrier
-[rank11] activation_pre: enter barrier
-[rank2] activation_pre: enter barrier
-[rank1] activation_pre: enter barrier
-[rank4] activation_pre: enter barrier
-[rank7] activation_pre: enter barrier
-[rank6] activation_pre: enter barrier
+[rank15] gmm1_post: exit barrier
+[rank11] gmm1_post: exit barrier
+[rank7] gmm1_post: exit barrier
 [rank14] activation_pre: enter barrier
-[rank8] activation_pre: enter barrier
+[rank4] gmm1_post: exit barrier
+[rank3] gmm1_post: exit barrier
+[rank6] activation_pre: enter barrier
+[rank9] gmm1_post: exit barrier
+[rank8] gmm1_post: exit barrier
+[rank13] activation_pre: enter barrier
+[rank10] activation_pre: enter barrier
+[rank1] activation_pre: enter barrier
+[rank5] gmm1_post: exit barrier
 [rank12] activation_pre: enter barrier
 [rank0] activation_pre: enter barrier
-[rank5] activation_pre: enter barrier
+[rank15] activation_pre: enter barrier
+[rank11] activation_pre: enter barrier
+[rank7] activation_pre: enter barrier
+[rank2] gmm1_post: exit barrier
+[rank4] activation_pre: enter barrier
 [rank3] activation_pre: enter barrier
-[rank15] activation_pre: exit barrier
-[rank11] activation_pre: exit barrier
-[rank2] activation_pre: exit barrier
+[rank9] activation_pre: enter barrier
+[rank8] activation_pre: enter barrier
+[rank5] activation_pre: enter barrier
+[rank2] activation_pre: enter barrier
 [rank6] activation_pre: exit barrier
-[rank10] activation_pre: exit barrier
-[rank13] activation_pre: exit barrier
-[rank9] activation_pre: exit barrier
 [rank1] activation_pre: exit barrier
-[rank4] activation_pre: exit barrier
-[rank7] activation_pre: exit barrier
-[rank8] activation_pre: exit barrier
+[rank13] activation_pre: exit barrier
+[rank14] activation_pre: exit barrier
+[rank10] activation_pre: exit barrier
 [rank12] activation_pre: exit barrier
 [rank0] activation_pre: exit barrier
-[rank5] activation_pre: exit barrier
-[rank3] activation_pre: exit barrier
-[rank15] activation_in: (4096, 6144)/torch.bfloat16
-[rank11] activation_in: (4096, 6144)/torch.bfloat16
-[rank2] activation_in: (4096, 6144)/torch.bfloat16
-[rank10] activation_in: (4096, 6144)/torch.bfloat16
-[rank14] activation_pre: exit barrier
+[rank9] activation_pre: exit barrier
+[rank11] activation_pre: exit barrier
+[rank8] activation_pre: exit barrier
 [rank6] activation_in: (4096, 6144)/torch.bfloat16
-[rank13] activation_in: (4096, 6144)/torch.bfloat16
-[rank9] activation_in: (4096, 6144)/torch.bfloat16
-[rank4] activation_in: (4096, 6144)/torch.bfloat16
+[rank4] activation_pre: exit barrier
+[rank3] activation_pre: exit barrier
 [rank1] activation_in: (4096, 6144)/torch.bfloat16
-[rank7] activation_in: (4096, 6144)/torch.bfloat16
-[rank8] activation_in: (4096, 6144)/torch.bfloat16
-[rank12] activation_in: (4096, 6144)/torch.bfloat16
-[rank5] activation_in: (4096, 6144)/torch.bfloat16
-[rank0] activation_in: (4096, 6144)/torch.bfloat16
-[rank3] activation_in: (4096, 6144)/torch.bfloat16
+[rank15] activation_pre: exit barrier
+[rank13] activation_in: (4096, 6144)/torch.bfloat16
+[rank2] activation_pre: exit barrier
+[rank7] activation_pre: exit barrier
 [rank14] activation_in: (4096, 6144)/torch.bfloat16
-[rank15] activation_out: (4096, 3072)/torch.bfloat16
-[rank15] activation_post: enter barrier
+[rank10] activation_in: (4096, 6144)/torch.bfloat16
+[rank5] activation_pre: exit barrier
+[rank12] activation_in: (4096, 6144)/torch.bfloat16
+[rank0] activation_in: (4096, 6144)/torch.bfloat16
+[rank9] activation_in: (4096, 6144)/torch.bfloat16
+[rank8] activation_in: (4096, 6144)/torch.bfloat16
+[rank11] activation_in: (4096, 6144)/torch.bfloat16
+[rank4] activation_in: (4096, 6144)/torch.bfloat16
+[rank3] activation_in: (4096, 6144)/torch.bfloat16
+[rank15] activation_in: (4096, 6144)/torch.bfloat16
+[rank2] activation_in: (4096, 6144)/torch.bfloat16
+[rank7] activation_in: (4096, 6144)/torch.bfloat16
+[rank5] activation_in: (4096, 6144)/torch.bfloat16
 [rank1] activation_out: (4096, 3072)/torch.bfloat16
-[rank1] activation_post: enter barrier
-[rank0] activation_out: (4096, 3072)/torch.bfloat16
-[rank0] activation_post: enter barrier
-[rank9] activation_out: (4096, 3072)/torch.bfloat16
-[rank9] activation_post: enter barrier
-[rank4] activation_out: (4096, 3072)/torch.bfloat16
-[rank4] activation_post: enter barrier
-[rank10] activation_out: (4096, 3072)/torch.bfloat16
-[rank10] activation_post: enter barrier
-[rank2] activation_out: (4096, 3072)/torch.bfloat16
-[rank2] activation_post: enter barrier
-[rank5] activation_out: (4096, 3072)/torch.bfloat16
-[rank5] activation_post: enter barrier
-[rank12] activation_out: (4096, 3072)/torch.bfloat16
-[rank12] activation_post: enter barrier
-[rank8] activation_out: (4096, 3072)/torch.bfloat16
-[rank8] activation_post: enter barrier
-[rank13] activation_out: (4096, 3072)/torch.bfloat16
-[rank13] activation_post: enter barrier
 [rank6] activation_out: (4096, 3072)/torch.bfloat16
-[rank6] activation_post: enter barrier
-[rank7] activation_out: (4096, 3072)/torch.bfloat16
-[rank7] activation_post: enter barrier
-[rank14] activation_out: (4096, 3072)/torch.bfloat16
-[rank14] activation_post: enter barrier
-[rank11] activation_out: (4096, 3072)/torch.bfloat16
-[rank11] activation_post: enter barrier
 [rank3] activation_out: (4096, 3072)/torch.bfloat16
+[rank4] activation_out: (4096, 3072)/torch.bfloat16
+[rank0] activation_out: (4096, 3072)/torch.bfloat16
+[rank13] activation_out: (4096, 3072)/torch.bfloat16
+[rank14] activation_out: (4096, 3072)/torch.bfloat16
+[rank15] activation_out: (4096, 3072)/torch.bfloat16
+[rank10] activation_out: (4096, 3072)/torch.bfloat16
+[rank8] activation_out: (4096, 3072)/torch.bfloat16
+[rank9] activation_out: (4096, 3072)/torch.bfloat16
+[rank6] activation_post: enter barrier
+[rank1] activation_post: enter barrier
+[rank12] activation_out: (4096, 3072)/torch.bfloat16
+[rank5] activation_out: (4096, 3072)/torch.bfloat16
+[rank2] activation_out: (4096, 3072)/torch.bfloat16
 [rank3] activation_post: enter barrier
-[rank13] activation_post: exit barrier
-[rank11] activation_post: exit barrier
-[rank9] activation_post: exit barrier
-[rank15] activation_post: exit barrier
+[rank13] activation_post: enter barrier
+[rank14] activation_post: enter barrier
+[rank7] activation_out: (4096, 3072)/torch.bfloat16
+[rank10] activation_post: enter barrier
+[rank0] activation_post: enter barrier
+[rank4] activation_post: enter barrier
+[rank8] activation_post: enter barrier
+[rank9] activation_post: enter barrier
+[rank12] activation_post: enter barrier
+[rank15] activation_post: enter barrier
+[rank5] activation_post: enter barrier
+[rank11] activation_out: (4096, 3072)/torch.bfloat16
+[rank7] activation_post: enter barrier
+[rank2] activation_post: enter barrier
+[rank11] activation_post: enter barrier
 [rank10] activation_post: exit barrier
-[rank7] activation_post: exit barrier
-[rank2] activation_post: exit barrier
 [rank1] activation_post: exit barrier
-[rank5] activation_post: exit barrier
-[rank8] activation_post: exit barrier
 [rank6] activation_post: exit barrier
-[rank12] activation_post: exit barrier
-[rank13] dynamic_quant_pre: enter barrier
-[rank11] dynamic_quant_pre: enter barrier
-[rank4] activation_post: exit barrier
 [rank14] activation_post: exit barrier
-[rank0] activation_post: exit barrier
-[rank3] activation_post: exit barrier
-[rank9] dynamic_quant_pre: enter barrier
-[rank15] dynamic_quant_pre: enter barrier
+[rank13] activation_post: exit barrier
+[rank5] activation_post: exit barrier
+[rank13] dynamic_quant_pre: enter barrier
+[rank12] activation_post: exit barrier
 [rank10] dynamic_quant_pre: enter barrier
-[rank7] dynamic_quant_pre: enter barrier
-[rank2] dynamic_quant_pre: enter barrier
+[rank7] activation_post: exit barrier
+[rank9] activation_post: exit barrier
+[rank4] activation_post: exit barrier
+[rank3] activation_post: exit barrier
+[rank0] activation_post: exit barrier
+[rank8] activation_post: exit barrier
 [rank1] dynamic_quant_pre: enter barrier
-[rank5] dynamic_quant_pre: enter barrier
-[rank8] dynamic_quant_pre: enter barrier
+[rank2] activation_post: exit barrier
 [rank6] dynamic_quant_pre: enter barrier
-[rank12] dynamic_quant_pre: enter barrier
-[rank4] dynamic_quant_pre: enter barrier
+[rank15] activation_post: exit barrier
 [rank14] dynamic_quant_pre: enter barrier
-[rank0] dynamic_quant_pre: enter barrier
+[rank11] activation_post: exit barrier
+[rank5] dynamic_quant_pre: enter barrier
+[rank11] dynamic_quant_pre: enter barrier
+[rank12] dynamic_quant_pre: enter barrier
+[rank7] dynamic_quant_pre: enter barrier
+[rank9] dynamic_quant_pre: enter barrier
+[rank4] dynamic_quant_pre: enter barrier
 [rank3] dynamic_quant_pre: enter barrier
-[rank6] dynamic_quant_pre: exit barrier
+[rank0] dynamic_quant_pre: enter barrier
+[rank8] dynamic_quant_pre: enter barrier
+[rank2] dynamic_quant_pre: enter barrier
+[rank15] dynamic_quant_pre: enter barrier
 [rank13] dynamic_quant_pre: exit barrier
-[rank10] dynamic_quant_pre: exit barrier
-[rank15] dynamic_quant_pre: exit barrier
-[rank11] dynamic_quant_pre: exit barrier
-[rank1] dynamic_quant_pre: exit barrier
-[rank2] dynamic_quant_pre: exit barrier
-[rank14] dynamic_quant_pre: exit barrier
-[rank12] dynamic_quant_pre: exit barrier
-[rank9] dynamic_quant_pre: exit barrier
 [rank7] dynamic_quant_pre: exit barrier
-[rank8] dynamic_quant_pre: exit barrier
-[rank4] dynamic_quant_pre: exit barrier
+[rank6] dynamic_quant_pre: exit barrier
+[rank14] dynamic_quant_pre: exit barrier
+[rank1] dynamic_quant_pre: exit barrier
+[rank10] dynamic_quant_pre: exit barrier
 [rank5] dynamic_quant_pre: exit barrier
-[rank3] dynamic_quant_pre: exit barrier
+[rank12] dynamic_quant_pre: exit barrier
+[rank4] dynamic_quant_pre: exit barrier
+[rank8] dynamic_quant_pre: exit barrier
 [rank0] dynamic_quant_pre: exit barrier
-[rank1] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank1] dynamic_quant_post: enter barrier
-[rank0] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank0] dynamic_quant_post: enter barrier
-[rank12] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank12] dynamic_quant_post: enter barrier
+[rank11] dynamic_quant_pre: exit barrier
+[rank15] dynamic_quant_pre: exit barrier
+[rank2] dynamic_quant_pre: exit barrier
+[rank9] dynamic_quant_pre: exit barrier
+[rank3] dynamic_quant_pre: exit barrier
 [rank4] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank4] dynamic_quant_post: enter barrier
-[rank10] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank15] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank10] dynamic_quant_post: enter barrier
-[rank15] dynamic_quant_post: enter barrier
 [rank9] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank0] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank12] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank4] dynamic_quant_post: enter barrier
+[rank0] dynamic_quant_post: enter barrier
+[rank12] dynamic_quant_post: enter barrier
 [rank9] dynamic_quant_post: enter barrier
+[rank15] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank1] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
 [rank6] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank6] dynamic_quant_post: enter barrier
-[rank11] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank11] dynamic_quant_post: enter barrier
-[rank2] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank2] dynamic_quant_post: enter barrier
-[rank8] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank5] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank8] dynamic_quant_post: enter barrier
-[rank5] dynamic_quant_post: enter barrier
-[rank3] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank3] dynamic_quant_post: enter barrier
 [rank7] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank14] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank3] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank15] dynamic_quant_post: enter barrier
+[rank11] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank6] dynamic_quant_post: enter barrier
+[rank1] dynamic_quant_post: enter barrier
 [rank7] dynamic_quant_post: enter barrier
+[rank3] dynamic_quant_post: enter barrier
+[rank14] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank10] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank11] dynamic_quant_post: enter barrier
 [rank13] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank5] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
+[rank8] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
 [rank14] dynamic_quant_post: enter barrier
+[rank2] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
 [rank13] dynamic_quant_post: enter barrier
-[rank11] dynamic_quant_post: exit barrier
+[rank10] dynamic_quant_post: enter barrier
+[rank5] dynamic_quant_post: enter barrier
+[rank8] dynamic_quant_post: enter barrier
+[rank2] dynamic_quant_post: enter barrier
 [rank13] dynamic_quant_post: exit barrier
+[rank1] dynamic_quant_post: exit barrier
 [rank6] dynamic_quant_post: exit barrier
-[rank12] dynamic_quant_post: exit barrier
-[rank15] dynamic_quant_post: exit barrier
-[rank7] dynamic_quant_post: exit barrier
+[rank5] dynamic_quant_post: exit barrier
 [rank10] dynamic_quant_post: exit barrier
 [rank14] dynamic_quant_post: exit barrier
-[rank1] dynamic_quant_post: exit barrier
-[rank8] dynamic_quant_post: exit barrier
-[rank4] dynamic_quant_post: exit barrier
-[rank0] dynamic_quant_post: exit barrier
-[rank9] dynamic_quant_post: exit barrier
-[rank5] dynamic_quant_post: exit barrier
-[rank11] gmm2_pre: enter barrier
+[rank12] dynamic_quant_post: exit barrier
 [rank3] dynamic_quant_post: exit barrier
+[rank0] dynamic_quant_post: exit barrier
+[rank7] dynamic_quant_post: exit barrier
+[rank4] dynamic_quant_post: exit barrier
 [rank13] gmm2_pre: enter barrier
+[rank2] dynamic_quant_post: exit barrier
+[rank8] dynamic_quant_post: exit barrier
+[rank11] dynamic_quant_post: exit barrier
+[rank9] dynamic_quant_post: exit barrier
+[rank1] gmm2_pre: enter barrier
+[rank15] dynamic_quant_post: exit barrier
 [rank6] gmm2_pre: enter barrier
-[rank12] gmm2_pre: enter barrier
-[rank15] gmm2_pre: enter barrier
-[rank7] gmm2_pre: enter barrier
+[rank5] gmm2_pre: enter barrier
 [rank10] gmm2_pre: enter barrier
 [rank14] gmm2_pre: enter barrier
-[rank2] dynamic_quant_post: exit barrier
-[rank8] gmm2_pre: enter barrier
-[rank1] gmm2_pre: enter barrier
-[rank4] gmm2_pre: enter barrier
-[rank0] gmm2_pre: enter barrier
-[rank9] gmm2_pre: enter barrier
-[rank5] gmm2_pre: enter barrier
+[rank12] gmm2_pre: enter barrier
 [rank3] gmm2_pre: enter barrier
+[rank0] gmm2_pre: enter barrier
+[rank4] gmm2_pre: enter barrier
+[rank7] gmm2_pre: enter barrier
 [rank2] gmm2_pre: enter barrier
+[rank8] gmm2_pre: enter barrier
+[rank9] gmm2_pre: enter barrier
+[rank15] gmm2_pre: enter barrier
+[rank11] gmm2_pre: enter barrier
 [rank6] gmm2_pre: exit barrier
-[rank11] gmm2_pre: exit barrier
-[rank12] gmm2_pre: exit barrier
-[rank2] gmm2_pre: exit barrier
-[rank14] gmm2_pre: exit barrier
-[rank10] gmm2_pre: exit barrier
 [rank13] gmm2_pre: exit barrier
+[rank10] gmm2_pre: exit barrier
 [rank1] gmm2_pre: exit barrier
-[rank15] gmm2_pre: exit barrier
-[rank0] gmm2_pre: exit barrier
-[rank4] gmm2_pre: exit barrier
-[rank8] gmm2_pre: exit barrier
-[rank7] gmm2_pre: exit barrier
 [rank5] gmm2_pre: exit barrier
+[rank8] gmm2_pre: exit barrier
 [rank3] gmm2_pre: exit barrier
+[rank12] gmm2_pre: exit barrier
+[rank14] gmm2_pre: exit barrier
+[rank0] gmm2_pre: exit barrier
+[rank7] gmm2_pre: exit barrier
+[rank11] gmm2_pre: exit barrier
+[rank4] gmm2_pre: exit barrier
 [rank9] gmm2_pre: exit barrier
-[rank2] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank15] gmm2_pre: exit barrier
+[rank2] gmm2_pre: exit barrier
 [rank6] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank11] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank10] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
 [rank13] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank14] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank15] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank10] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
 [rank1] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank4] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank12] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank5] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank0] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank7] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
 [rank8] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank5] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank12] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
 [rank3] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank14] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank4] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
 [rank9] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank2] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank15] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank10] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank2] gmm2_post: enter barrier
-[rank6] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank11] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank8] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank4] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank13] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank15] gmm2_post: enter barrier
-[rank5] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank10] gmm2_post: enter barrier
-[rank14] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank6] gmm2_post: enter barrier
-[rank7] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank11] gmm2_post: enter barrier
-[rank8] gmm2_post: enter barrier
-[rank4] gmm2_post: enter barrier
+[rank15] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank0] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank2] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank7] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
+[rank11] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
 [rank1] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank13] gmm2_post: enter barrier
-[rank5] gmm2_post: enter barrier
-[rank14] gmm2_post: enter barrier
-[rank12] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank7] gmm2_post: enter barrier
-[rank1] gmm2_post: enter barrier
+[rank6] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank10] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank5] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank8] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank14] gmm2: out=(4096, 7168)/torch.bfloat16
 [rank0] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank12] gmm2_post: enter barrier
-[rank3] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank0] gmm2_post: enter barrier
-[rank3] gmm2_post: enter barrier
 [rank9] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank4] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank12] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank15] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank7] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank2] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank3] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank10] gmm2_post: enter barrier
+[rank5] gmm2_post: enter barrier
+[rank1] gmm2_post: enter barrier
+[rank6] gmm2_post: enter barrier
+[rank8] gmm2_post: enter barrier
+[rank14] gmm2_post: enter barrier
 [rank9] gmm2_post: enter barrier
-[rank12] gmm2_post: exit barrier
-[rank15] gmm2_post: exit barrier
-[rank6] gmm2_post: exit barrier
-[rank10] gmm2_post: exit barrier
-[rank11] gmm2_post: exit barrier
-[rank1] gmm2_post: exit barrier
-[rank14] gmm2_post: exit barrier
-[rank2] gmm2_post: exit barrier
+[rank0] gmm2_post: enter barrier
+[rank11] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank4] gmm2_post: enter barrier
+[rank12] gmm2_post: enter barrier
+[rank15] gmm2_post: enter barrier
+[rank3] gmm2_post: enter barrier
+[rank7] gmm2_post: enter barrier
+[rank2] gmm2_post: enter barrier
+[rank11] gmm2_post: enter barrier
+[rank13] gmm2: out=(4096, 7168)/torch.bfloat16
+[rank13] gmm2_post: enter barrier
 [rank13] gmm2_post: exit barrier
-[rank8] gmm2_post: exit barrier
-[rank9] gmm2_post: exit barrier
-[rank0] gmm2_post: exit barrier
-[rank4] gmm2_post: exit barrier
-[rank12] combine_pre: enter barrier
-[rank7] gmm2_post: exit barrier
-[rank5] gmm2_post: exit barrier
-[rank15] combine_pre: enter barrier
 [rank3] gmm2_post: exit barrier
-[rank6] combine_pre: enter barrier
-[rank10] combine_pre: enter barrier
-[rank11] combine_pre: enter barrier
-[rank14] combine_pre: enter barrier
-[rank2] combine_pre: enter barrier
-[rank1] combine_pre: enter barrier
-[rank13] combine_pre: enter barrier
-[rank8] combine_pre: enter barrier
-[rank0] combine_pre: enter barrier
-[rank4] combine_pre: enter barrier
-[rank7] combine_pre: enter barrier
-[rank5] combine_pre: enter barrier
-[rank9] combine_pre: enter barrier
+[rank1] gmm2_post: exit barrier
 [rank3] combine_pre: enter barrier
-[rank11] combine_pre: exit barrier
-[rank6] combine_pre: exit barrier
-[rank12] combine_pre: exit barrier
+[rank12] gmm2_post: exit barrier
+[rank6] gmm2_post: exit barrier
+[rank14] gmm2_post: exit barrier
+[rank10] gmm2_post: exit barrier
+[rank8] gmm2_post: exit barrier
+[rank5] gmm2_post: exit barrier
+[rank0] gmm2_post: exit barrier
+[rank7] gmm2_post: exit barrier
+[rank13] combine_pre: enter barrier
+[rank4] gmm2_post: exit barrier
+[rank9] gmm2_post: exit barrier
+[rank11] gmm2_post: exit barrier
+[rank15] gmm2_post: exit barrier
+[rank1] combine_pre: enter barrier
+[rank2] gmm2_post: exit barrier
+[rank12] combine_pre: enter barrier
+[rank6] combine_pre: enter barrier
+[rank14] combine_pre: enter barrier
+[rank10] combine_pre: enter barrier
+[rank8] combine_pre: enter barrier
+[rank5] combine_pre: enter barrier
+[rank4] combine_pre: enter barrier
+[rank9] combine_pre: enter barrier
+[rank0] combine_pre: enter barrier
+[rank15] combine_pre: enter barrier
+[rank7] combine_pre: enter barrier
+[rank11] combine_pre: enter barrier
+[rank2] combine_pre: enter barrier
 [rank10] combine_pre: exit barrier
+[rank6] combine_pre: exit barrier
 [rank1] combine_pre: exit barrier
-[rank15] combine_pre: exit barrier
-[rank9] combine_pre: exit barrier
-[rank2] combine_pre: exit barrier
-[rank14] combine_pre: exit barrier
 [rank13] combine_pre: exit barrier
-[rank8] combine_pre: exit barrier
-[rank0] combine_pre: exit barrier
-[rank4] combine_pre: exit barrier
-[rank7] combine_pre: exit barrier
-[rank3] combine_pre: exit barrier
 [rank5] combine_pre: exit barrier
-[rank11] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank12] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank3] combine_pre: exit barrier
+[rank12] combine_pre: exit barrier
+[rank8] combine_pre: exit barrier
+[rank14] combine_pre: exit barrier
+[rank2] combine_pre: exit barrier
+[rank0] combine_pre: exit barrier
+[rank9] combine_pre: exit barrier
+[rank7] combine_pre: exit barrier
+[rank4] combine_pre: exit barrier
+[rank11] combine_pre: exit barrier
+[rank15] combine_pre: exit barrier
 [rank6] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank15] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank2] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
 [rank10] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
 [rank1] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank14] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
 [rank13] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank8] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank4] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank9] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank5] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank7] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
 [rank3] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank12] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank5] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank8] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank2] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank9] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank4] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank14] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank15] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
 [rank0] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank1] combine: out=(64, 7168)/torch.bfloat16
-[rank1] combine_post: enter barrier
+[rank7] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
+[rank11] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
 [rank0] combine: out=(64, 7168)/torch.bfloat16
-[rank0] combine_post: enter barrier
-[rank4] combine: out=(64, 7168)/torch.bfloat16
 [rank12] combine: out=(64, 7168)/torch.bfloat16
-[rank4] combine_post: enter barrier
-[rank12] combine_post: enter barrier
-[rank10] combine: out=(64, 7168)/torch.bfloat16
-[rank10] combine_post: enter barrier
-[rank15] combine: out=(64, 7168)/torch.bfloat16
-[rank15] combine_post: enter barrier
+[rank4] combine: out=(64, 7168)/torch.bfloat16
 [rank9] combine: out=(64, 7168)/torch.bfloat16
-[rank9] combine_post: enter barrier
-[rank2] combine: out=(64, 7168)/torch.bfloat16
-[rank6] combine: out=(64, 7168)/torch.bfloat16
-[rank2] combine_post: enter barrier
-[rank6] combine_post: enter barrier
-[rank5] combine: out=(64, 7168)/torch.bfloat16
-[rank8] combine: out=(64, 7168)/torch.bfloat16
-[rank11] combine: out=(64, 7168)/torch.bfloat16
-[rank5] combine_post: enter barrier
-[rank8] combine_post: enter barrier
-[rank11] combine_post: enter barrier
-[rank13] combine: out=(64, 7168)/torch.bfloat16
-[rank13] combine_post: enter barrier
-[rank7] combine: out=(64, 7168)/torch.bfloat16
-[rank14] combine: out=(64, 7168)/torch.bfloat16
-[rank7] combine_post: enter barrier
-[rank14] combine_post: enter barrier
 [rank3] combine: out=(64, 7168)/torch.bfloat16
-[rank3] combine_post: enter barrier
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-[ERROR] TBE Subprocess[task_distribute] raise error[], main process disappeared!
-Traceback (most recent call last):
-  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 859, in <module>
-    torch.multiprocessing.spawn(
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
-    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
-    while not context.join():
-              ^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 140, in join
-    ready = multiprocessing.connection.wait(
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 948, in wait
-    ready = selector.select(timeout)
-            ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/selectors.py", line 415, in select
-    fd_event_list = self._selector.poll(timeout)
-                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-KeyboardInterrupt
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    self.run()
-    buf = self._recv(4)
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    item = self.task_q.get()
-    raise EOFError
-EOFError
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-Exception in thread Thread-1:
-Traceback (most recent call last):
-Exception in thread Thread-1:
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    self.run()
-Exception in thread Thread-1:
-    kind, result = conn.recv()
-Traceback (most recent call last):
-                   ^^^^^^^^^^^
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-    item = self.task_q.get()
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-           ^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    kind, result = conn.recv()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-                   ^^^^^^^^^^^
-    raise EOFError
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-EOFError
-    self.run()
-    buf = self._recv_bytes()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    kind, result = conn.recv()
-    item = self.task_q.get()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-           ^^^^^^^^^^^^^^^^^
-    buf = self._recv(4)
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    raise EOFError
-EOFError
-    buf = self._recv(4)
-    kind, result = conn.recv()
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-    raise EOFError
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-EOFError
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-           ^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception ignored in atexit callback: <bound method finalize._exitfunc of <class 'weakref.finalize'>>
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/weakref.py", line 666, in _exitfunc
-    f()
-  File "/usr/local/python3.11.15/lib/python3.11/weakref.py", line 590, in __call__
-    return info.func(*info.args, **(info.kwargs or {}))
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/library.py", line 471, in _del_library
-    m.reset()
-KeyboardInterrupt: 
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception in thread Thread-1:
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
-    self.run()
-  File "/home/z30071866/cann/cann-9.1.0-beta.3/python/site-packages/tbe/common/repository_manager/utils/multiprocess_util.py", line 68, in run
-    item = self.task_q.get()
-           ^^^^^^^^^^^^^^^^^
-  File "<string>", line 2, in get
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/managers.py", line 822, in _callmethod
-    kind, result = conn.recv()
-                   ^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 250, in recv
-    buf = self._recv_bytes()
-          ^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
-    buf = self._recv(4)
-          ^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/connection.py", line 399, in _recv
-    raise EOFError
-EOFError
-Exception ignored in atexit callback: <function _exit_function at 0xfffdff722980>
-Traceback (most recent call last):
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/util.py", line 360, in _exit_function
-    p.join()
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/process.py", line 149, in join
-    res = self._popen.wait(timeout)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/popen_fork.py", line 43, in wait
-    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/python3.11.15/lib/python3.11/multiprocessing/popen_fork.py", line 27, in poll
-    pid, sts = os.waitpid(self.pid, flag)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^
-KeyboardInterrupt: 
+[rank15] combine: out=(64, 7168)/torch.bfloat16
+[rank1] combine: out=(64, 7168)/torch.bfloat16
+[rank6] combine: out=(64, 7168)/torch.bfloat16
+[rank7] combine: out=(64, 7168)/torch.bfloat16
+[rank10] combine: out=(64, 7168)/torch.bfloat16
+[rank5] combine: out=(64, 7168)/torch.bfloat16
+[rank13] combine: out=(64, 7168)/torch.bfloat16
+[rank14] combine: out=(64, 7168)/torch.bfloat16
+[rank11] combine: out=(64, 7168)/torch.bfloat16
+[rank8] combine: out=(64, 7168)/torch.bfloat16
+[rank2] combine: out=(64, 7168)/torch.bfloat16
