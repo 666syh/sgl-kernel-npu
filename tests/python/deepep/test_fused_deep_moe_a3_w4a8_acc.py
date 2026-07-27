@@ -272,8 +272,8 @@ def prepare_scene_weights(
         device=device,
     )
 
-    w13_weight = w13_weight.transpose(1, 2).contiguous()
-    w2_weight = w2_weight.transpose(1, 2).contiguous()
+    # w13_weight = w13_weight.transpose(1, 2).contiguous()
+    # w2_weight = w2_weight.transpose(1, 2).contiguous()
 
     w13_scale_int64, w13_bias = process_scale(
         w13_weight,
