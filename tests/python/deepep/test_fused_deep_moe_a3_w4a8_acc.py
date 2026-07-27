@@ -357,37 +357,22 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
-    # Build a dedicated NZ view for the fused MegaMoe path. Baseline keeps using
-    # the stacked packed tensor path and must not depend on expert-wise splitting.
-    w13_weight_nz = torch_npu.npu_format_cast(
+    info_rank(rank, "prepare_scene_weights: baseline stacked pack_to_int32 start")
+    w13_weight_baseline_nz = torch_npu.npu_format_cast(
         w13_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
     )
-    w2_weight_nz = torch_npu.npu_format_cast(
+    w2_weight_baseline_nz = torch_npu.npu_format_cast(
         w2_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
     )
-    info_rank(
-        rank,
-        "prepare_scene_weights: fused weight NZ cast done "
-        f"w13={tuple(w13_weight_nz.shape)}/{w13_weight_nz.dtype} "
-        f"w2={tuple(w2_weight_nz.shape)}/{w2_weight_nz.dtype}",
-    )
-    stage_barrier(
-        rank,
-        "prepare_scene_weights_fused_weight_nz",
-        group=barrier_group,
-        synchronize_npu=True,
-    )
-
-    info_rank(rank, "prepare_scene_weights: baseline stacked pack_to_int32 start")
     w13_weight_packed_stacked = pack_to_int32(
-        w13_weight_nz, new_quant_version=new_quant_version
+        w13_weight_baseline_nz, new_quant_version=new_quant_version
     )
     w2_weight_packed_stacked = pack_to_int32(
-        w2_weight_nz, new_quant_version=new_quant_version
+        w2_weight_baseline_nz, new_quant_version=new_quant_version
     )
     info_rank(
         rank,
-        "prepare_scene_weights: baseline stacked pack_to_int32 done "
+        "prepare_scene_weights: baseline stacked NZ+pack_to_int32 done "
         f"w13={tuple(w13_weight_packed_stacked.shape)}/{w13_weight_packed_stacked.dtype} "
         f"w2={tuple(w2_weight_packed_stacked.shape)}/{w2_weight_packed_stacked.dtype}",
     )
@@ -405,14 +390,17 @@ def prepare_scene_weights(
     baseline_l1_bias_stacked = [w13_bias.contiguous()]
     baseline_l2_bias_stacked = [w2_bias.contiguous()]
 
-    info_rank(rank, "prepare_scene_weights: fused expert split l1 start")
+    info_rank(rank, "prepare_scene_weights: fused expert split/NZ/view l1 start")
     fused_l1_weights = [
-        pack_to_int32(w.clone(), new_quant_version=new_quant_version)
-        for w in w13_weight_nz.unbind(dim=0)
+        pack_to_int32(
+            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
+            new_quant_version=new_quant_version,
+        )
+        for w in w13_weight_packed_int8.unbind(dim=0)
     ]
     info_rank(
         rank,
-        "prepare_scene_weights: fused expert split+pack l1 done "
+        "prepare_scene_weights: fused expert split+NZ+view l1 done "
         f"num={len(fused_l1_weights)} first={tuple(fused_l1_weights[0].shape)}/{fused_l1_weights[0].dtype}",
     )
     stage_barrier(
@@ -422,14 +410,17 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
-    info_rank(rank, "prepare_scene_weights: fused expert split l2 start")
+    info_rank(rank, "prepare_scene_weights: fused expert split/NZ/view l2 start")
     fused_l2_weights = [
-        pack_to_int32(w.clone(), new_quant_version=new_quant_version)
-        for w in w2_weight_nz.unbind(dim=0)
+        pack_to_int32(
+            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
+            new_quant_version=new_quant_version,
+        )
+        for w in w2_weight_packed_int8.unbind(dim=0)
     ]
     info_rank(
         rank,
-        "prepare_scene_weights: fused expert split+pack l2 done "
+        "prepare_scene_weights: fused expert split+NZ+view l2 done "
         f"num={len(fused_l2_weights)} first={tuple(fused_l2_weights[0].shape)}/{fused_l2_weights[0].dtype}",
     )
     stage_barrier(
