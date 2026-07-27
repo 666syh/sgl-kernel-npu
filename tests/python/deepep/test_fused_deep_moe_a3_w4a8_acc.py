@@ -337,47 +337,46 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
-    # Keep baseline and fused weight preparation separate.
-    #
-    # A3 small-op path can consume stacked ND packed-int32 weights directly.
-    # MegaMoe follows the demo/op-plugin style more closely: each local expert
-    # weight is cast to FRACTAL_NZ as a 2D int8 tensor first, then reinterpreted
-    # as int32 packed-int4.
-    info_rank(rank, "prepare_scene_weights: baseline pack_to_int32 start")
-    w13_weight_packed = pack_to_int32(
-        w13_weight.contiguous(), new_quant_version=new_quant_version
-    )
-    w2_weight_packed = pack_to_int32(
-        w2_weight.contiguous(), new_quant_version=new_quant_version
-    )
+    # Align with the standard A3 W4A8 small-op preparation: cast logical int8
+    # weights to FRACTAL_NZ first, then reinterpret packed int4x2 data as int32.
+    w13_weight = torch_npu.npu_format_cast(w13_weight, ACL_FORMAT_FRACTAL_NZ)
+    w2_weight = torch_npu.npu_format_cast(w2_weight, ACL_FORMAT_FRACTAL_NZ)
     info_rank(
         rank,
-        "prepare_scene_weights: baseline pack_to_int32 done "
+        "prepare_scene_weights: weight NZ cast done "
+        f"w13={tuple(w13_weight.shape)}/{w13_weight.dtype} "
+        f"w2={tuple(w2_weight.shape)}/{w2_weight.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_weight_nz",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+    w13_weight_packed = pack_to_int32(w13_weight, new_quant_version=new_quant_version)
+    w2_weight_packed = pack_to_int32(w2_weight, new_quant_version=new_quant_version)
+    info_rank(
+        rank,
+        "prepare_scene_weights: weight NZ pack_to_int32 done "
         f"w13={tuple(w13_weight_packed.shape)}/{w13_weight_packed.dtype} "
         f"w2={tuple(w2_weight_packed.shape)}/{w2_weight_packed.dtype}",
     )
     stage_barrier(
         rank,
-        "prepare_scene_weights_baseline_pack",
+        "prepare_scene_weights_weight_nz_pack",
         group=barrier_group,
         synchronize_npu=True,
     )
 
-    baseline_l1_weight_stacked = [w13_weight_packed.contiguous()]
-    baseline_l2_weight_stacked = [w2_weight_packed.contiguous()]
+    baseline_l1_weight_stacked = [w13_weight_packed]
+    baseline_l2_weight_stacked = [w2_weight_packed]
     baseline_l1_scale_stacked = [w13_scale_int64]
     baseline_l2_scale_stacked = [w2_scale_int64]
     baseline_l1_bias_stacked = [w13_bias.contiguous()]
     baseline_l2_bias_stacked = [w2_bias.contiguous()]
 
     info_rank(rank, "prepare_scene_weights: fused NZ+pack l1 start")
-    fused_l1_weights = [
-        pack_to_int32(
-            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
-            new_quant_version=new_quant_version,
-        ).clone()
-        for w in w13_weight.unbind(dim=0)
-    ]
+    fused_l1_weights = [w.clone() for w in w13_weight_packed.unbind(dim=0)]
     info_rank(
         rank,
         "prepare_scene_weights: fused NZ+pack l1 done "
@@ -391,13 +390,7 @@ def prepare_scene_weights(
     )
 
     info_rank(rank, "prepare_scene_weights: fused NZ+pack l2 start")
-    fused_l2_weights = [
-        pack_to_int32(
-            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
-            new_quant_version=new_quant_version,
-        ).clone()
-        for w in w2_weight.unbind(dim=0)
-    ]
+    fused_l2_weights = [w.clone() for w in w2_weight_packed.unbind(dim=0)]
     info_rank(
         rank,
         "prepare_scene_weights: fused NZ+pack l2 done "
@@ -858,18 +851,42 @@ def run_case(
     torch.manual_seed(args.seed + rank)
     random.seed(args.seed + rank)
 
+    info_rank(
+        rank,
+        f"run_case: start iter={iteration} activation={case['activation']} "
+        f"beta={case['beta']} linear_beta={case['linear_beta']} "
+        f"activation_clamp={case['activation_clamp']}",
+    )
+    stage_barrier(rank, "run_case_pre", group=baseline_group)
+
     x = torch.randn((args.num_tokens, args.hidden), dtype=torch.bfloat16, device=device)
     topk_idx, topk_weights = make_topk_inputs(
         args.num_tokens, args.num_experts, args.num_topk, device
     )
     validate_topk_inputs(topk_idx, args.num_experts)
+    info_rank(
+        rank,
+        f"run_case: inputs ready x={tuple(x.shape)}/{x.dtype} "
+        f"topk_idx={tuple(topk_idx.shape)}/{topk_idx.dtype} "
+        f"topk_weights={tuple(topk_weights.shape)}/{topk_weights.dtype}",
+    )
+    stage_barrier(
+        rank, "run_case_inputs_ready", group=baseline_group, synchronize_npu=True
+    )
+
+    info_rank(rank, "run_case: prepare_scene_weights start")
     weights = prepare_scene_weights(
         args.hidden,
         args.moe_intermediate_size,
         num_local_experts,
         device,
     )
+    info_rank(rank, "run_case: prepare_scene_weights done")
+    stage_barrier(
+        rank, "run_case_weights_ready", group=baseline_group, synchronize_npu=True
+    )
 
+    info_rank(rank, "run_case: baseline start")
     baseline_out, baseline_counts = run_baseline_reference(
         x,
         topk_idx,
@@ -886,6 +903,16 @@ def run_case(
         rank,
         enable_dispatch_v2,
     )
+    info_rank(
+        rank,
+        f"run_case: baseline done out={tuple(baseline_out.shape)}/{baseline_out.dtype} "
+        f"counts={tuple(baseline_counts.shape)}/{baseline_counts.dtype}",
+    )
+    stage_barrier(
+        rank, "run_case_baseline_done", group=baseline_group, synchronize_npu=True
+    )
+
+    info_rank(rank, "run_case: fused start")
     fused_out, fused_counts = run_fused_reference(
         fused_buffer,
         x,
@@ -900,6 +927,12 @@ def run_case(
         case["activation_clamp"],
         mega_group,
     )
+    info_rank(
+        rank,
+        f"run_case: fused done out={tuple(fused_out.shape)}/{fused_out.dtype} "
+        f"counts={tuple(fused_counts.shape)}/{fused_counts.dtype}",
+    )
+    stage_barrier(rank, "run_case_fused_done", group=mega_group, synchronize_npu=True)
 
     local_diff = calc_diff(baseline_out.float(), fused_out.float())
     diff_tensor = torch.tensor(local_diff, dtype=torch.float32, device=device)
@@ -931,6 +964,7 @@ def run_case(
             rank,
             f"{case_desc} calc_diff={max_diff} token_counts_match={counts_mismatch.item() == 0}",
         )
+    info_rank(rank, f"run_case: end iter={iteration} diff={max_diff}")
     dist.barrier()
 
 
