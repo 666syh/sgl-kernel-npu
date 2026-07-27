@@ -262,8 +262,35 @@ def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Ten
         raise ValueError(
             f"Packed int4 weight last dim must be divisible by 4, got {weight.shape}."
         )
-    return weight.view(torch.int32).contiguous()
+    return weight.view(torch.int32)
 
+def unpack_int4(packed: torch.Tensor, pack_dim: int) -> torch.Tensor:
+    """Unpack int32 → int8. Returns int8 tensor."""
+    K, N = packed.shape
+    shifts = torch.tensor([0, 4, 8, 12, 16, 20, 24, 28], device=packed.device)
+    vals = (packed.unsqueeze(-1) >> shifts) & 0xF
+    vals = torch.where(vals >= 8, vals - 16, vals).to(torch.int8)
+    if pack_dim == 1:
+        return vals.reshape(K, -1)
+    else:
+        return vals.permute(0, 2, 1).reshape(-1, N)
+
+def pack_float_into_int64(dequant_scale_origin: torch.Tensor) -> torch.Tensor:
+    """Pack float32 scale into int64 with marker bit."""
+    scale_int = dequant_scale_origin.view(torch.int32)
+    scale_int = scale_int & 0xFFFFE000  # clear low 13 mantissa bits
+    # Convert to int64 without sign-extension: view as unsigned first
+    out = torch.bitwise_and(scale_int.to(torch.int64),
+                            torch.tensor(0xFFFFFFFF, dtype=torch.int64))
+    return out
+
+
+def compute_bias(weight_packed: torch.Tensor, scale_packed: torch.Tensor,
+                 pack_dim: int = 1) -> torch.Tensor:
+    """Compute bias = sum(unpacked_weight * scale, dim=0) * 8."""
+    w_int4 = unpack_int4(weight_packed, pack_dim).float()
+    scale_fp32 = extract_float_from_int64(scale_packed)
+    return (w_int4 * scale_fp32).sum(dim=0) * 8.0
 
 def prepare_scene_weights(
     hidden: int,
