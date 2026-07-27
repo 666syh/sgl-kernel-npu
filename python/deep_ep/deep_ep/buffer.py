@@ -978,12 +978,6 @@ class Buffer:
         if backend == "auto":
             if activation == "situ":
                 return "mega_moe"
-            if l1_bias is not None or l2_bias is not None:
-                return "mega_moe"
-            if dispatch_quant_mode is not None:
-                return "mega_moe"
-            if not self.runtime.is_a5_build():
-                return "mega_moe"
             return "deep_ep"
         return backend
 
