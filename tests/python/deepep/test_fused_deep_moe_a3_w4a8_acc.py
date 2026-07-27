@@ -278,6 +278,10 @@ def compute_bias(
         f"scale_shape={tuple(scale_packed.shape)} scale_dtype={scale_packed.dtype} pack_dim={pack_dim}",
         flush=True,
     )
+    if weight_packed.dtype != torch.int32:
+        raise TypeError(
+            f"compute_bias expects int32 packed weight, got {weight_packed.dtype}"
+        )
     w_int4 = unpack_int4(weight_packed, pack_dim).float()
     scale_fp32 = extract_float_from_int64(scale_packed)
     print(
@@ -402,6 +406,54 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
+    info_rank(rank, "prepare_scene_weights: bias pre-NZ computation start")
+    w13_bias = torch.stack(
+        [
+            compute_bias(
+                pack_to_int32(w.contiguous(), new_quant_version=new_quant_version), s, 1
+            )
+            for w, s in zip(
+                w13_weight_packed_int8.unbind(dim=0), w13_scale_int64.unbind(dim=0)
+            )
+        ],
+        dim=0,
+    ).to(torch.float32)
+    w2_bias = torch.stack(
+        [
+            compute_bias(
+                pack_to_int32(w.contiguous(), new_quant_version=new_quant_version), s, 1
+            )
+            for w, s in zip(
+                w2_weight_packed_int8.unbind(dim=0), w2_scale_int64.unbind(dim=0)
+            )
+        ],
+        dim=0,
+    ).to(torch.float32)
+    expected_w13_bias_shape = (num_local_experts, 2 * intermediate_hidden)
+    expected_w2_bias_shape = (num_local_experts, hidden)
+    if tuple(w13_bias.shape) != expected_w13_bias_shape:
+        raise ValueError(
+            f"Invalid computed w13 bias shape: got {tuple(w13_bias.shape)}, "
+            f"expected {expected_w13_bias_shape}."
+        )
+    if tuple(w2_bias.shape) != expected_w2_bias_shape:
+        raise ValueError(
+            f"Invalid computed w2 bias shape: got {tuple(w2_bias.shape)}, "
+            f"expected {expected_w2_bias_shape}."
+        )
+    info_rank(
+        rank,
+        "prepare_scene_weights: bias pre-NZ computed done "
+        f"w13_bias={tuple(w13_bias.shape)}/{w13_bias.dtype} "
+        f"w2_bias={tuple(w2_bias.shape)}/{w2_bias.dtype}",
+    )
+    stage_barrier(
+        rank,
+        "prepare_scene_weights_bias_computed",
+        group=barrier_group,
+        synchronize_npu=True,
+    )
+
     info_rank(rank, "prepare_scene_weights: baseline stacked pack_to_int32 start")
     w13_weight_baseline_nz = torch_npu.npu_format_cast(
         w13_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
@@ -424,46 +476,6 @@ def prepare_scene_weights(
     stage_barrier(
         rank,
         "prepare_scene_weights_baseline_stacked_pack",
-        group=barrier_group,
-        synchronize_npu=True,
-    )
-
-    info_rank(rank, "prepare_scene_weights: bias computation start")
-    w13_bias = torch.stack(
-        [
-            compute_bias(w, s, 1)
-            for w, s in zip(w13_weight_packed_stacked, w13_scale_int64)
-        ],
-        dim=0,
-    ).to(torch.float32)
-    w2_bias = torch.stack(
-        [
-            compute_bias(w, s, 1)
-            for w, s in zip(w2_weight_packed_stacked, w2_scale_int64)
-        ],
-        dim=0,
-    ).to(torch.float32)
-    expected_w13_bias_shape = (num_local_experts, 2 * intermediate_hidden)
-    expected_w2_bias_shape = (num_local_experts, hidden)
-    if tuple(w13_bias.shape) != expected_w13_bias_shape:
-        raise ValueError(
-            f"Invalid computed w13 bias shape: got {tuple(w13_bias.shape)}, "
-            f"expected {expected_w13_bias_shape}."
-        )
-    if tuple(w2_bias.shape) != expected_w2_bias_shape:
-        raise ValueError(
-            f"Invalid computed w2 bias shape: got {tuple(w2_bias.shape)}, "
-            f"expected {expected_w2_bias_shape}."
-        )
-    info_rank(
-        rank,
-        "prepare_scene_weights: bias computed done "
-        f"w13_bias={tuple(w13_bias.shape)}/{w13_bias.dtype} "
-        f"w2_bias={tuple(w2_bias.shape)}/{w2_bias.dtype}",
-    )
-    stage_barrier(
-        rank,
-        "prepare_scene_weights_bias_computed",
         group=barrier_group,
         synchronize_npu=True,
     )
@@ -523,12 +535,10 @@ def prepare_scene_weights(
         w.reshape(-1).view(torch.uint64) for w in w2_scale_int64.unbind(dim=0)
     ]
     fused_l1_bias = [
-        compute_bias(weight, scale, 1).reshape(-1).to(torch.float32)
-        for weight, scale in zip(fused_l1_weights, w13_scale_int64.unbind(dim=0))
+        bias.reshape(-1).to(torch.float32) for bias in w13_bias.unbind(dim=0)
     ]
     fused_l2_bias = [
-        compute_bias(weight, scale, 1).reshape(-1).to(torch.float32)
-        for weight, scale in zip(fused_l2_weights, w2_scale_int64.unbind(dim=0))
+        bias.reshape(-1).to(torch.float32) for bias in w2_bias.unbind(dim=0)
     ]
     info_rank(
         rank,
