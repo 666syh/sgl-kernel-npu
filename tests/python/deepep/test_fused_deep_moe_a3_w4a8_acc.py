@@ -295,14 +295,14 @@ def build_scene_weight_source(
         dtype=torch.int8,
         device=device,
     )
-    w13_weight_scale = torch.randn(
+    w13_weight_scale = torch.empty(
         (num_local_experts, 2 * intermediate_hidden),
         dtype=torch.float32,
         device=device,
-    )
-    w2_weight_scale = torch.randn(
+    ).uniform_(0.01, 0.1)
+    w2_weight_scale = torch.empty(
         (num_local_experts, 1, hidden), dtype=torch.float32, device=device
-    )
+    ).uniform_(0.01, 0.1)
     w13_weight_packed_int8 = pack_int4_experts_to_int8(w13_weight_raw_int4)
     w2_weight_packed_int8 = pack_int4_experts_to_int8(w2_weight_raw_int4)
     expected_w13_packed_int8_shape = (
