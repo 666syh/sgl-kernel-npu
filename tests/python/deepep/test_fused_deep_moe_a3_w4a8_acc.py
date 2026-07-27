@@ -292,22 +292,40 @@ def prepare_scene_weights(
         group_size=group_size,
     )
 
-    # Align with the standard A3 W4A8 small-op preparation: cast logical int8
-    # weights to FRACTAL_NZ first, then reinterpret packed int4x2 data as int32.
-    w13_weight = torch_npu.npu_format_cast(w13_weight, ACL_FORMAT_FRACTAL_NZ)
-    w2_weight = torch_npu.npu_format_cast(w2_weight, ACL_FORMAT_FRACTAL_NZ)
-    w13_weight_packed = pack_to_int32(w13_weight, new_quant_version=new_quant_version)
-    w2_weight_packed = pack_to_int32(w2_weight, new_quant_version=new_quant_version)
+    # Keep baseline and fused weight preparation separate.
+    #
+    # A3 small-op path can consume stacked ND packed-int32 weights directly.
+    # MegaMoe follows the demo/op-plugin style more closely: each local expert
+    # weight is cast to FRACTAL_NZ as a 2D int8 tensor first, then reinterpreted
+    # as int32 packed-int4.
+    w13_weight_packed = pack_to_int32(
+        w13_weight.contiguous(), new_quant_version=new_quant_version
+    )
+    w2_weight_packed = pack_to_int32(
+        w2_weight.contiguous(), new_quant_version=new_quant_version
+    )
 
-    baseline_l1_weight_stacked = [w13_weight_packed]
-    baseline_l2_weight_stacked = [w2_weight_packed]
+    baseline_l1_weight_stacked = [w13_weight_packed.contiguous()]
+    baseline_l2_weight_stacked = [w2_weight_packed.contiguous()]
     baseline_l1_scale_stacked = [w13_scale_int64]
     baseline_l2_scale_stacked = [w2_scale_int64]
     baseline_l1_bias_stacked = [w13_bias.contiguous()]
     baseline_l2_bias_stacked = [w2_bias.contiguous()]
 
-    fused_l1_weights = [w.clone() for w in w13_weight_packed.unbind(dim=0)]
-    fused_l2_weights = [w.clone() for w in w2_weight_packed.unbind(dim=0)]
+    fused_l1_weights = [
+        pack_to_int32(
+            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
+            new_quant_version=new_quant_version,
+        ).clone()
+        for w in w13_weight.unbind(dim=0)
+    ]
+    fused_l2_weights = [
+        pack_to_int32(
+            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
+            new_quant_version=new_quant_version,
+        ).clone()
+        for w in w2_weight.unbind(dim=0)
+    ]
     fused_l1_scales = [
         w.reshape(-1).view(torch.uint64) for w in w13_scale_int64.unbind(dim=0)
     ]
