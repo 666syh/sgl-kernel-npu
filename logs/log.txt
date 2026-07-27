@@ -4,574 +4,1294 @@ ninja: no work to do.
 ninja: no work to do.
 ninja: no work to do.
 ninja: no work to do.
-[W726 17:16:59.528500200 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:16:59.057433560 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:16:59.308986070 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:16:59.340701110 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:16:59.358023390 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:00.662515200 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:00.840636700 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:00.918719850 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:00.941226050 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:00.114436510 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:00.252615320 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:01.431183760 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:01.472066070 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:01.483795820 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:01.487831740 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:01.162339230 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
-[W726 17:17:17.547199700 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+ninja: no work to do.
+[W727 06:57:34.017145680 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:35.597180510 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:35.763122030 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:35.216049130 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:36.386070790 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:36.471284290 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:36.822065750 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:36.010151340 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:36.103574340 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:37.618316980 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:37.288928400 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:38.429240230 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:38.511357440 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:38.628858640 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:38.642419510 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W727 06:57:38.653228170 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[rank5] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank5] run_case_pre: enter barrier
+[rank1] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank1] run_case_pre: enter barrier
 [rank0] baseline_group_ep=group_name_2 mega_group_ep=group_name_3
-ninja: no work to do.
-ninja: no work to do.
-[rank10] baseline: start
-[rank10] dispatch_pre: enter barrier
-ninja: no work to do.
-[rank4] baseline: start
-[rank4] dispatch_pre: enter barrier
-ninja: no work to do.
-[rank14] baseline: start
-[rank14] dispatch_pre: enter barrier
-[rank5] baseline: start
-[rank5] dispatch_pre: enter barrier
-[rank15] baseline: start
-[rank15] dispatch_pre: enter barrier
-[rank1] baseline: start
-[rank1] dispatch_pre: enter barrier
-[rank0] baseline: start
-[rank0] dispatch_pre: enter barrier
+[rank0] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank0] run_case_pre: enter barrier
 /usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
   return func(*args, **kwargs)
+[rank3] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank3] run_case_pre: enter barrier
+[rank2] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank2] run_case_pre: enter barrier
+[rank4] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank4] run_case_pre: enter barrier
+[rank9] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank9] run_case_pre: enter barrier
+[rank15] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank15] run_case_pre: enter barrier
+[rank6] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank6] run_case_pre: enter barrier
+[rank10] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank10] run_case_pre: enter barrier
+[rank11] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank11] run_case_pre: enter barrier
+[rank13] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank13] run_case_pre: enter barrier
+[rank7] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank7] run_case_pre: enter barrier
+[rank14] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank14] run_case_pre: enter barrier
+[rank12] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank12] run_case_pre: enter barrier
+[rank8] run_case: start iter=0 activation=situ beta=4.0 linear_beta=25.0 activation_clamp=None
+[rank8] run_case_pre: enter barrier
+[rank13] run_case_pre: exit barrier
+[rank9] run_case_pre: exit barrier
+[rank15] run_case_pre: exit barrier
+[rank4] run_case_pre: exit barrier
+[rank14] run_case_pre: exit barrier
+[rank0] run_case_pre: exit barrier
+[rank3] run_case_pre: exit barrier
+[rank1] run_case_pre: exit barrier
+[rank5] run_case_pre: exit barrier
+[rank8] run_case_pre: exit barrier
+[rank2] run_case_pre: exit barrier
+[rank7] run_case_pre: exit barrier
+[rank12] run_case_pre: exit barrier
+[rank11] run_case_pre: exit barrier
+[rank6] run_case_pre: exit barrier
+[rank10] run_case_pre: exit barrier
+[rank9] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank9] run_case_inputs_ready: enter barrier
+[rank14] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank14] run_case_inputs_ready: enter barrier
+[rank12] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank12] run_case_inputs_ready: enter barrier
+[rank4] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank0] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank0] run_case_inputs_ready: enter barrier
+[rank4] run_case_inputs_ready: enter barrier
+[rank13] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank13] run_case_inputs_ready: enter barrier
+[rank8] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank8] run_case_inputs_ready: enter barrier
+[rank2] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank2] run_case_inputs_ready: enter barrier
+[rank5] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank1] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank5] run_case_inputs_ready: enter barrier
+[rank1] run_case_inputs_ready: enter barrier
+[rank6] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank6] run_case_inputs_ready: enter barrier
+[rank11] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank15] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank11] run_case_inputs_ready: enter barrier
+[rank15] run_case_inputs_ready: enter barrier
+[rank7] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank10] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank7] run_case_inputs_ready: enter barrier
+[rank10] run_case_inputs_ready: enter barrier
+[rank3] run_case: inputs ready x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32
+[rank3] run_case_inputs_ready: enter barrier
+[rank1] run_case_inputs_ready: exit barrier
+[rank5] run_case_inputs_ready: exit barrier
+[rank2] run_case_inputs_ready: exit barrier
+[rank7] run_case_inputs_ready: exit barrier
+[rank8] run_case_inputs_ready: exit barrier
+[rank0] run_case_inputs_ready: exit barrier
+[rank15] run_case_inputs_ready: exit barrier
+[rank4] run_case_inputs_ready: exit barrier
+[rank14] run_case_inputs_ready: exit barrier
+[rank9] run_case_inputs_ready: exit barrier
+[rank1] run_case: prepare_scene_weights start
+[rank11] run_case_inputs_ready: exit barrier
+[rank5] run_case: prepare_scene_weights start
+[rank6] run_case_inputs_ready: exit barrier
+[rank12] run_case_inputs_ready: exit barrier
+[rank2] run_case: prepare_scene_weights start
+[rank13] run_case_inputs_ready: exit barrier
+[rank7] run_case: prepare_scene_weights start
+[rank3] run_case_inputs_ready: exit barrier
+[rank8] run_case: prepare_scene_weights start
+[rank0] run_case: prepare_scene_weights start
+[rank15] run_case: prepare_scene_weights start
+[rank4] run_case: prepare_scene_weights start
+[rank14] run_case: prepare_scene_weights start
+[rank9] run_case: prepare_scene_weights start
+[rank11] run_case: prepare_scene_weights start
+[rank6] run_case: prepare_scene_weights start
+[rank1] prepare_scene_weights_pre: enter barrier
+[rank12] run_case: prepare_scene_weights start
+[rank13] run_case: prepare_scene_weights start
+[rank3] run_case: prepare_scene_weights start
+[rank2] prepare_scene_weights_pre: enter barrier
+[rank5] prepare_scene_weights_pre: enter barrier
+[rank0] prepare_scene_weights_pre: enter barrier
+[rank8] prepare_scene_weights_pre: enter barrier
+[rank4] prepare_scene_weights_pre: enter barrier
+[rank15] prepare_scene_weights_pre: enter barrier
+[rank14] prepare_scene_weights_pre: enter barrier
+[rank9] prepare_scene_weights_pre: enter barrier
+[rank7] prepare_scene_weights_pre: enter barrier
+[rank12] prepare_scene_weights_pre: enter barrier
+[rank11] prepare_scene_weights_pre: enter barrier
+[rank6] prepare_scene_weights_pre: enter barrier
+[rank13] prepare_scene_weights_pre: enter barrier
+[rank3] prepare_scene_weights_pre: enter barrier
+[rank10] run_case_inputs_ready: exit barrier
+[rank10] run_case: prepare_scene_weights start
+[rank10] prepare_scene_weights_pre: enter barrier
+[rank14] prepare_scene_weights_pre: exit barrier
+[rank4] prepare_scene_weights_pre: exit barrier
+[rank11] prepare_scene_weights_pre: exit barrier
+[rank14] prepare_scene_weights: raw logical int4 tensor generation start
+[rank0] prepare_scene_weights_pre: exit barrier
+[rank11] prepare_scene_weights: raw logical int4 tensor generation start
+[rank8] prepare_scene_weights_pre: exit barrier
+[rank0] prepare_scene_weights: raw logical int4 tensor generation start
+[rank2] prepare_scene_weights_pre: exit barrier
+[rank8] prepare_scene_weights: raw logical int4 tensor generation start
+[rank2] prepare_scene_weights: raw logical int4 tensor generation start
+[rank12] prepare_scene_weights_pre: exit barrier
+[rank4] prepare_scene_weights: raw logical int4 tensor generation start
+[rank12] prepare_scene_weights: raw logical int4 tensor generation start
+[rank6] prepare_scene_weights_pre: exit barrier
+[rank6] prepare_scene_weights: raw logical int4 tensor generation start
+[rank10] prepare_scene_weights_pre: exit barrier
+[rank10] prepare_scene_weights: raw logical int4 tensor generation start
+[rank1] prepare_scene_weights_pre: exit barrier
+[rank1] prepare_scene_weights: raw logical int4 tensor generation start
+[rank13] prepare_scene_weights_pre: exit barrier
+[rank13] prepare_scene_weights: raw logical int4 tensor generation start
+[rank3] prepare_scene_weights_pre: exit barrier
+[rank3] prepare_scene_weights: raw logical int4 tensor generation start
+[rank9] prepare_scene_weights_pre: exit barrier
+[rank7] prepare_scene_weights_pre: exit barrier
+[rank7] prepare_scene_weights: raw logical int4 tensor generation start
+[rank9] prepare_scene_weights: raw logical int4 tensor generation start
+[rank15] prepare_scene_weights_pre: exit barrier
+[rank15] prepare_scene_weights: raw logical int4 tensor generation start
+[rank5] prepare_scene_weights_pre: exit barrier
+[rank5] prepare_scene_weights: raw logical int4 tensor generation start
+[rank0] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank2] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank6] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank12] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank4] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank8] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank14] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank10] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank0] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank2] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank6] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank12] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank4] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank8] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank14] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank10] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank1] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank3] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank13] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank9] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank7] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank11] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank5] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank15] prepare_scene_weights: raw logical int4 tensor generation done w13_weight_raw_int4=(4, 7168, 6144)/torch.int8 w2_weight_raw_int4=(4, 3072, 7168)/torch.int8 w13_scale=(4, 6144)/torch.float32 w2_scale=(4, 7168)/torch.float32
+[rank1] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank3] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank13] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank9] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank7] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank11] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank5] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank15] prepare_scene_weights_raw_logical_int4_tensors: enter barrier
+[rank11] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank14] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank2] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank0] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank6] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank0] prepare_scene_weights: pack_int4_to_int8 start
+[rank12] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank11] prepare_scene_weights: pack_int4_to_int8 start
+[rank8] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank7] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank10] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank7] prepare_scene_weights: pack_int4_to_int8 start
+[rank9] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank5] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank14] prepare_scene_weights: pack_int4_to_int8 start
+[rank3] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank2] prepare_scene_weights: pack_int4_to_int8 start
+[rank15] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank13] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank6] prepare_scene_weights: pack_int4_to_int8 start
+[rank12] prepare_scene_weights: pack_int4_to_int8 start
+[rank8] prepare_scene_weights: pack_int4_to_int8 start
+[rank10] prepare_scene_weights: pack_int4_to_int8 start
+[rank9] prepare_scene_weights: pack_int4_to_int8 start
+[rank5] prepare_scene_weights: pack_int4_to_int8 start
+[rank1] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank3] prepare_scene_weights: pack_int4_to_int8 start
+[rank15] prepare_scene_weights: pack_int4_to_int8 start
+[rank13] prepare_scene_weights: pack_int4_to_int8 start
+[rank1] prepare_scene_weights: pack_int4_to_int8 start
+[rank4] prepare_scene_weights_raw_logical_int4_tensors: exit barrier
+[rank4] prepare_scene_weights: pack_int4_to_int8 start
+[rank10] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank15] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank12] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank13] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank14] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank0] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank6] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank9] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank8] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank2] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank5] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank4] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank1] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank11] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank7] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank3] prepare_scene_weights: pack_int4_to_int8 done w13_weight_packed_int8=(4, 7168, 3072)/torch.int8 w2_weight_packed_int8=(4, 3072, 3584)/torch.int8
+[rank10] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank11] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank13] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank12] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank8] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank0] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank2] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank7] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank1] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank5] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank9] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank3] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank6] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank4] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank14] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank15] prepare_scene_weights_packed_int8_tensors: enter barrier
+[rank4] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank4] prepare_scene_weights: per-channel scale generation start
+[rank2] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank8] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank15] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank0] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank2] prepare_scene_weights: per-channel scale generation start
+[rank8] prepare_scene_weights: per-channel scale generation start
+[rank0] prepare_scene_weights: per-channel scale generation start
+[rank14] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank13] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank15] prepare_scene_weights: per-channel scale generation start
+[rank10] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank14] prepare_scene_weights: per-channel scale generation start
+[rank13] prepare_scene_weights: per-channel scale generation start
+[rank10] prepare_scene_weights: per-channel scale generation start
+[rank1] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank3] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank12] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank1] prepare_scene_weights: per-channel scale generation start
+[rank3] prepare_scene_weights: per-channel scale generation start
+[rank11] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank12] prepare_scene_weights: per-channel scale generation start
+[rank11] prepare_scene_weights: per-channel scale generation start
+[rank6] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank6] prepare_scene_weights: per-channel scale generation start
+[rank9] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank5] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank5] prepare_scene_weights: per-channel scale generation start
+[rank9] prepare_scene_weights: per-channel scale generation start
+[rank7] prepare_scene_weights_packed_int8_tensors: exit barrier
+[rank7] prepare_scene_weights: per-channel scale generation start
+[rank12] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank12] prepare_scene_weights_per_channel_scale: enter barrier
+[rank13] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank4] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank13] prepare_scene_weights_per_channel_scale: enter barrier
+[rank4] prepare_scene_weights_per_channel_scale: enter barrier
+[rank2] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank8] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank2] prepare_scene_weights_per_channel_scale: enter barrier
+[rank8] prepare_scene_weights_per_channel_scale: enter barrier
+[rank0] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank0] prepare_scene_weights_per_channel_scale: enter barrier
+[rank14] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank14] prepare_scene_weights_per_channel_scale: enter barrier
+[rank10] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank7] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank15] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank6] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank10] prepare_scene_weights_per_channel_scale: enter barrier
+[rank15] prepare_scene_weights_per_channel_scale: enter barrier
+[rank6] prepare_scene_weights_per_channel_scale: enter barrier
+[rank7] prepare_scene_weights_per_channel_scale: enter barrier
+[rank5] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank1] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank11] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank5] prepare_scene_weights_per_channel_scale: enter barrier
+[rank1] prepare_scene_weights_per_channel_scale: enter barrier
+[rank3] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank11] prepare_scene_weights_per_channel_scale: enter barrier
+[rank3] prepare_scene_weights_per_channel_scale: enter barrier
+[rank9] prepare_scene_weights: per-channel scale packed int64 done w13_scale=(4, 6144)/torch.int64 w2_scale=(4, 7168)/torch.int64
+[rank9] prepare_scene_weights_per_channel_scale: enter barrier
+[rank0] prepare_scene_weights_per_channel_scale: exit barrier
+[rank2] prepare_scene_weights_per_channel_scale: exit barrier
+[rank8] prepare_scene_weights_per_channel_scale: exit barrier
+[rank2] prepare_scene_weights: bias pre-NZ computation start
+[rank13] prepare_scene_weights_per_channel_scale: exit barrier
+[rank4] prepare_scene_weights_per_channel_scale: exit barrier
+[rank0] prepare_scene_weights: bias pre-NZ computation start
+[rank7] prepare_scene_weights_per_channel_scale: exit barrier
+[rank15] prepare_scene_weights_per_channel_scale: exit barrier
+[rank9] prepare_scene_weights_per_channel_scale: exit barrier
+[rank14] prepare_scene_weights_per_channel_scale: exit barrier
+[rank6] prepare_scene_weights_per_channel_scale: exit barrier
+[rank8] prepare_scene_weights: bias pre-NZ computation start
+[rank1] prepare_scene_weights_per_channel_scale: exit barrier
+[rank5] prepare_scene_weights_per_channel_scale: exit barrier
+[rank12] prepare_scene_weights_per_channel_scale: exit barrier
+[rank10] prepare_scene_weights_per_channel_scale: exit barrier
+[rank13] prepare_scene_weights: bias pre-NZ computation start
+[rank3] prepare_scene_weights_per_channel_scale: exit barrier
+[rank4] prepare_scene_weights: bias pre-NZ computation start
+[rank11] prepare_scene_weights_per_channel_scale: exit barrier
+[rank7] prepare_scene_weights: bias pre-NZ computation start
+[rank15] prepare_scene_weights: bias pre-NZ computation start
+[rank9] prepare_scene_weights: bias pre-NZ computation start
+[rank14] prepare_scene_weights: bias pre-NZ computation start
+[rank6] prepare_scene_weights: bias pre-NZ computation start
+[rank1] prepare_scene_weights: bias pre-NZ computation start
+[rank5] prepare_scene_weights: bias pre-NZ computation start
+[rank12] prepare_scene_weights: bias pre-NZ computation start
+[rank10] prepare_scene_weights: bias pre-NZ computation start
+[rank3] prepare_scene_weights: bias pre-NZ computation start
+[rank11] prepare_scene_weights: bias pre-NZ computation start
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[rank12] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[rank2] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[rank13] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank8] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[rank4] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank14] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank3] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[rank7] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank0] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank6] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[rank10] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[rank5] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank1] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank15] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: weight_shape=(7168, 768) weight_dtype=torch.int32 scale_shape=(6144,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: unpacked_shape=(7168, 6144) scale_fp32_shape=(6144,)
+[rank11] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[debug] compute_bias: weight_shape=(3072, 896) weight_dtype=torch.int32 scale_shape=(7168,) scale_dtype=torch.int64 pack_dim=1
+[debug] compute_bias: unpacked_shape=(3072, 7168) scale_fp32_shape=(7168,)
+[rank9] prepare_scene_weights: bias pre-NZ computed done w13_bias=(4, 6144)/torch.float32 w2_bias=(4, 7168)/torch.float32
+[rank12] prepare_scene_weights_bias_computed: enter barrier
+[rank2] prepare_scene_weights_bias_computed: enter barrier
+[rank4] prepare_scene_weights_bias_computed: enter barrier
+[rank8] prepare_scene_weights_bias_computed: enter barrier
+[rank14] prepare_scene_weights_bias_computed: enter barrier
+[rank13] prepare_scene_weights_bias_computed: enter barrier
+[rank6] prepare_scene_weights_bias_computed: enter barrier
+[rank3] prepare_scene_weights_bias_computed: enter barrier
+[rank7] prepare_scene_weights_bias_computed: enter barrier
+[rank0] prepare_scene_weights_bias_computed: enter barrier
+[rank5] prepare_scene_weights_bias_computed: enter barrier
+[rank10] prepare_scene_weights_bias_computed: enter barrier
+[rank11] prepare_scene_weights_bias_computed: enter barrier
+[rank1] prepare_scene_weights_bias_computed: enter barrier
+[rank15] prepare_scene_weights_bias_computed: enter barrier
+[rank9] prepare_scene_weights_bias_computed: enter barrier
+[rank2] prepare_scene_weights_bias_computed: exit barrier
+[rank8] prepare_scene_weights_bias_computed: exit barrier
+[rank0] prepare_scene_weights_bias_computed: exit barrier
+[rank1] prepare_scene_weights_bias_computed: exit barrier
+[rank4] prepare_scene_weights_bias_computed: exit barrier
+[rank6] prepare_scene_weights_bias_computed: exit barrier
+[rank2] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank8] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank0] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank1] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank14] prepare_scene_weights_bias_computed: exit barrier
+[rank4] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank9] prepare_scene_weights_bias_computed: exit barrier
+[rank6] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank11] prepare_scene_weights_bias_computed: exit barrier
+[rank14] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank10] prepare_scene_weights_bias_computed: exit barrier
+[rank9] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank13] prepare_scene_weights_bias_computed: exit barrier
+[rank11] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank10] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank15] prepare_scene_weights_bias_computed: exit barrier
+[rank13] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank12] prepare_scene_weights_bias_computed: exit barrier
+[rank15] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank5] prepare_scene_weights_bias_computed: exit barrier
+[rank12] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank5] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank7] prepare_scene_weights_bias_computed: exit barrier
+[rank3] prepare_scene_weights_bias_computed: exit barrier
+[rank3] prepare_scene_weights: baseline stacked pack_to_int32 start
+[rank7] prepare_scene_weights: baseline stacked pack_to_int32 start
 ninja: no work to do.
+ninja: no work to do.
+[rank4] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank10] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank13] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank4] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank10] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank13] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank3] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank7] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank3] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank9] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank7] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank9] prepare_scene_weights_baseline_stacked_pack: enter barrier
+ninja: no work to do.
+ninja: no work to do.
+ninja: no work to do.
+[rank14] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank15] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank14] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank12] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank6] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank12] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank2] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank11] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank15] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank5] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank6] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank11] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank2] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank8] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank1] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank5] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank0] prepare_scene_weights: baseline stacked NZ+pack_to_int32 done w13=(4, 7168, 768)/torch.int32 w2=(4, 3072, 896)/torch.int32
+[rank8] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank1] prepare_scene_weights_baseline_stacked_pack: enter barrier
+[rank0] prepare_scene_weights_baseline_stacked_pack: enter barrier
+/usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[rank0] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank1] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank8] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank2] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank0] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank1] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank11] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank12] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank8] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank2] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank11] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank6] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank3] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank12] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank4] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank14] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank6] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank3] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank10] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank4] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank15] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank14] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank5] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank15] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank9] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank7] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank5] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank10] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank0] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank1] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank13] prepare_scene_weights_baseline_stacked_pack: exit barrier
+[rank9] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank7] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank8] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank13] prepare_scene_weights: fused expert split/NZ/view l1 start
+[rank2] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank11] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank6] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank0] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank1] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank3] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank8] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank12] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank2] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank11] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank14] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank4] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank12] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank3] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank5] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank4] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank14] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank15] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank10] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank13] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank7] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank5] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank15] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank13] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank10] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank9] prepare_scene_weights: fused expert split+NZ+view l1 done num=4 first=(7168, 768)/torch.int32
+[rank7] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank9] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank6] prepare_scene_weights_fused_l1_pack: enter barrier
+[rank13] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank12] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank4] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank0] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank9] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank6] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank2] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank8] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank3] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank14] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank15] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank10] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank5] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank13] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank12] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank11] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank4] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank0] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank9] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank6] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank2] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank8] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank3] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank14] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank15] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank10] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank5] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank7] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank1] prepare_scene_weights_fused_l1_pack: exit barrier
+[rank11] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank7] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank1] prepare_scene_weights: fused expert split/NZ/view l2 start
+[rank12] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank13] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank0] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank8] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank2] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank10] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank9] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank4] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank13] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank15] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank12] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank3] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank0] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank6] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank8] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank2] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank10] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank4] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank9] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank3] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank11] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank14] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank15] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank6] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank11] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank14] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank1] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank5] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank1] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank5] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank7] prepare_scene_weights: fused expert split+NZ+view l2 done num=4 first=(3072, 896)/torch.int32
+[rank7] prepare_scene_weights_fused_l2_pack: enter barrier
+[rank10] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank3] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank0] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank8] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank13] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank2] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank9] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank5] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank14] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank12] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank11] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank4] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank10] prepare_scene_weights: fused scale/bias list build start
+[rank15] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank3] prepare_scene_weights: fused scale/bias list build start
+[rank0] prepare_scene_weights: fused scale/bias list build start
+[rank6] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank8] prepare_scene_weights: fused scale/bias list build start
+[rank13] prepare_scene_weights: fused scale/bias list build start
+[rank2] prepare_scene_weights: fused scale/bias list build start
+[rank9] prepare_scene_weights: fused scale/bias list build start
+[rank5] prepare_scene_weights: fused scale/bias list build start
+[rank14] prepare_scene_weights: fused scale/bias list build start
+[rank12] prepare_scene_weights: fused scale/bias list build start
+[rank7] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank11] prepare_scene_weights: fused scale/bias list build start
+[rank1] prepare_scene_weights_fused_l2_pack: exit barrier
+[rank4] prepare_scene_weights: fused scale/bias list build start
+[rank15] prepare_scene_weights: fused scale/bias list build start
+[rank6] prepare_scene_weights: fused scale/bias list build start
+[rank7] prepare_scene_weights: fused scale/bias list build start
+[rank1] prepare_scene_weights: fused scale/bias list build start
+[rank8] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank0] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank12] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank10] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank13] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank2] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank8] prepare_scene_weights_fused_lists: enter barrier
+[rank0] prepare_scene_weights_fused_lists: enter barrier
+[rank3] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank11] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank12] prepare_scene_weights_fused_lists: enter barrier
+[rank13] prepare_scene_weights_fused_lists: enter barrier
+[rank10] prepare_scene_weights_fused_lists: enter barrier
+[rank2] prepare_scene_weights_fused_lists: enter barrier
+[rank4] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank11] prepare_scene_weights_fused_lists: enter barrier
+[rank14] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank3] prepare_scene_weights_fused_lists: enter barrier
+[rank15] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank4] prepare_scene_weights_fused_lists: enter barrier
+[rank14] prepare_scene_weights_fused_lists: enter barrier
+[rank9] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank6] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank15] prepare_scene_weights_fused_lists: enter barrier
+[rank9] prepare_scene_weights_fused_lists: enter barrier
+[rank6] prepare_scene_weights_fused_lists: enter barrier
+[rank1] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank5] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank7] prepare_scene_weights: fused scale/bias list build done l1_scale0=(6144,)/torch.uint64 l2_scale0=(7168,)/torch.uint64 l1_bias0=(6144,)/torch.float32 l2_bias0=(7168,)/torch.float32
+[rank5] prepare_scene_weights_fused_lists: enter barrier
+[rank7] prepare_scene_weights_fused_lists: enter barrier
+[rank1] prepare_scene_weights_fused_lists: enter barrier
+[rank0] prepare_scene_weights_fused_lists: exit barrier
+[rank11] prepare_scene_weights_fused_lists: exit barrier
+[rank13] prepare_scene_weights_fused_lists: exit barrier
+[rank10] prepare_scene_weights_fused_lists: exit barrier
+[rank3] prepare_scene_weights_fused_lists: exit barrier
+[rank2] prepare_scene_weights_fused_lists: exit barrier
+[rank8] prepare_scene_weights_fused_lists: exit barrier
+[rank9] prepare_scene_weights_fused_lists: exit barrier
+[rank4] prepare_scene_weights_fused_lists: exit barrier
+[rank12] prepare_scene_weights_fused_lists: exit barrier
+[rank1] prepare_scene_weights_fused_lists: exit barrier
+[rank5] prepare_scene_weights_fused_lists: exit barrier
+[rank14] prepare_scene_weights_fused_lists: exit barrier
+[rank0] prepare_scene_weights: fused shape validation start
+[rank11] prepare_scene_weights: fused shape validation start
+[rank6] prepare_scene_weights_fused_lists: exit barrier
+[rank13] prepare_scene_weights: fused shape validation start
+[rank15] prepare_scene_weights_fused_lists: exit barrier
+[rank10] prepare_scene_weights: fused shape validation start
+[rank3] prepare_scene_weights: fused shape validation start
+[rank2] prepare_scene_weights: fused shape validation start
+[rank8] prepare_scene_weights: fused shape validation start
+[rank9] prepare_scene_weights: fused shape validation start
+[rank4] prepare_scene_weights: fused shape validation start
+[rank12] prepare_scene_weights: fused shape validation start
+[rank1] prepare_scene_weights: fused shape validation start
+[rank7] prepare_scene_weights_fused_lists: exit barrier
+[rank14] prepare_scene_weights: fused shape validation start
+[rank6] prepare_scene_weights: fused shape validation start
+[rank15] prepare_scene_weights: fused shape validation start
+[rank7] prepare_scene_weights: fused shape validation start
+[rank0] prepare_scene_weights: fused shape validation done
+[rank13] prepare_scene_weights: fused shape validation done
+[rank11] prepare_scene_weights: fused shape validation done
+[rank10] prepare_scene_weights: fused shape validation done
+[rank2] prepare_scene_weights: fused shape validation done
+[rank8] prepare_scene_weights: fused shape validation done
+[rank12] prepare_scene_weights: fused shape validation done
+[rank0] prepare_scene_weights_post: enter barrier
+[rank14] prepare_scene_weights: fused shape validation done
+[rank1] prepare_scene_weights: fused shape validation done
+[rank15] prepare_scene_weights: fused shape validation done
+[rank9] prepare_scene_weights: fused shape validation done
+[rank10] prepare_scene_weights_post: enter barrier
+[rank4] prepare_scene_weights: fused shape validation done
+[rank13] prepare_scene_weights_post: enter barrier
+[rank11] prepare_scene_weights_post: enter barrier
+[rank8] prepare_scene_weights_post: enter barrier
+[rank3] prepare_scene_weights: fused shape validation done
+[rank2] prepare_scene_weights_post: enter barrier
+[rank12] prepare_scene_weights_post: enter barrier
+[rank6] prepare_scene_weights: fused shape validation done
+[rank14] prepare_scene_weights_post: enter barrier
+[rank9] prepare_scene_weights_post: enter barrier
+[rank15] prepare_scene_weights_post: enter barrier
+[rank1] prepare_scene_weights_post: enter barrier
+[rank4] prepare_scene_weights_post: enter barrier
+[rank3] prepare_scene_weights_post: enter barrier
+[rank6] prepare_scene_weights_post: enter barrier
+[rank7] prepare_scene_weights: fused shape validation done
+[rank7] prepare_scene_weights_post: enter barrier
+[rank5] prepare_scene_weights: fused shape validation start
+[rank5] prepare_scene_weights: fused shape validation done
+[rank5] prepare_scene_weights_post: enter barrier
+[rank13] prepare_scene_weights_post: exit barrier
+[rank8] prepare_scene_weights_post: exit barrier
+[rank10] prepare_scene_weights_post: exit barrier
+[rank0] prepare_scene_weights_post: exit barrier
+[rank12] prepare_scene_weights_post: exit barrier
+[rank5] prepare_scene_weights_post: exit barrier
+[rank3] prepare_scene_weights_post: exit barrier
+[rank2] prepare_scene_weights_post: exit barrier
+[rank9] prepare_scene_weights_post: exit barrier
+[rank11] prepare_scene_weights_post: exit barrier
+[rank4] prepare_scene_weights_post: exit barrier
+[rank1] prepare_scene_weights_post: exit barrier
+[rank6] prepare_scene_weights_post: exit barrier
+[rank14] prepare_scene_weights_post: exit barrier
+[rank15] prepare_scene_weights_post: exit barrier
+[rank7] prepare_scene_weights_post: exit barrier
+[rank8] run_case: prepare_scene_weights done
+[rank0] run_case: prepare_scene_weights done
+[rank10] run_case: prepare_scene_weights done
+[rank2] run_case: prepare_scene_weights done
+[rank12] run_case: prepare_scene_weights done
+[rank11] run_case: prepare_scene_weights done
+[rank4] run_case: prepare_scene_weights done
+[rank13] run_case: prepare_scene_weights done
+[rank6] run_case: prepare_scene_weights done
+[rank3] run_case: prepare_scene_weights done
+[rank15] run_case: prepare_scene_weights done
+[rank8] run_case_weights_ready: enter barrier
+[rank0] run_case_weights_ready: enter barrier
+[rank14] run_case: prepare_scene_weights done
+[rank10] run_case_weights_ready: enter barrier
+[rank2] run_case_weights_ready: enter barrier
+[rank11] run_case_weights_ready: enter barrier
+[rank12] run_case_weights_ready: enter barrier
+[rank7] run_case: prepare_scene_weights done
+[rank4] run_case_weights_ready: enter barrier
+[rank13] run_case_weights_ready: enter barrier
+[rank5] run_case: prepare_scene_weights done
+[rank3] run_case_weights_ready: enter barrier
+[rank9] run_case: prepare_scene_weights done
+[rank6] run_case_weights_ready: enter barrier
+[rank14] run_case_weights_ready: enter barrier
+[rank15] run_case_weights_ready: enter barrier
+[rank9] run_case_weights_ready: enter barrier
+[rank7] run_case_weights_ready: enter barrier
+[rank5] run_case_weights_ready: enter barrier
+[rank1] run_case: prepare_scene_weights done
+[rank1] run_case_weights_ready: enter barrier
+[rank10] run_case_weights_ready: exit barrier
+[rank0] run_case_weights_ready: exit barrier
+[rank8] run_case_weights_ready: exit barrier
+[rank2] run_case_weights_ready: exit barrier
+[rank6] run_case_weights_ready: exit barrier
+[rank13] run_case_weights_ready: exit barrier
+[rank3] run_case_weights_ready: exit barrier
+[rank11] run_case_weights_ready: exit barrier
+[rank5] run_case_weights_ready: exit barrier
+[rank12] run_case_weights_ready: exit barrier
+[rank9] run_case_weights_ready: exit barrier
+[rank5] run_case: baseline start
+[rank12] run_case: baseline start
+[rank1] run_case_weights_ready: exit barrier
+[rank4] run_case_weights_ready: exit barrier
+[rank10] run_case: baseline start
+[rank14] run_case_weights_ready: exit barrier
+[rank15] run_case_weights_ready: exit barrier
+[rank0] run_case: baseline start
+[rank7] run_case_weights_ready: exit barrier
+[rank8] run_case: baseline start
+[rank2] run_case: baseline start
+[rank6] run_case: baseline start
+[rank13] run_case: baseline start
+[rank3] run_case: baseline start
+[rank11] run_case: baseline start
+[rank9] run_case: baseline start
+[rank1] run_case: baseline start
 [rank12] baseline: start
-[rank12] dispatch_pre: enter barrier
-[rank6] baseline: start
-[rank6] dispatch_pre: enter barrier
-[rank3] baseline: start
-[rank3] dispatch_pre: enter barrier
-[rank9] baseline: start
-[rank9] dispatch_pre: enter barrier
-[rank13] baseline: start
-[rank13] dispatch_pre: enter barrier
-[rank7] baseline: start
-[rank7] dispatch_pre: enter barrier
-[rank2] baseline: start
-[rank2] dispatch_pre: enter barrier
-[rank11] baseline: start
-[rank11] dispatch_pre: enter barrier
+[rank4] run_case: baseline start
+[rank5] baseline: start
+[rank14] run_case: baseline start
+[rank15] run_case: baseline start
+[rank10] baseline: start
+[rank4] baseline: start
+[rank0] baseline: start
+[rank7] run_case: baseline start
 [rank8] baseline: start
+[rank6] baseline: start
+[rank2] baseline: start
+[rank13] baseline: start
+[rank11] baseline: start
+[rank9] baseline: start
+[rank14] baseline: start
+[rank15] baseline: start
+[rank12] dispatch_pre: enter barrier
+[rank1] baseline: start
+[rank7] baseline: start
+[rank3] baseline: start
+[rank0] dispatch_pre: enter barrier
+[rank10] dispatch_pre: enter barrier
+[rank6] dispatch_pre: enter barrier
 [rank8] dispatch_pre: enter barrier
-[rank3] dispatch_pre: exit barrier
-[rank12] dispatch_pre: exit barrier
-[rank9] dispatch_pre: exit barrier
-[rank15] dispatch_pre: exit barrier
-[rank4] dispatch_pre: exit barrier
+[rank5] dispatch_pre: enter barrier
+[rank4] dispatch_pre: enter barrier
+[rank2] dispatch_pre: enter barrier
+[rank13] dispatch_pre: enter barrier
+[rank11] dispatch_pre: enter barrier
+[rank9] dispatch_pre: enter barrier
+[rank15] dispatch_pre: enter barrier
+[rank14] dispatch_pre: enter barrier
+[rank3] dispatch_pre: enter barrier
+[rank1] dispatch_pre: enter barrier
+[rank7] dispatch_pre: enter barrier
+[rank0] dispatch_pre: exit barrier
+[rank11] dispatch_pre: exit barrier
+[rank10] dispatch_pre: exit barrier
+[rank8] dispatch_pre: exit barrier
 [rank2] dispatch_pre: exit barrier
 [rank6] dispatch_pre: exit barrier
+[rank12] dispatch_pre: exit barrier
+[rank3] dispatch_pre: exit barrier
+[rank9] dispatch_pre: exit barrier
+[rank4] dispatch_pre: exit barrier
+[rank14] dispatch_pre: exit barrier
+[rank15] dispatch_pre: exit barrier
 [rank13] dispatch_pre: exit barrier
 [rank1] dispatch_pre: exit barrier
-[rank3] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank12] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank9] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank10] dispatch_pre: exit barrier
-[rank4] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank14] dispatch_pre: exit barrier
-[rank15] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank2] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank5] dispatch_pre: exit barrier
-[rank6] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank1] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank13] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank10] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank14] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank5] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank0] dispatch_pre: exit barrier
 [rank7] dispatch_pre: exit barrier
-[rank11] dispatch_pre: exit barrier
-[rank0] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank8] dispatch_pre: exit barrier
-[rank8] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank11] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
-[rank7] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 x_active_mask=(64,)/torch.bool group_ep=group_name_2 ep_world_size=16
+[rank5] dispatch_pre: exit barrier
+[rank0] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank11] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank10] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank8] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank2] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank12] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank3] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank6] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank9] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank4] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank14] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank13] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank1] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank15] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank7] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
+[rank5] dispatch: x=(64, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 global_bs=1024 group_ep=group_name_2 ep_world_size=16
 [rank14] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank6] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank1] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank0] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank15] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank7] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank13] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank3] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank5] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank9] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank4] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank2] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
 [rank10] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank12] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank8] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank15] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank4] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank13] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank0] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
 [rank11] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
-[rank6] dispatch_post: enter barrier
-[rank14] dispatch_post: enter barrier
-[rank0] dispatch_post: enter barrier
-[rank10] dispatch_post: enter barrier
-[rank4] dispatch_post: enter barrier
-[rank8] dispatch_post: enter barrier
-[rank1] dispatch_post: enter barrier
+[rank8] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank7] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank6] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank12] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank2] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank5] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank1] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank3] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank9] dispatch: recv_x=(4096, 7168)/torch.int8 recv_x_scale=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_list=(4,)/torch.int64 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32
+[rank3] dispatch_post: enter barrier
 [rank13] dispatch_post: enter barrier
-[rank11] dispatch_post: enter barrier
+[rank8] dispatch_post: enter barrier
+[rank12] dispatch_post: enter barrier
+[rank4] dispatch_post: enter barrier
+[rank2] dispatch_post: enter barrier
+[rank6] dispatch_post: enter barrier
+[rank0] dispatch_post: enter barrier
 [rank5] dispatch_post: enter barrier
+[rank11] dispatch_post: enter barrier
+[rank1] dispatch_post: enter barrier
+[rank10] dispatch_post: enter barrier
 [rank7] dispatch_post: enter barrier
 [rank15] dispatch_post: enter barrier
-[rank3] dispatch_post: enter barrier
-[rank12] dispatch_post: enter barrier
+[rank14] dispatch_post: enter barrier
 [rank9] dispatch_post: enter barrier
-[rank2] dispatch_post: enter barrier
-/usr/local/python3.11.15/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
-  return func(*args, **kwargs)
-[rank13] dispatch_post: exit barrier
-[rank14] dispatch_post: exit barrier
-[rank10] dispatch_post: exit barrier
-[rank1] dispatch_post: exit barrier
-[rank6] dispatch_post: exit barrier
-[rank0] dispatch_post: exit barrier
-[rank12] dispatch_post: exit barrier
-[rank5] dispatch_post: exit barrier
-[rank8] dispatch_post: exit barrier
-[rank11] dispatch_post: exit barrier
-[rank3] dispatch_post: exit barrier
 [rank2] dispatch_post: exit barrier
-[rank13] gmm1_pre: enter barrier
-[rank14] gmm1_pre: enter barrier
-[rank1] gmm1_pre: enter barrier
-[rank10] gmm1_pre: enter barrier
-[rank6] gmm1_pre: enter barrier
-[rank9] dispatch_post: exit barrier
-[rank0] gmm1_pre: enter barrier
-[rank12] gmm1_pre: enter barrier
+[rank3] dispatch_post: exit barrier
+[rank0] dispatch_post: exit barrier
+[rank11] dispatch_post: exit barrier
+[rank6] dispatch_post: exit barrier
+[rank8] dispatch_post: exit barrier
+[rank12] dispatch_post: exit barrier
+[rank13] dispatch_post: exit barrier
+[rank5] dispatch_post: exit barrier
+[rank14] dispatch_post: exit barrier
 [rank4] dispatch_post: exit barrier
-[rank8] gmm1_pre: enter barrier
-[rank15] dispatch_post: exit barrier
-[rank5] gmm1_pre: enter barrier
-[rank7] dispatch_post: exit barrier
+[rank0] gmm1_pre: enter barrier
 [rank3] gmm1_pre: enter barrier
-[rank2] gmm1_pre: enter barrier
+[rank15] dispatch_post: exit barrier
+[rank7] dispatch_post: exit barrier
 [rank11] gmm1_pre: enter barrier
-[rank9] gmm1_pre: enter barrier
-[rank15] gmm1_pre: enter barrier
+[rank1] dispatch_post: exit barrier
+[rank9] dispatch_post: exit barrier
+[rank8] gmm1_pre: enter barrier
+[rank6] gmm1_pre: enter barrier
+[rank12] gmm1_pre: enter barrier
+[rank2] gmm1_pre: enter barrier
+[rank13] gmm1_pre: enter barrier
+[rank5] gmm1_pre: enter barrier
 [rank4] gmm1_pre: enter barrier
+[rank14] gmm1_pre: enter barrier
+[rank10] dispatch_post: exit barrier
 [rank7] gmm1_pre: enter barrier
-[rank13] gmm1_pre: exit barrier
+[rank1] gmm1_pre: enter barrier
+[rank15] gmm1_pre: enter barrier
+[rank9] gmm1_pre: enter barrier
+[rank10] gmm1_pre: enter barrier
 [rank6] gmm1_pre: exit barrier
-[rank10] gmm1_pre: exit barrier
-[rank5] gmm1_pre: exit barrier
+[rank2] gmm1_pre: exit barrier
+[rank3] gmm1_pre: exit barrier
 [rank0] gmm1_pre: exit barrier
 [rank12] gmm1_pre: exit barrier
-[rank14] gmm1_pre: exit barrier
-[rank1] gmm1_pre: exit barrier
 [rank8] gmm1_pre: exit barrier
-[rank3] gmm1_pre: exit barrier
-[rank15] gmm1_pre: exit barrier
-[rank11] gmm1_pre: exit barrier
-[rank9] gmm1_pre: exit barrier
-[rank2] gmm1_pre: exit barrier
 [rank4] gmm1_pre: exit barrier
 [rank7] gmm1_pre: exit barrier
-[rank6] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank13] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank5] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank1] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank10] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank3] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank8] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank12] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank0] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank2] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank14] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank4] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank15] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank9] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank11] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank7] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 28, 6144)/torch.int64 bias=(4, 6144)/torch.float32
-[rank0] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank6] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank1] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank14] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank4] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank9] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank0] gmm1_post: enter barrier
-[rank6] gmm1_post: enter barrier
-[rank1] gmm1_post: enter barrier
-[rank14] gmm1_post: enter barrier
-[rank10] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank3] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank2] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank9] gmm1_post: enter barrier
-[rank4] gmm1_post: enter barrier
-[rank13] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank8] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank5] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank10] gmm1_post: enter barrier
-[rank2] gmm1_post: enter barrier
-[rank15] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank3] gmm1_post: enter barrier
-[rank13] gmm1_post: enter barrier
-[rank8] gmm1_post: enter barrier
-[rank15] gmm1_post: enter barrier
-[rank5] gmm1_post: enter barrier
-[rank12] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank12] gmm1_post: enter barrier
-[rank7] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank11] gmm1: out=(4096, 6144)/torch.bfloat16
-[rank7] gmm1_post: enter barrier
-[rank11] gmm1_post: enter barrier
-[rank14] gmm1_post: exit barrier
-[rank6] gmm1_post: exit barrier
-[rank13] gmm1_post: exit barrier
-[rank10] gmm1_post: exit barrier
-[rank1] gmm1_post: exit barrier
-[rank12] gmm1_post: exit barrier
-[rank0] gmm1_post: exit barrier
-[rank15] gmm1_post: exit barrier
-[rank11] gmm1_post: exit barrier
-[rank7] gmm1_post: exit barrier
-[rank14] activation_pre: enter barrier
-[rank4] gmm1_post: exit barrier
-[rank3] gmm1_post: exit barrier
-[rank6] activation_pre: enter barrier
-[rank9] gmm1_post: exit barrier
-[rank8] gmm1_post: exit barrier
-[rank13] activation_pre: enter barrier
-[rank10] activation_pre: enter barrier
-[rank1] activation_pre: enter barrier
-[rank5] gmm1_post: exit barrier
-[rank12] activation_pre: enter barrier
-[rank0] activation_pre: enter barrier
-[rank15] activation_pre: enter barrier
-[rank11] activation_pre: enter barrier
-[rank7] activation_pre: enter barrier
-[rank2] gmm1_post: exit barrier
-[rank4] activation_pre: enter barrier
-[rank3] activation_pre: enter barrier
-[rank9] activation_pre: enter barrier
-[rank8] activation_pre: enter barrier
-[rank5] activation_pre: enter barrier
-[rank2] activation_pre: enter barrier
-[rank6] activation_pre: exit barrier
-[rank1] activation_pre: exit barrier
-[rank13] activation_pre: exit barrier
-[rank14] activation_pre: exit barrier
-[rank10] activation_pre: exit barrier
-[rank12] activation_pre: exit barrier
-[rank0] activation_pre: exit barrier
-[rank9] activation_pre: exit barrier
-[rank11] activation_pre: exit barrier
-[rank8] activation_pre: exit barrier
-[rank6] activation_in: (4096, 6144)/torch.bfloat16
-[rank4] activation_pre: exit barrier
-[rank3] activation_pre: exit barrier
-[rank1] activation_in: (4096, 6144)/torch.bfloat16
-[rank15] activation_pre: exit barrier
-[rank13] activation_in: (4096, 6144)/torch.bfloat16
-[rank2] activation_pre: exit barrier
-[rank7] activation_pre: exit barrier
-[rank14] activation_in: (4096, 6144)/torch.bfloat16
-[rank10] activation_in: (4096, 6144)/torch.bfloat16
-[rank5] activation_pre: exit barrier
-[rank12] activation_in: (4096, 6144)/torch.bfloat16
-[rank0] activation_in: (4096, 6144)/torch.bfloat16
-[rank9] activation_in: (4096, 6144)/torch.bfloat16
-[rank8] activation_in: (4096, 6144)/torch.bfloat16
-[rank11] activation_in: (4096, 6144)/torch.bfloat16
-[rank4] activation_in: (4096, 6144)/torch.bfloat16
-[rank3] activation_in: (4096, 6144)/torch.bfloat16
-[rank15] activation_in: (4096, 6144)/torch.bfloat16
-[rank2] activation_in: (4096, 6144)/torch.bfloat16
-[rank7] activation_in: (4096, 6144)/torch.bfloat16
-[rank5] activation_in: (4096, 6144)/torch.bfloat16
-[rank1] activation_out: (4096, 3072)/torch.bfloat16
-[rank6] activation_out: (4096, 3072)/torch.bfloat16
-[rank3] activation_out: (4096, 3072)/torch.bfloat16
-[rank4] activation_out: (4096, 3072)/torch.bfloat16
-[rank0] activation_out: (4096, 3072)/torch.bfloat16
-[rank13] activation_out: (4096, 3072)/torch.bfloat16
-[rank14] activation_out: (4096, 3072)/torch.bfloat16
-[rank15] activation_out: (4096, 3072)/torch.bfloat16
-[rank10] activation_out: (4096, 3072)/torch.bfloat16
-[rank8] activation_out: (4096, 3072)/torch.bfloat16
-[rank9] activation_out: (4096, 3072)/torch.bfloat16
-[rank6] activation_post: enter barrier
-[rank1] activation_post: enter barrier
-[rank12] activation_out: (4096, 3072)/torch.bfloat16
-[rank5] activation_out: (4096, 3072)/torch.bfloat16
-[rank2] activation_out: (4096, 3072)/torch.bfloat16
-[rank3] activation_post: enter barrier
-[rank13] activation_post: enter barrier
-[rank14] activation_post: enter barrier
-[rank7] activation_out: (4096, 3072)/torch.bfloat16
-[rank10] activation_post: enter barrier
-[rank0] activation_post: enter barrier
-[rank4] activation_post: enter barrier
-[rank8] activation_post: enter barrier
-[rank9] activation_post: enter barrier
-[rank12] activation_post: enter barrier
-[rank15] activation_post: enter barrier
-[rank5] activation_post: enter barrier
-[rank11] activation_out: (4096, 3072)/torch.bfloat16
-[rank7] activation_post: enter barrier
-[rank2] activation_post: enter barrier
-[rank11] activation_post: enter barrier
-[rank10] activation_post: exit barrier
-[rank1] activation_post: exit barrier
-[rank6] activation_post: exit barrier
-[rank14] activation_post: exit barrier
-[rank13] activation_post: exit barrier
-[rank5] activation_post: exit barrier
-[rank13] dynamic_quant_pre: enter barrier
-[rank12] activation_post: exit barrier
-[rank10] dynamic_quant_pre: enter barrier
-[rank7] activation_post: exit barrier
-[rank9] activation_post: exit barrier
-[rank4] activation_post: exit barrier
-[rank3] activation_post: exit barrier
-[rank0] activation_post: exit barrier
-[rank8] activation_post: exit barrier
-[rank1] dynamic_quant_pre: enter barrier
-[rank2] activation_post: exit barrier
-[rank6] dynamic_quant_pre: enter barrier
-[rank15] activation_post: exit barrier
-[rank14] dynamic_quant_pre: enter barrier
-[rank11] activation_post: exit barrier
-[rank5] dynamic_quant_pre: enter barrier
-[rank11] dynamic_quant_pre: enter barrier
-[rank12] dynamic_quant_pre: enter barrier
-[rank7] dynamic_quant_pre: enter barrier
-[rank9] dynamic_quant_pre: enter barrier
-[rank4] dynamic_quant_pre: enter barrier
-[rank3] dynamic_quant_pre: enter barrier
-[rank0] dynamic_quant_pre: enter barrier
-[rank8] dynamic_quant_pre: enter barrier
-[rank2] dynamic_quant_pre: enter barrier
-[rank15] dynamic_quant_pre: enter barrier
-[rank13] dynamic_quant_pre: exit barrier
-[rank7] dynamic_quant_pre: exit barrier
-[rank6] dynamic_quant_pre: exit barrier
-[rank14] dynamic_quant_pre: exit barrier
-[rank1] dynamic_quant_pre: exit barrier
-[rank10] dynamic_quant_pre: exit barrier
-[rank5] dynamic_quant_pre: exit barrier
-[rank12] dynamic_quant_pre: exit barrier
-[rank4] dynamic_quant_pre: exit barrier
-[rank8] dynamic_quant_pre: exit barrier
-[rank0] dynamic_quant_pre: exit barrier
-[rank11] dynamic_quant_pre: exit barrier
-[rank15] dynamic_quant_pre: exit barrier
-[rank2] dynamic_quant_pre: exit barrier
-[rank9] dynamic_quant_pre: exit barrier
-[rank3] dynamic_quant_pre: exit barrier
-[rank4] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank9] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank0] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank12] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank4] dynamic_quant_post: enter barrier
-[rank0] dynamic_quant_post: enter barrier
-[rank12] dynamic_quant_post: enter barrier
-[rank9] dynamic_quant_post: enter barrier
-[rank15] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank1] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank6] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank7] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank3] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank15] dynamic_quant_post: enter barrier
-[rank11] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank6] dynamic_quant_post: enter barrier
-[rank1] dynamic_quant_post: enter barrier
-[rank7] dynamic_quant_post: enter barrier
-[rank3] dynamic_quant_post: enter barrier
-[rank14] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank10] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank11] dynamic_quant_post: enter barrier
-[rank13] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank5] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank8] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank14] dynamic_quant_post: enter barrier
-[rank2] dynamic_quant: act_int8=(4096, 3072)/torch.int8 act_scale=(4096,)/torch.float32
-[rank13] dynamic_quant_post: enter barrier
-[rank10] dynamic_quant_post: enter barrier
-[rank5] dynamic_quant_post: enter barrier
-[rank8] dynamic_quant_post: enter barrier
-[rank2] dynamic_quant_post: enter barrier
-[rank13] dynamic_quant_post: exit barrier
-[rank1] dynamic_quant_post: exit barrier
-[rank6] dynamic_quant_post: exit barrier
-[rank5] dynamic_quant_post: exit barrier
-[rank10] dynamic_quant_post: exit barrier
-[rank14] dynamic_quant_post: exit barrier
-[rank12] dynamic_quant_post: exit barrier
-[rank3] dynamic_quant_post: exit barrier
-[rank0] dynamic_quant_post: exit barrier
-[rank7] dynamic_quant_post: exit barrier
-[rank4] dynamic_quant_post: exit barrier
-[rank13] gmm2_pre: enter barrier
-[rank2] dynamic_quant_post: exit barrier
-[rank8] dynamic_quant_post: exit barrier
-[rank11] dynamic_quant_post: exit barrier
-[rank9] dynamic_quant_post: exit barrier
-[rank1] gmm2_pre: enter barrier
-[rank15] dynamic_quant_post: exit barrier
-[rank6] gmm2_pre: enter barrier
-[rank5] gmm2_pre: enter barrier
-[rank10] gmm2_pre: enter barrier
-[rank14] gmm2_pre: enter barrier
-[rank12] gmm2_pre: enter barrier
-[rank3] gmm2_pre: enter barrier
-[rank0] gmm2_pre: enter barrier
-[rank4] gmm2_pre: enter barrier
-[rank7] gmm2_pre: enter barrier
-[rank2] gmm2_pre: enter barrier
-[rank8] gmm2_pre: enter barrier
-[rank9] gmm2_pre: enter barrier
-[rank15] gmm2_pre: enter barrier
-[rank11] gmm2_pre: enter barrier
-[rank6] gmm2_pre: exit barrier
-[rank13] gmm2_pre: exit barrier
-[rank10] gmm2_pre: exit barrier
-[rank1] gmm2_pre: exit barrier
-[rank5] gmm2_pre: exit barrier
-[rank8] gmm2_pre: exit barrier
-[rank3] gmm2_pre: exit barrier
-[rank12] gmm2_pre: exit barrier
-[rank14] gmm2_pre: exit barrier
-[rank0] gmm2_pre: exit barrier
-[rank7] gmm2_pre: exit barrier
-[rank11] gmm2_pre: exit barrier
-[rank4] gmm2_pre: exit barrier
-[rank9] gmm2_pre: exit barrier
-[rank15] gmm2_pre: exit barrier
-[rank2] gmm2_pre: exit barrier
-[rank6] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank13] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank10] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank1] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank8] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank5] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank12] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank3] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank14] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank4] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank9] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank15] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank0] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank2] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank7] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank11] gmm2: x=(4096, 3072)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 3072, 896)/torch.int32 scale0=(4, 12, 7168)/torch.int64 bias=(4, 7168)/torch.float32
-[rank1] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank6] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank10] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank5] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank8] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank14] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank0] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank9] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank4] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank12] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank15] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank7] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank2] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank3] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank10] gmm2_post: enter barrier
-[rank5] gmm2_post: enter barrier
-[rank1] gmm2_post: enter barrier
-[rank6] gmm2_post: enter barrier
-[rank8] gmm2_post: enter barrier
-[rank14] gmm2_post: enter barrier
-[rank9] gmm2_post: enter barrier
-[rank0] gmm2_post: enter barrier
-[rank11] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank4] gmm2_post: enter barrier
-[rank12] gmm2_post: enter barrier
-[rank15] gmm2_post: enter barrier
-[rank3] gmm2_post: enter barrier
-[rank7] gmm2_post: enter barrier
-[rank2] gmm2_post: enter barrier
-[rank11] gmm2_post: enter barrier
-[rank13] gmm2: out=(4096, 7168)/torch.bfloat16
-[rank13] gmm2_post: enter barrier
-[rank13] gmm2_post: exit barrier
-[rank3] gmm2_post: exit barrier
-[rank1] gmm2_post: exit barrier
-[rank3] combine_pre: enter barrier
-[rank12] gmm2_post: exit barrier
-[rank6] gmm2_post: exit barrier
-[rank14] gmm2_post: exit barrier
-[rank10] gmm2_post: exit barrier
-[rank8] gmm2_post: exit barrier
-[rank5] gmm2_post: exit barrier
-[rank0] gmm2_post: exit barrier
-[rank7] gmm2_post: exit barrier
-[rank13] combine_pre: enter barrier
-[rank4] gmm2_post: exit barrier
-[rank9] gmm2_post: exit barrier
-[rank11] gmm2_post: exit barrier
-[rank15] gmm2_post: exit barrier
-[rank1] combine_pre: enter barrier
-[rank2] gmm2_post: exit barrier
-[rank12] combine_pre: enter barrier
-[rank6] combine_pre: enter barrier
-[rank14] combine_pre: enter barrier
-[rank10] combine_pre: enter barrier
-[rank8] combine_pre: enter barrier
-[rank5] combine_pre: enter barrier
-[rank4] combine_pre: enter barrier
-[rank9] combine_pre: enter barrier
-[rank0] combine_pre: enter barrier
-[rank15] combine_pre: enter barrier
-[rank7] combine_pre: enter barrier
-[rank11] combine_pre: enter barrier
-[rank2] combine_pre: enter barrier
-[rank10] combine_pre: exit barrier
-[rank6] combine_pre: exit barrier
-[rank1] combine_pre: exit barrier
-[rank13] combine_pre: exit barrier
-[rank5] combine_pre: exit barrier
-[rank3] combine_pre: exit barrier
-[rank12] combine_pre: exit barrier
-[rank8] combine_pre: exit barrier
-[rank14] combine_pre: exit barrier
-[rank2] combine_pre: exit barrier
-[rank0] combine_pre: exit barrier
-[rank9] combine_pre: exit barrier
-[rank7] combine_pre: exit barrier
-[rank4] combine_pre: exit barrier
-[rank11] combine_pre: exit barrier
-[rank15] combine_pre: exit barrier
-[rank6] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank10] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank1] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank13] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank3] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank12] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank5] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank8] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank2] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank9] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank4] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank14] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank15] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank0] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank7] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank11] combine: expand_x=(4096, 7168)/torch.bfloat16 topk_idx=(64, 6)/torch.int32 topk_weights=(64, 6)/torch.float32 ep_recv_counts=(64,)/torch.int32 tp_recv_counts=(0,)/torch.int32 expand_scales=(4096,)/torch.float32 assist_info=Tensor(shape=(524288,), dtype=torch.int32) group_ep=group_name_2 ep_world_size=16
-[rank0] combine: out=(64, 7168)/torch.bfloat16
-[rank12] combine: out=(64, 7168)/torch.bfloat16
-[rank4] combine: out=(64, 7168)/torch.bfloat16
-[rank9] combine: out=(64, 7168)/torch.bfloat16
-[rank3] combine: out=(64, 7168)/torch.bfloat16
-[rank15] combine: out=(64, 7168)/torch.bfloat16
-[rank1] combine: out=(64, 7168)/torch.bfloat16
-[rank6] combine: out=(64, 7168)/torch.bfloat16
-[rank7] combine: out=(64, 7168)/torch.bfloat16
-[rank10] combine: out=(64, 7168)/torch.bfloat16
-[rank5] combine: out=(64, 7168)/torch.bfloat16
-[rank13] combine: out=(64, 7168)/torch.bfloat16
-[rank14] combine: out=(64, 7168)/torch.bfloat16
-[rank11] combine: out=(64, 7168)/torch.bfloat16
-[rank8] combine: out=(64, 7168)/torch.bfloat16
-[rank2] combine: out=(64, 7168)/torch.bfloat16
+[rank14] gmm1_pre: exit barrier
+[rank15] gmm1_pre: exit barrier
+[rank1] gmm1_pre: exit barrier
+[rank11] gmm1_pre: exit barrier
+[rank10] gmm1_pre: exit barrier
+[rank13] gmm1_pre: exit barrier
+[rank9] gmm1_pre: exit barrier
+[rank5] gmm1_pre: exit barrier
+[rank12] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank8] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank0] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank2] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank3] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank4] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank1] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank14] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank11] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank6] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank13] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank7] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank15] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank10] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank5] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+[rank9] gmm1: x=(4096, 7168)/torch.int8 per_token_scale=(4096,)/torch.float32 group_list=(4,)/torch.int64 weight0=(4, 7168, 768)/torch.int32 scale0=(4, 6144)/torch.int64 bias=(4, 6144)/torch.float32
+W0727 06:58:13.020000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599702 via signal SIGTERM
+W0727 06:58:13.021000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599703 via signal SIGTERM
+W0727 06:58:13.021000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599704 via signal SIGTERM
+W0727 06:58:13.022000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599705 via signal SIGTERM
+W0727 06:58:13.022000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599707 via signal SIGTERM
+W0727 06:58:13.022000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599708 via signal SIGTERM
+W0727 06:58:13.022000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599709 via signal SIGTERM
+W0727 06:58:13.023000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599710 via signal SIGTERM
+W0727 06:58:13.023000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599711 via signal SIGTERM
+W0727 06:58:13.023000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599712 via signal SIGTERM
+W0727 06:58:13.023000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599713 via signal SIGTERM
+W0727 06:58:13.023000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599714 via signal SIGTERM
+W0727 06:58:13.024000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599715 via signal SIGTERM
+W0727 06:58:13.024000 599620 site-packages/torch/multiprocessing/spawn.py:165] Terminating process 599716 via signal SIGTERM
+Traceback (most recent call last):
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 1197, in <module>
+    torch.multiprocessing.spawn(
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 340, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 296, in start_processes
+    while not context.join():
+              ^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 211, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 4 terminated with the following error:
+Traceback (most recent call last):
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/multiprocessing/spawn.py", line 87, in _wrap
+    fn(i, *args)
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 1157, in test_loop
+    test_main(
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 1123, in test_main
+    run_case(
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 1018, in run_case
+    baseline_out, baseline_counts = run_baseline_reference(
+                                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 801, in run_baseline_reference
+    gate_up = run_grouped_matmul_w4a8(
+              ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/z30071866/sgl-kernel-npu/tests/python/deepep/test_fused_deep_moe_a3_w4a8_acc.py", line 622, in run_grouped_matmul_w4a8
+    out = torch_npu.npu_grouped_matmul(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/utils/_device.py", line 109, in __torch_function__
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.11.15/lib/python3.11/site-packages/torch/_ops.py", line 1209, in __call__
+    return self._op(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: npu_grouped_matmul:../third_party/op-plugin/op_plugin/ops/opapi/GroupedMatmulKernelNpuOpApi.cpp:322 NPU function error: call aclnnGroupedMatmulWeightNz failed, error code is 561103
+[ERROR] 2026-07-27-06:58:07 (PID:599706, Device:4, RankID:0) ERR00100 PTA call acl api failed.
+[PID: 599706] 2026-07-27-06:58:07.407.537 Execution_Error(EZ1008): Failed to execute operator aclnnGroupedMatmulWeightNz_651_GroupedMatmul. Reason: Failed to execute tiling.
+        Solution: 1.If the tiling or infershape function does not exsit, check whether the tiling or infershape function is registered successfully. 2.If the tiling or infershape function fails to be executed, check the implementation logic of the tiling or infershape function.
+TraceBack (most recent call last):
+        GMM_tiling: k should be divisible by quantGroupNum, but now k=7168 and quantGroupNum=6144[FUNC:A8W4Tiling][FILE:grouped_matmul_tiling.cpp][LINE:1955]
+        Failed to execute operator aclnnGroupedMatmulWeightNz_651_GroupedMatmul. Reason: Failed to execute tiling.
+        Kernel GetWorkspace failed. opType: 31
+        ADD_TO_LAUNCHER_LIST_AICORE failed.
+
+
