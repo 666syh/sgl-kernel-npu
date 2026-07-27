@@ -138,13 +138,11 @@ def make_topk_inputs(
     num_topk: int,
     device: torch.device,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    topk_ids = torch.randint(
-        0, num_experts, (num_tokens, num_topk), dtype=torch.int32, device=device
+    scores = torch.randn((num_tokens, num_experts), dtype=torch.float32, device=device)
+    topk_weights, topk_ids = torch.topk(
+        scores, num_topk, dim=-1, largest=True, sorted=False
     )
-    topk_weights = torch.randn(
-        (num_tokens, num_topk), dtype=torch.float32, device=device
-    )
-    return topk_ids, topk_weights
+    return topk_ids.to(torch.int32), topk_weights
 
 
 def validate_topk_inputs(topk_ids_int32: torch.Tensor, num_experts: int):
@@ -152,6 +150,9 @@ def validate_topk_inputs(topk_ids_int32: torch.Tensor, num_experts: int):
         raise TypeError(f"topk_ids must be int32, got {topk_ids_int32.dtype}")
     if torch.any(topk_ids_int32 < 0) or torch.any(topk_ids_int32 >= num_experts):
         raise ValueError("topk_ids contains out-of-range expert indices.")
+    sorted_ids = torch.sort(topk_ids_int32, dim=-1).values
+    if torch.any(sorted_ids[:, 1:] == sorted_ids[:, :-1]):
+        raise ValueError("topk_ids must be unique within each token's top-k row.")
 
 
 def pack_scale_to_uint64(scale: torch.Tensor) -> torch.Tensor:
@@ -183,10 +184,6 @@ def normalize_expert_counts(
             f"Expected {num_local_experts} local expert counts, got {out.numel()}."
         )
     return out
-
-
-def build_x_active_mask(num_tokens: int, device: torch.device) -> torch.Tensor:
-    return torch.randint(0, 2, (num_tokens,), dtype=torch.bool, device=device)
 
 
 def process_scale(
@@ -401,9 +398,9 @@ def run_grouped_matmul_w4a8(
 def run_mc2_dispatch(
     x: torch.Tensor,
     topk_idx: torch.Tensor,
-    x_active_mask: torch.Tensor,
     *,
     num_experts: int,
+    global_bs: int,
     group_ep: str,
     barrier_group: dist.ProcessGroup,
     ep_world_size: int,
@@ -415,7 +412,7 @@ def run_mc2_dispatch(
         ep_rank_id,
         f"dispatch: x={tuple(x.shape)}/{x.dtype} "
         f"topk_idx={tuple(topk_idx.shape)}/{topk_idx.dtype} "
-        f"x_active_mask={tuple(x_active_mask.shape)}/{x_active_mask.dtype} "
+        f"global_bs={global_bs} "
         f"group_ep={group_ep} ep_world_size={ep_world_size}",
     )
     kwargs = {
@@ -424,8 +421,8 @@ def run_mc2_dispatch(
         "expert_shard_type": 0,
         "shared_expert_rank_num": 0,
         "moe_expert_num": num_experts,
-        "global_bs": 0,
-        "x_active_mask": x_active_mask,
+        "global_bs": global_bs,
+        "x_active_mask": None,
         "quant_mode": COMM_QUANT_MODE_INT8,
         "scales": None,
         "group_ep": group_ep,
@@ -463,6 +460,7 @@ def run_mc2_combine(
     topk_weights: torch.Tensor,
     *,
     num_experts: int,
+    global_bs: int,
     ep_recv_counts: torch.Tensor,
     tp_recv_counts: torch.Tensor,
     assist_info_for_combine,
@@ -483,7 +481,7 @@ def run_mc2_combine(
         f"tp_recv_counts={tuple(tp_recv_counts.shape)}/{tp_recv_counts.dtype} "
         f"expand_scales={tuple(expand_scales.shape)}/{expand_scales.dtype} "
         f"assist_info={summarize_value(assist_info_for_combine)} "
-        f"group_ep={group_ep} ep_world_size={ep_world_size}",
+        f"global_bs={global_bs} group_ep={group_ep} ep_world_size={ep_world_size}",
     )
     kwargs = {
         "expand_x": mlp_out,
@@ -492,7 +490,7 @@ def run_mc2_combine(
         "expert_shard_type": 0,
         "shared_expert_rank_num": 0,
         "moe_expert_num": num_experts,
-        "global_bs": 0,
+        "global_bs": global_bs,
         "ep_send_counts": ep_recv_counts,
         "group_ep": group_ep,
         "ep_world_size": ep_world_size,
@@ -533,7 +531,7 @@ def run_baseline_reference(
     enable_dispatch_v2: bool,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     info_rank(ep_rank_id, "baseline: start")
-    x_active_mask = build_x_active_mask(x.size(0), x.device)
+    global_bs = x.size(0) * ep_world_size
     (
         recv_x_int8,
         recv_x_scale,
@@ -545,8 +543,8 @@ def run_baseline_reference(
     ) = run_mc2_dispatch(
         x,
         topk_idx,
-        x_active_mask,
         num_experts=num_experts,
+        global_bs=global_bs,
         group_ep=group_ep,
         barrier_group=barrier_group,
         ep_world_size=ep_world_size,
@@ -610,6 +608,7 @@ def run_baseline_reference(
         topk_idx,
         topk_weights,
         num_experts=num_experts,
+        global_bs=global_bs,
         ep_recv_counts=ep_recv_counts,
         tp_recv_counts=tp_recv_counts,
         assist_info_for_combine=assist_info_for_combine,
