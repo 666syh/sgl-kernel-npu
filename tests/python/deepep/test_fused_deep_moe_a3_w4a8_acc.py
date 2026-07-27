@@ -27,7 +27,7 @@ def info_rank0(rank: int, message: str):
 
 
 def info_rank(rank: int, message: str):
-    print(f"[rank{rank}] {message}", flush=True)
+    return None
 
 
 def warn_rank0(rank: int, message: str):
@@ -44,9 +44,7 @@ def stage_barrier(
 ):
     if synchronize_npu:
         torch.npu.synchronize()
-    info_rank(rank, f"{stage}: enter barrier")
     dist.barrier(group=group)
-    info_rank(rank, f"{stage}: exit barrier")
 
 
 def summarize_value(value) -> str:
@@ -274,21 +272,12 @@ def compute_bias(
     weight_packed: torch.Tensor, scale_packed: torch.Tensor, pack_dim: int = 1
 ) -> torch.Tensor:
     """Compute bias = sum(unpacked_weight * scale, dim=0) * 8."""
-    print(
-        f"[debug] compute_bias: weight_shape={tuple(weight_packed.shape)} weight_dtype={weight_packed.dtype} "
-        f"scale_shape={tuple(scale_packed.shape)} scale_dtype={scale_packed.dtype} pack_dim={pack_dim}",
-        flush=True,
-    )
     if weight_packed.dtype != torch.int32:
         raise TypeError(
             f"compute_bias expects int32 packed weight, got {weight_packed.dtype}"
         )
     w_int4 = unpack_int4(weight_packed, pack_dim).float()
     scale_fp32 = extract_float_from_int64(scale_packed)
-    print(
-        f"[debug] compute_bias: unpacked_shape={tuple(w_int4.shape)} scale_fp32_shape={tuple(scale_fp32.shape)}",
-        flush=True,
-    )
     return (w_int4 * scale_fp32).sum(dim=0) * 8.0
 
 
@@ -298,7 +287,7 @@ def convert_cumsum_group_list_to_count(group_list: torch.Tensor) -> torch.Tensor
     return torch.cat([group_list[:1], torch.diff(group_list, dim=0)])
 
 
-def prepare_scene_weights(
+def build_scene_weight_source(
     hidden: int,
     intermediate_hidden: int,
     num_local_experts: int,
@@ -461,12 +450,33 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
+    return {
+        "hidden": hidden,
+        "intermediate_hidden": intermediate_hidden,
+        "num_local_experts": num_local_experts,
+        "new_quant_version": new_quant_version,
+        "w13_weight_raw_int4": w13_weight_raw_int4,
+        "w2_weight_raw_int4": w2_weight_raw_int4,
+        "w13_weight_packed_int8": w13_weight_packed_int8,
+        "w2_weight_packed_int8": w2_weight_packed_int8,
+        "w13_scale_int64": w13_scale_int64,
+        "w2_scale_int64": w2_scale_int64,
+        "w13_bias": w13_bias,
+        "w2_bias": w2_bias,
+    }
+
+
+def build_baseline_scene_weights(source: dict) -> dict:
+    rank = dist.get_rank()
+    barrier_group = dist.group.WORLD
+    new_quant_version = source["new_quant_version"]
+
     info_rank(rank, "prepare_scene_weights: baseline stacked pack_to_int32 start")
     w13_weight_baseline_nz = torch_npu.npu_format_cast(
-        w13_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
+        source["w13_weight_packed_int8"], ACL_FORMAT_FRACTAL_NZ
     )
     w2_weight_baseline_nz = torch_npu.npu_format_cast(
-        w2_weight_packed_int8, ACL_FORMAT_FRACTAL_NZ
+        source["w2_weight_packed_int8"], ACL_FORMAT_FRACTAL_NZ
     )
     w13_weight_packed_stacked = pack_to_int32(
         w13_weight_baseline_nz, new_quant_version=new_quant_version
@@ -487,20 +497,33 @@ def prepare_scene_weights(
         synchronize_npu=True,
     )
 
-    baseline_l1_weight_stacked = [w13_weight_packed_stacked]
-    baseline_l2_weight_stacked = [w2_weight_packed_stacked]
-    baseline_l1_scale_stacked = [w13_scale_int64.unsqueeze(1).contiguous()]
-    baseline_l2_scale_stacked = [w2_scale_int64.contiguous()]
-    baseline_l1_bias_stacked = [w13_bias.contiguous()]
-    baseline_l2_bias_stacked = [w2_bias.contiguous()]
+    return {
+        "baseline_l1_weight_stacked": [w13_weight_packed_stacked],
+        "baseline_l2_weight_stacked": [w2_weight_packed_stacked],
+        "baseline_l1_scale_stacked": [
+            source["w13_scale_int64"].unsqueeze(1).contiguous()
+        ],
+        "baseline_l2_scale_stacked": [source["w2_scale_int64"].contiguous()],
+        "baseline_l1_bias_stacked": [source["w13_bias"].contiguous()],
+        "baseline_l2_bias_stacked": [source["w2_bias"].contiguous()],
+    }
+
+
+def build_fused_scene_weights(source: dict) -> dict:
+    rank = dist.get_rank()
+    barrier_group = dist.group.WORLD
+    hidden = source["hidden"]
+    intermediate_hidden = source["intermediate_hidden"]
+    num_local_experts = source["num_local_experts"]
+    new_quant_version = source["new_quant_version"]
 
     info_rank(rank, "prepare_scene_weights: fused expert split/NZ/view l1 start")
     fused_l1_weights = [
         pack_to_int32(
-            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
+            torch_npu.npu_format_cast(weight.contiguous(), ACL_FORMAT_FRACTAL_NZ),
             new_quant_version=new_quant_version,
         )
-        for w in w13_weight_packed_int8.unbind(dim=0)
+        for weight in source["w13_weight_packed_int8"].unbind(dim=0)
     ]
     info_rank(
         rank,
@@ -517,10 +540,10 @@ def prepare_scene_weights(
     info_rank(rank, "prepare_scene_weights: fused expert split/NZ/view l2 start")
     fused_l2_weights = [
         pack_to_int32(
-            torch_npu.npu_format_cast(w.contiguous(), ACL_FORMAT_FRACTAL_NZ),
+            torch_npu.npu_format_cast(weight.contiguous(), ACL_FORMAT_FRACTAL_NZ),
             new_quant_version=new_quant_version,
         )
-        for w in w2_weight_packed_int8.unbind(dim=0)
+        for weight in source["w2_weight_packed_int8"].unbind(dim=0)
     ]
     info_rank(
         rank,
@@ -536,16 +559,18 @@ def prepare_scene_weights(
 
     info_rank(rank, "prepare_scene_weights: fused scale/bias list build start")
     fused_l1_scales = [
-        w.reshape(-1).view(torch.uint64) for w in w13_scale_int64.unbind(dim=0)
+        scale.reshape(-1).view(torch.uint64)
+        for scale in source["w13_scale_int64"].unbind(dim=0)
     ]
     fused_l2_scales = [
-        w.reshape(-1).view(torch.uint64) for w in w2_scale_int64.unbind(dim=0)
+        scale.reshape(-1).view(torch.uint64)
+        for scale in source["w2_scale_int64"].unbind(dim=0)
     ]
     fused_l1_bias = [
-        bias.reshape(-1).to(torch.float32) for bias in w13_bias.unbind(dim=0)
+        bias.reshape(-1).to(torch.float32) for bias in source["w13_bias"].unbind(dim=0)
     ]
     fused_l2_bias = [
-        bias.reshape(-1).to(torch.float32) for bias in w2_bias.unbind(dim=0)
+        bias.reshape(-1).to(torch.float32) for bias in source["w2_bias"].unbind(dim=0)
     ]
     info_rank(
         rank,
@@ -577,6 +602,21 @@ def prepare_scene_weights(
                 f"Invalid fused l2 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
                 f"expected {expected_l2_shape} torch.int32."
             )
+    if (
+        len(fused_l1_weights) != num_local_experts
+        or len(fused_l2_weights) != num_local_experts
+    ):
+        raise ValueError("Fused weight list length mismatch.")
+    if (
+        len(fused_l1_scales) != num_local_experts
+        or len(fused_l2_scales) != num_local_experts
+    ):
+        raise ValueError("Fused scale list length mismatch.")
+    if (
+        len(fused_l1_bias) != num_local_experts
+        or len(fused_l2_bias) != num_local_experts
+    ):
+        raise ValueError("Fused bias list length mismatch.")
     info_rank(rank, "prepare_scene_weights: fused shape validation done")
     stage_barrier(
         rank,
@@ -586,18 +626,32 @@ def prepare_scene_weights(
     )
 
     return {
-        "baseline_l1_weight_stacked": baseline_l1_weight_stacked,
-        "baseline_l2_weight_stacked": baseline_l2_weight_stacked,
-        "baseline_l1_scale_stacked": baseline_l1_scale_stacked,
-        "baseline_l2_scale_stacked": baseline_l2_scale_stacked,
-        "baseline_l1_bias_stacked": baseline_l1_bias_stacked,
-        "baseline_l2_bias_stacked": baseline_l2_bias_stacked,
         "fused_l1_weights": fused_l1_weights,
         "fused_l2_weights": fused_l2_weights,
         "fused_l1_scales": fused_l1_scales,
         "fused_l2_scales": fused_l2_scales,
         "fused_l1_bias": fused_l1_bias,
         "fused_l2_bias": fused_l2_bias,
+    }
+
+
+def prepare_scene_weights(
+    hidden: int,
+    intermediate_hidden: int,
+    num_local_experts: int,
+    device: torch.device,
+) -> dict:
+    source = build_scene_weight_source(
+        hidden,
+        intermediate_hidden,
+        num_local_experts,
+        device,
+    )
+    baseline_weights = build_baseline_scene_weights(source)
+    fused_weights = build_fused_scene_weights(source)
+    return {
+        **baseline_weights,
+        **fused_weights,
         "dispatch_quant_mode": 2,
         "dispatch_quant_out_dtype": torch.int8,
     }
