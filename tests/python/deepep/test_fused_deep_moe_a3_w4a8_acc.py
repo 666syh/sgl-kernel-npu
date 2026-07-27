@@ -317,8 +317,8 @@ def prepare_scene_weights(
     )
 
     info_rank(rank, "prepare_scene_weights: pack_int4_to_int8 start")
-    w13_weight_packed_int8 = pack_int4(w13_weight_raw_int4, 1)
-    w2_weight_packed_int8 = pack_int4(w2_weight_raw_int4, 1)
+    w13_weight_packed_int8 = pack_int4(w13_weight_raw_int4, 1).view(torch.int8)
+    w2_weight_packed_int8 = pack_int4(w2_weight_raw_int4, 1).view(torch.int8)
     info_rank(
         rank,
         "prepare_scene_weights: pack_int4_to_int8 done "
