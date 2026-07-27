@@ -234,22 +234,22 @@ def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Ten
 
 def unpack_int4(packed: torch.Tensor, pack_dim: int) -> torch.Tensor:
     """Unpack int32 → int8. Returns int8 tensor."""
-    print(
-        f"[debug] unpack_int4: packed_shape={tuple(packed.shape)} packed_dtype={packed.dtype} pack_dim={pack_dim}",
-        flush=True,
-    )
     K, N = packed.shape
-    shifts = torch.tensor([0, 4, 8, 12, 16, 20, 24, 28], device=packed.device)
-    vals = (packed.unsqueeze(-1) >> shifts) & 0xF
+    # 对每个移位单独操作，避免张量广播问题
+    shifts = [0, 4, 8, 12, 16, 20, 24, 28]
+    vals_list = []
+    for shift in shifts:
+        # 右移并取低4位
+        val = (packed >> shift) & 0xF
+        vals_list.append(val.unsqueeze(-1))
+    vals = torch.cat(vals_list, dim=-1)  # [K, N, 8]
+    
     vals = torch.where(vals >= 8, vals - 16, vals).to(torch.int8)
+    
     if pack_dim == 1:
         out = vals.reshape(K, -1)
     else:
-        out = vals.permute(0, 2, 1).reshape(-1, N)
-    print(
-        f"[debug] unpack_int4: out_shape={tuple(out.shape)} out_dtype={out.dtype}",
-        flush=True,
-    )
+        out = vals.permute(0, 2, 1).contiguous().reshape(-1, N)
     return out
 
 
