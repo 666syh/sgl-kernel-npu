@@ -1370,7 +1370,25 @@ class Buffer:
                 dispatch_quant_out_dtype=dispatch_quant_out_dtype,
                 max_recv_token_num=max_recv_token_num,
             )
-        return self._fused_deep_moe_with_mega_moe(
+        if x.size(0) == 0:
+            x = torch.zeros(
+                (1, x.size(1)),
+                dtype=x.dtype,
+                device=x.device,
+            )
+
+            topk_idx = torch.arange(
+                topk_idx.size(1),
+                dtype=topk_idx.dtype,
+                device=topk_idx.device,
+            ).unsqueeze(0)
+
+            topk_weights = torch.zeros(
+                (1, topk_weights.size(1)),
+                dtype=topk_weights.dtype,
+                device=topk_weights.device,
+            )
+        output, expert_token_num = self._fused_deep_moe_with_mega_moe(
             x=x,
             topk_idx=topk_idx,
             topk_weights=topk_weights,
@@ -1393,3 +1411,11 @@ class Buffer:
             ),
             max_recv_token_num=max_recv_token_num,
         )
+        if x.size(0) == 0:
+            output = torch.empty(
+                (0, x.size(1)),
+                dtype=x.dtype,
+                device=x.device,
+            )
+
+        return output, expert_token_num
