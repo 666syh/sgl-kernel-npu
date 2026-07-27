@@ -1377,27 +1377,27 @@ class Buffer:
                 max_recv_token_num=max_recv_token_num,
             )
         if x.size(0) == 0:
-            x_padding = torch.zeros(
+            x= torch.zeros(
                 (1, x.size(1)),
                 dtype=x.dtype,
                 device=x.device,
             )
 
-            topk_idx_padding = torch.arange(
+            topk_idx = torch.arange(
                 topk_idx.size(1),
                 dtype=topk_idx.dtype,
                 device=topk_idx.device,
             ).unsqueeze(0)
             
-            topk_weights_padding = torch.zeros(
-                (1, topk_weightsx.size(1)),
+            topk_weights = torch.zeros(
+                (1, topk_weights.size(1)),
                 dtype=topk_weights.dtype,
                 device=topk_weights.device,
             )
         output, expert_token_num =  self._fused_deep_moe_with_mega_moe(
-            x=x if x.szie(0) == 0 else x_padding,
-            topk_idx=topk_idx if topk_idx.size(0) == 0 else topk_idx_padding,
-            topk_weights=topk_weights if topk_weights.size(0) == 0 else topk_weights_padding,
+            x=x,
+            topk_idx=topk_idx,
+            topk_weights=topk_weights,
             gmm1_permuted_weight=gmm1_permuted_weight,
             gmm1_permuted_weight_scale=gmm1_permuted_weight_scale,
             gmm2_weight=gmm2_weight,
@@ -1418,7 +1418,11 @@ class Buffer:
             max_recv_token_num=max_recv_token_num,
         )
         if x.size(0) == 0:
-            output = x
+            output = torch.empty(
+                (0, x.size(1)),
+                dtype=x.dtype,
+                device=x.device,
+            )
         
         return output, expert_token_num
 
