@@ -584,7 +584,9 @@ def normalize_expert_counts(
     return out
 
 
-def pack_to_int32(weight: torch.Tensor, *, new_quant_version: bool) -> torch.Tensor:
+def pack_to_int32(
+    weight: torch.Tensor, *, new_quant_version: bool = True
+) -> torch.Tensor:
     if not new_quant_version:
         raise ValueError("This test only supports new_quant_version=True for A3 W4A8.")
     if weight.shape[-1] % 4 != 0:
