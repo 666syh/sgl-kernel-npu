@@ -54,6 +54,48 @@ def format_mb(value: Optional[int]) -> str:
     return f"{bytes_to_mb(value):.2f}MB"
 
 
+def format_mb_float(value: Optional[float]) -> str:
+    if value is None:
+        return "NA"
+    return f"{value:.2f}MB"
+
+
+def render_memory_summary_table(summary: list[dict]) -> str:
+    columns = [
+        ("stage", "interface"),
+        ("alloc_before", "allocated_before_mb"),
+        ("alloc_after", "allocated_after_mb"),
+        ("alloc_delta", "allocated_delta_mb"),
+        ("reserved_before", "reserved_before_mb"),
+        ("reserved_after", "reserved_after_mb"),
+        ("reserved_delta", "reserved_delta_mb"),
+        ("cache_gap_after", "cache_gap_after_mb"),
+        ("cache_gap_delta", "cache_gap_delta_mb"),
+        ("inactive_delta", "inactive_delta_mb"),
+    ]
+
+    def format_cell(column_key: str, row: dict) -> str:
+        value = row.get(column_key)
+        if column_key == "interface":
+            return str(value)
+        return format_mb_float(value)
+
+    widths = {}
+    for header, key in columns:
+        widths[key] = len(header)
+    for row in summary:
+        for header, key in columns:
+            widths[key] = max(widths[key], len(format_cell(key, row)))
+
+    header_line = " | ".join(header.ljust(widths[key]) for header, key in columns)
+    separator_line = "-+-".join("-" * widths[key] for _, key in columns)
+    body_lines = [
+        " | ".join(format_cell(key, row).ljust(widths[key]) for _, key in columns)
+        for row in summary
+    ]
+    return "\n".join([header_line, separator_line, *body_lines])
+
+
 class MemoryProfileState:
     def __init__(self, args: argparse.Namespace, rank: int):
         self.args = args
@@ -238,6 +280,10 @@ class MemoryProfileState:
         with open(f"{prefix}_memory_summary.json", "w", encoding="utf-8") as fp:
             json.dump(payload, fp, indent=2)
         self.log(f"memory summary saved: {prefix}_memory_summary.json")
+        if payload["summary"]:
+            self.log("memory summary table begin")
+            print(render_memory_summary_table(payload["summary"]), flush=True)
+            self.log("memory summary table end")
 
     def build_summary(self):
         pairs = {}
