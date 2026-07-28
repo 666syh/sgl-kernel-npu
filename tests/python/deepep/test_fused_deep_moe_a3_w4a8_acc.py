@@ -1,6 +1,9 @@
 import argparse
+import json
 import os
 import random
+import time
+from contextlib import contextmanager
 from typing import List, Optional
 
 import deep_ep
@@ -19,6 +22,8 @@ W4A8_DIFF_WARNING_THRESHOLD = 5e-3
 EXPERT_TOKEN_NUMS_TYPE_CUMSUM = 0
 EXPERT_TOKEN_NUMS_TYPE_COUNT = 1
 COMM_QUANT_MODE_INT8 = 2
+MEMORY_PROFILE_DOMAIN = "deepep_mem"
+_MEMORY_PROFILE_STATE = None
 
 
 def info_rank0(rank: int, message: str):
@@ -29,6 +34,224 @@ def info_rank0(rank: int, message: str):
 def warn_rank0(rank: int, message: str):
     if rank == 0:
         print(f"[rank0][WARNING] {message}", flush=True)
+
+
+class MemoryProfileState:
+    def __init__(self, args: argparse.Namespace, rank: int):
+        self.args = args
+        self.rank = rank
+        self.enabled = bool(args.enable_memory_profile and rank == 0)
+        self.export_kinds = set(parse_csv_list(args.memory_profile_export))
+        self.interface_filter = set(parse_csv_list(args.memory_profile_interfaces))
+        self.output_dir = args.memory_profile_dir
+        self.samples = []
+        self.profile_case_limit = max(1, args.memory_profile_steps)
+        self.profiled_case_count = 0
+        self.current_scope = "setup"
+        self.prof = None
+
+    def should_trace(self, name: str) -> bool:
+        return self.enabled and (
+            not self.interface_filter or name in self.interface_filter
+        )
+
+    @contextmanager
+    def annotate(self, name: str):
+        if not self.should_trace(name):
+            yield
+            return
+        mstx = getattr(torch_npu.npu, "mstx", None)
+        if mstx is not None and hasattr(mstx, "annotate"):
+            with mstx.annotate(name, domain=MEMORY_PROFILE_DOMAIN):
+                yield
+            return
+        yield
+
+    def set_scope(self, scope: str):
+        self.current_scope = scope
+
+    def sample(self, name: str):
+        if not self.should_trace(name):
+            return
+        torch.npu.synchronize()
+        record = {
+            "name": name,
+            "scope": self.current_scope,
+            "ts": time.time(),
+            "allocated": int(torch_npu.npu.memory_allocated()),
+            "reserved": int(torch_npu.npu.memory_reserved()),
+            "max_allocated": int(torch_npu.npu.max_memory_allocated()),
+            "max_reserved": int(torch_npu.npu.max_memory_reserved()),
+        }
+        self.samples.append(record)
+
+    def start_profiler(self):
+        if not self.enabled:
+            return
+        os.makedirs(self.output_dir, exist_ok=True)
+        experimental_config = None
+        if hasattr(torch_npu.profiler, "_ExperimentalConfig"):
+            try:
+                experimental_config = torch_npu.profiler._ExperimentalConfig(
+                    mstx=True, mstx_domain_include=[MEMORY_PROFILE_DOMAIN]
+                )
+            except Exception:
+                experimental_config = None
+        on_trace_ready = None
+        if "tensorboard" in self.export_kinds:
+            on_trace_ready = torch_npu.profiler.tensorboard_trace_handler(
+                self.output_dir
+            )
+        self.prof = torch_npu.profiler.profile(
+            activities=[
+                torch_npu.profiler.ProfilerActivity.CPU,
+                torch_npu.profiler.ProfilerActivity.NPU,
+            ],
+            schedule=torch_npu.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
+            on_trace_ready=on_trace_ready,
+            profile_memory=True,
+            record_shapes=False,
+            with_stack=False,
+            experimental_config=experimental_config,
+        )
+        self.prof.__enter__()
+
+    def stop_profiler(self):
+        if not self.enabled or self.prof is None:
+            return
+        prof = self.prof
+        self.prof = None
+        prof.__exit__(None, None, None)
+        prefix = os.path.join(self.output_dir, f"rank{self.rank}")
+        if "chrome" in self.export_kinds and hasattr(prof, "export_chrome_trace"):
+            try:
+                prof.export_chrome_trace(f"{prefix}_trace.json")
+            except Exception as exc:
+                warn_rank0(self.rank, f"export_chrome_trace failed: {exc}")
+        if hasattr(prof, "export_memory_timeline"):
+            if "html" in self.export_kinds:
+                try:
+                    prof.export_memory_timeline(f"{prefix}_memory_timeline.html")
+                except Exception as exc:
+                    warn_rank0(self.rank, f"export_memory_timeline(html) failed: {exc}")
+            if "json" in self.export_kinds:
+                try:
+                    prof.export_memory_timeline(f"{prefix}_memory_timeline.json.gz")
+                except Exception as exc:
+                    warn_rank0(self.rank, f"export_memory_timeline(json) failed: {exc}")
+        payload = {
+            "meta": {
+                "rank": self.rank,
+                "profile_case_limit": self.profile_case_limit,
+                "domain": MEMORY_PROFILE_DOMAIN,
+            },
+            "samples": self.samples,
+            "summary": self.build_summary(),
+        }
+        with open(f"{prefix}_memory_summary.json", "w", encoding="utf-8") as fp:
+            json.dump(payload, fp, indent=2)
+
+    def build_summary(self):
+        pairs = {}
+        ordered = []
+        for sample in self.samples:
+            name = sample["name"]
+            if name.endswith("_before"):
+                base = name[: -len("_before")]
+                pairs.setdefault(base, {})["before"] = sample
+                if base not in ordered:
+                    ordered.append(base)
+            elif name.endswith("_after"):
+                base = name[: -len("_after")]
+                pairs.setdefault(base, {})["after"] = sample
+                if base not in ordered:
+                    ordered.append(base)
+        summary = []
+        for base in ordered:
+            pair = pairs.get(base, {})
+            before = pair.get("before")
+            after = pair.get("after")
+            summary.append(
+                {
+                    "interface": base,
+                    "scope_before": before["scope"] if before else None,
+                    "scope_after": after["scope"] if after else None,
+                    "allocated_before": before["allocated"] if before else None,
+                    "allocated_after": after["allocated"] if after else None,
+                    "reserved_before": before["reserved"] if before else None,
+                    "reserved_after": after["reserved"] if after else None,
+                    "peak_allocated": (
+                        max(
+                            value
+                            for value in [
+                                before["max_allocated"] if before else None,
+                                after["max_allocated"] if after else None,
+                            ]
+                            if value is not None
+                        )
+                        if before or after
+                        else None
+                    ),
+                    "peak_reserved": (
+                        max(
+                            value
+                            for value in [
+                                before["max_reserved"] if before else None,
+                                after["max_reserved"] if after else None,
+                            ]
+                            if value is not None
+                        )
+                        if before or after
+                        else None
+                    ),
+                    "net_allocated_delta": (
+                        after["allocated"] - before["allocated"]
+                        if before and after
+                        else None
+                    ),
+                    "net_reserved_delta": (
+                        after["reserved"] - before["reserved"]
+                        if before and after
+                        else None
+                    ),
+                }
+            )
+        return summary
+
+    def begin_case(self, iteration: int, case_index: int, case: dict) -> bool:
+        if not self.enabled:
+            return False
+        if iteration != 0:
+            return False
+        if case_index >= self.profile_case_limit:
+            return False
+        self.profiled_case_count += 1
+        self.set_scope(
+            f"iter{iteration}_case{case_index}_{case['activation']}_beta{case['beta']}"
+        )
+        torch.npu.synchronize()
+        torch_npu.npu.reset_peak_memory_stats()
+        return True
+
+    def end_case(self):
+        if self.enabled:
+            self.set_scope("post_case")
+
+
+def get_memory_profile_state() -> Optional[MemoryProfileState]:
+    return _MEMORY_PROFILE_STATE
+
+
+@contextmanager
+def memory_profile_range(name: str):
+    state = get_memory_profile_state()
+    if state is None or not state.enabled:
+        yield
+        return
+    state.sample(f"{name}_before")
+    with state.annotate(name):
+        yield
+    state.sample(f"{name}_after")
 
 
 def summarize_value(value) -> str:
@@ -103,16 +326,17 @@ def apply_activation(
     linear_beta: Optional[float],
     activation_clamp: Optional[float],
 ) -> torch.Tensor:
-    if activation == "swiglu":
-        return torch_npu.npu_swiglu(x)
-    if activation == "situ":
-        return situ_reference(
-            x,
-            beta=beta,
-            linear_beta=linear_beta,
-            activation_clamp=activation_clamp,
-        )
-    raise ValueError(f"Unsupported activation: {activation}")
+    with memory_profile_range("apply_activation"):
+        if activation == "swiglu":
+            return torch_npu.npu_swiglu(x)
+        if activation == "situ":
+            return situ_reference(
+                x,
+                beta=beta,
+                linear_beta=linear_beta,
+                activation_clamp=activation_clamp,
+            )
+        raise ValueError(f"Unsupported activation: {activation}")
 
 
 def make_topk_inputs(
@@ -400,112 +624,116 @@ def build_scene_weight_source(
 
 
 def build_baseline_scene_weights(source: dict, device: torch.device) -> dict:
-    new_quant_version = source["new_quant_version"]
+    with memory_profile_range("build_baseline_scene_weights"):
+        new_quant_version = source["new_quant_version"]
 
-    w13_weight_baseline_nz = torch_npu.npu_format_cast(
-        source["w13_weight_packed_int8"].to(device), ACL_FORMAT_FRACTAL_NZ
-    )
-    w2_weight_baseline_nz = torch_npu.npu_format_cast(
-        source["w2_weight_packed_int8"].to(device), ACL_FORMAT_FRACTAL_NZ
-    )
-    w13_weight_packed_stacked = pack_to_int32(
-        w13_weight_baseline_nz, new_quant_version=new_quant_version
-    )
-    w2_weight_packed_stacked = pack_to_int32(
-        w2_weight_baseline_nz, new_quant_version=new_quant_version
-    )
+        w13_weight_baseline_nz = torch_npu.npu_format_cast(
+            source["w13_weight_packed_int8"].to(device), ACL_FORMAT_FRACTAL_NZ
+        )
+        w2_weight_baseline_nz = torch_npu.npu_format_cast(
+            source["w2_weight_packed_int8"].to(device), ACL_FORMAT_FRACTAL_NZ
+        )
+        w13_weight_packed_stacked = pack_to_int32(
+            w13_weight_baseline_nz, new_quant_version=new_quant_version
+        )
+        w2_weight_packed_stacked = pack_to_int32(
+            w2_weight_baseline_nz, new_quant_version=new_quant_version
+        )
 
-    return {
-        "baseline_l1_weight_stacked": [w13_weight_packed_stacked],
-        "baseline_l2_weight_stacked": [w2_weight_packed_stacked],
-        "baseline_l1_scale_stacked": [
-            source["w13_scale_int64"].to(device).unsqueeze(1).contiguous()
-        ],
-        "baseline_l2_scale_stacked": [source["w2_scale_int64"].to(device).contiguous()],
-        "baseline_l1_bias_stacked": [source["w13_bias"].to(device).contiguous()],
-        "baseline_l2_bias_stacked": [source["w2_bias"].to(device).contiguous()],
-    }
+        return {
+            "baseline_l1_weight_stacked": [w13_weight_packed_stacked],
+            "baseline_l2_weight_stacked": [w2_weight_packed_stacked],
+            "baseline_l1_scale_stacked": [
+                source["w13_scale_int64"].to(device).unsqueeze(1).contiguous()
+            ],
+            "baseline_l2_scale_stacked": [
+                source["w2_scale_int64"].to(device).contiguous()
+            ],
+            "baseline_l1_bias_stacked": [source["w13_bias"].to(device).contiguous()],
+            "baseline_l2_bias_stacked": [source["w2_bias"].to(device).contiguous()],
+        }
 
 
 def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
-    hidden = source["hidden"]
-    intermediate_hidden = source["intermediate_hidden"]
-    num_local_experts = source["num_local_experts"]
-    new_quant_version = source["new_quant_version"]
+    with memory_profile_range("build_fused_scene_weights"):
+        hidden = source["hidden"]
+        intermediate_hidden = source["intermediate_hidden"]
+        num_local_experts = source["num_local_experts"]
+        new_quant_version = source["new_quant_version"]
 
-    fused_l1_weights = [
-        pack_to_int32(
-            torch_npu.npu_format_cast(
-                weight.contiguous().to(device), ACL_FORMAT_FRACTAL_NZ
-            ),
-            new_quant_version=new_quant_version,
-        )
-        for weight in source["w13_weight_packed_int8"].unbind(dim=0)
-    ]
-    fused_l2_weights = [
-        pack_to_int32(
-            torch_npu.npu_format_cast(
-                weight.contiguous().to(device), ACL_FORMAT_FRACTAL_NZ
-            ),
-            new_quant_version=new_quant_version,
-        )
-        for weight in source["w2_weight_packed_int8"].unbind(dim=0)
-    ]
-    fused_l1_scales = [
-        scale.to(device).reshape(-1).view(torch.uint64)
-        for scale in source["w13_scale_int64"].unbind(dim=0)
-    ]
-    fused_l2_scales = [
-        scale.to(device).reshape(-1).view(torch.uint64)
-        for scale in source["w2_scale_int64"].unbind(dim=0)
-    ]
-    fused_l1_bias = [
-        bias.to(device).reshape(-1).to(torch.float32)
-        for bias in source["w13_bias"].unbind(dim=0)
-    ]
-    fused_l2_bias = [
-        bias.to(device).reshape(-1).to(torch.float32)
-        for bias in source["w2_bias"].unbind(dim=0)
-    ]
-
-    expected_l1_shape = (hidden, (2 * intermediate_hidden) // 8)
-    expected_l2_shape = (intermediate_hidden, hidden // 8)
-    for weight in fused_l1_weights:
-        if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l1_shape:
-            raise ValueError(
-                f"Invalid fused l1 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
-                f"expected {expected_l1_shape} torch.int32."
+        fused_l1_weights = [
+            pack_to_int32(
+                torch_npu.npu_format_cast(
+                    weight.contiguous().to(device), ACL_FORMAT_FRACTAL_NZ
+                ),
+                new_quant_version=new_quant_version,
             )
-    for weight in fused_l2_weights:
-        if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l2_shape:
-            raise ValueError(
-                f"Invalid fused l2 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
-                f"expected {expected_l2_shape} torch.int32."
+            for weight in source["w13_weight_packed_int8"].unbind(dim=0)
+        ]
+        fused_l2_weights = [
+            pack_to_int32(
+                torch_npu.npu_format_cast(
+                    weight.contiguous().to(device), ACL_FORMAT_FRACTAL_NZ
+                ),
+                new_quant_version=new_quant_version,
             )
-    if (
-        len(fused_l1_weights) != num_local_experts
-        or len(fused_l2_weights) != num_local_experts
-    ):
-        raise ValueError("Fused weight list length mismatch.")
-    if (
-        len(fused_l1_scales) != num_local_experts
-        or len(fused_l2_scales) != num_local_experts
-    ):
-        raise ValueError("Fused scale list length mismatch.")
-    if (
-        len(fused_l1_bias) != num_local_experts
-        or len(fused_l2_bias) != num_local_experts
-    ):
-        raise ValueError("Fused bias list length mismatch.")
+            for weight in source["w2_weight_packed_int8"].unbind(dim=0)
+        ]
+        fused_l1_scales = [
+            scale.to(device).reshape(-1).view(torch.uint64)
+            for scale in source["w13_scale_int64"].unbind(dim=0)
+        ]
+        fused_l2_scales = [
+            scale.to(device).reshape(-1).view(torch.uint64)
+            for scale in source["w2_scale_int64"].unbind(dim=0)
+        ]
+        fused_l1_bias = [
+            bias.to(device).reshape(-1).to(torch.float32)
+            for bias in source["w13_bias"].unbind(dim=0)
+        ]
+        fused_l2_bias = [
+            bias.to(device).reshape(-1).to(torch.float32)
+            for bias in source["w2_bias"].unbind(dim=0)
+        ]
 
-    return {
-        "fused_l1_weights": fused_l1_weights,
-        "fused_l2_weights": fused_l2_weights,
-        "fused_l1_scales": fused_l1_scales,
-        "fused_l2_scales": fused_l2_scales,
-        "fused_l1_bias": fused_l1_bias,
-        "fused_l2_bias": fused_l2_bias,
-    }
+        expected_l1_shape = (hidden, (2 * intermediate_hidden) // 8)
+        expected_l2_shape = (intermediate_hidden, hidden // 8)
+        for weight in fused_l1_weights:
+            if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l1_shape:
+                raise ValueError(
+                    f"Invalid fused l1 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
+                    f"expected {expected_l1_shape} torch.int32."
+                )
+        for weight in fused_l2_weights:
+            if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l2_shape:
+                raise ValueError(
+                    f"Invalid fused l2 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
+                    f"expected {expected_l2_shape} torch.int32."
+                )
+        if (
+            len(fused_l1_weights) != num_local_experts
+            or len(fused_l2_weights) != num_local_experts
+        ):
+            raise ValueError("Fused weight list length mismatch.")
+        if (
+            len(fused_l1_scales) != num_local_experts
+            or len(fused_l2_scales) != num_local_experts
+        ):
+            raise ValueError("Fused scale list length mismatch.")
+        if (
+            len(fused_l1_bias) != num_local_experts
+            or len(fused_l2_bias) != num_local_experts
+        ):
+            raise ValueError("Fused bias list length mismatch.")
+
+        return {
+            "fused_l1_weights": fused_l1_weights,
+            "fused_l2_weights": fused_l2_weights,
+            "fused_l1_scales": fused_l1_scales,
+            "fused_l2_scales": fused_l2_scales,
+            "fused_l1_bias": fused_l1_bias,
+            "fused_l2_bias": fused_l2_bias,
+        }
 
 
 def prepare_scene_weights(
@@ -514,23 +742,24 @@ def prepare_scene_weights(
     num_local_experts: int,
     device: torch.device,
 ) -> dict:
-    # The generation of weights and scales for w4a8 must be performed on the CPU;
-    # using the device for these calculations leads to precision mismatches between small operators and large fused operators.
-    source = build_scene_weight_source(
-        hidden,
-        intermediate_hidden,
-        num_local_experts,
-        torch.device("cpu"),
-    )
-    baseline_weights = build_baseline_scene_weights(source, device)
-    fused_weights = build_fused_scene_weights(source, device)
-    return {
-        "source": source,
-        **baseline_weights,
-        **fused_weights,
-        "dispatch_quant_mode": 2,
-        "dispatch_quant_out_dtype": torch.int8,
-    }
+    with memory_profile_range("prepare_scene_weights"):
+        # The generation of weights and scales for w4a8 must be performed on the CPU;
+        # using the device for these calculations leads to precision mismatches between small operators and large fused operators.
+        source = build_scene_weight_source(
+            hidden,
+            intermediate_hidden,
+            num_local_experts,
+            torch.device("npu"),
+        )
+        baseline_weights = build_baseline_scene_weights(source, device)
+        fused_weights = build_fused_scene_weights(source, device)
+        return {
+            "source": source,
+            **baseline_weights,
+            **fused_weights,
+            "dispatch_quant_mode": 2,
+            "dispatch_quant_out_dtype": torch.int8,
+        }
 
 
 def run_grouped_matmul_w4a8(
@@ -545,20 +774,21 @@ def run_grouped_matmul_w4a8(
     stage_name: str,
     barrier_group: dist.ProcessGroup,
 ) -> torch.Tensor:
-    bias_list = bias if isinstance(bias, list) else [bias]
-    out = torch_npu.npu_grouped_matmul(
-        x=[x_int8],
-        weight=weight,
-        scale=[scale[0].to(scale[0].dtype)],
-        bias=bias_list,
-        per_token_scale=[per_token_scale],
-        split_item=2,
-        group_list_type=group_list_type,
-        group_type=0,
-        group_list=group_list,
-        output_dtype=torch.bfloat16,
-    )[0]
-    return out
+    with memory_profile_range(f"run_grouped_matmul_w4a8:{stage_name}"):
+        bias_list = bias if isinstance(bias, list) else [bias]
+        out = torch_npu.npu_grouped_matmul(
+            x=[x_int8],
+            weight=weight,
+            scale=[scale[0].to(scale[0].dtype)],
+            bias=bias_list,
+            per_token_scale=[per_token_scale],
+            split_item=2,
+            group_list_type=group_list_type,
+            group_type=0,
+            group_list=group_list,
+            output_dtype=torch.bfloat16,
+        )[0]
+        return out
 
 
 def run_mc2_dispatch(
@@ -573,27 +803,28 @@ def run_mc2_dispatch(
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ):
-    kwargs = {
-        "x": x,
-        "expert_ids": topk_idx,
-        "expert_shard_type": 0,
-        "shared_expert_rank_num": 0,
-        "moe_expert_num": num_experts,
-        "global_bs": global_bs,
-        "x_active_mask": None,
-        "quant_mode": COMM_QUANT_MODE_INT8,
-        "scales": None,
-        "group_ep": group_ep,
-        "ep_world_size": ep_world_size,
-        "ep_rank_id": ep_rank_id,
-        "expert_token_nums_type": EXPERT_TOKEN_NUMS_TYPE_COUNT,
-    }
-    output = (
-        torch_npu.npu_moe_distribute_dispatch_v2(**kwargs)
-        if enable_dispatch_v2
-        else torch_npu.npu_moe_distribute_dispatch(**kwargs)
-    )
-    return output[0:7]
+    with memory_profile_range("run_mc2_dispatch"):
+        kwargs = {
+            "x": x,
+            "expert_ids": topk_idx,
+            "expert_shard_type": 0,
+            "shared_expert_rank_num": 0,
+            "moe_expert_num": num_experts,
+            "global_bs": global_bs,
+            "x_active_mask": None,
+            "quant_mode": COMM_QUANT_MODE_INT8,
+            "scales": None,
+            "group_ep": group_ep,
+            "ep_world_size": ep_world_size,
+            "ep_rank_id": ep_rank_id,
+            "expert_token_nums_type": EXPERT_TOKEN_NUMS_TYPE_COUNT,
+        }
+        output = (
+            torch_npu.npu_moe_distribute_dispatch_v2(**kwargs)
+            if enable_dispatch_v2
+            else torch_npu.npu_moe_distribute_dispatch(**kwargs)
+        )
+        return output[0:7]
 
 
 def run_mc2_combine(
@@ -613,28 +844,29 @@ def run_mc2_combine(
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ) -> torch.Tensor:
-    kwargs = {
-        "expand_x": mlp_out,
-        "expert_ids": topk_idx,
-        "expert_scales": topk_weights.to(torch.float32),
-        "expert_shard_type": 0,
-        "shared_expert_rank_num": 0,
-        "moe_expert_num": num_experts,
-        "global_bs": global_bs,
-        "ep_send_counts": ep_recv_counts,
-        "group_ep": group_ep,
-        "ep_world_size": ep_world_size,
-        "ep_rank_id": ep_rank_id,
-        "expand_scales": expand_scales,
-        "comm_quant_mode": 0,
-    }
-    if enable_dispatch_v2:
-        kwargs["assist_info_for_combine"] = assist_info_for_combine
-        out = torch_npu.npu_moe_distribute_combine_v2(**kwargs)
-    else:
-        kwargs["expand_idx"] = assist_info_for_combine
-        out = torch_npu.npu_moe_distribute_combine(**kwargs)
-    return out
+    with memory_profile_range("run_mc2_combine"):
+        kwargs = {
+            "expand_x": mlp_out,
+            "expert_ids": topk_idx,
+            "expert_scales": topk_weights.to(torch.float32),
+            "expert_shard_type": 0,
+            "shared_expert_rank_num": 0,
+            "moe_expert_num": num_experts,
+            "global_bs": global_bs,
+            "ep_send_counts": ep_recv_counts,
+            "group_ep": group_ep,
+            "ep_world_size": ep_world_size,
+            "ep_rank_id": ep_rank_id,
+            "expand_scales": expand_scales,
+            "comm_quant_mode": 0,
+        }
+        if enable_dispatch_v2:
+            kwargs["assist_info_for_combine"] = assist_info_for_combine
+            out = torch_npu.npu_moe_distribute_combine_v2(**kwargs)
+        else:
+            kwargs["expand_idx"] = assist_info_for_combine
+            out = torch_npu.npu_moe_distribute_combine(**kwargs)
+        return out
 
 
 def run_baseline_reference(
@@ -696,7 +928,8 @@ def run_baseline_reference(
         linear_beta=linear_beta,
         activation_clamp=activation_clamp,
     )
-    act_int8, act_scale = torch_npu.npu_dynamic_quant(act_out)
+    with memory_profile_range("npu_dynamic_quant"):
+        act_int8, act_scale = torch_npu.npu_dynamic_quant(act_out)
     down = run_grouped_matmul_w4a8(
         act_int8,
         act_scale,
@@ -746,28 +979,29 @@ def run_fused_reference(
     activation_clamp: Optional[float],
     barrier_group: dist.ProcessGroup,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    out = buffer.fused_deep_moe(
-        x=x,
-        topk_idx=topk_idx,
-        topk_weights=topk_weights,
-        gmm1_permuted_weight=weights["fused_l1_weights"],
-        gmm1_permuted_weight_scale=weights["fused_l1_scales"],
-        gmm2_weight=weights["fused_l2_weights"],
-        gmm2_weight_scale=weights["fused_l2_scales"],
-        num_max_dispatch_tokens_per_rank=num_tokens,
-        num_experts=num_experts,
-        backend="mega_moe",
-        fuse_mode=FuseMode.FUSED_DEEP_MOE,
-        activation=activation,
-        activation_clamp=activation_clamp,
-        beta=beta,
-        linear_beta=linear_beta,
-        l1_bias=weights["fused_l1_bias"],
-        l2_bias=weights["fused_l2_bias"],
-        dispatch_quant_mode=weights["dispatch_quant_mode"],
-        dispatch_quant_out_dtype=weights["dispatch_quant_out_dtype"],
-    )
-    return out
+    with memory_profile_range("fused_deep_moe"):
+        out = buffer.fused_deep_moe(
+            x=x,
+            topk_idx=topk_idx,
+            topk_weights=topk_weights,
+            gmm1_permuted_weight=weights["fused_l1_weights"],
+            gmm1_permuted_weight_scale=weights["fused_l1_scales"],
+            gmm2_weight=weights["fused_l2_weights"],
+            gmm2_weight_scale=weights["fused_l2_scales"],
+            num_max_dispatch_tokens_per_rank=num_tokens,
+            num_experts=num_experts,
+            backend="mega_moe",
+            fuse_mode=FuseMode.FUSED_DEEP_MOE,
+            activation=activation,
+            activation_clamp=activation_clamp,
+            beta=beta,
+            linear_beta=linear_beta,
+            l1_bias=weights["fused_l1_bias"],
+            l2_bias=weights["fused_l2_bias"],
+            dispatch_quant_mode=weights["dispatch_quant_mode"],
+            dispatch_quant_out_dtype=weights["dispatch_quant_out_dtype"],
+        )
+        return out
 
 
 def build_case_matrix(args: argparse.Namespace) -> list[dict]:
@@ -820,6 +1054,9 @@ def launch_case(
 ):
     device = torch.device(f"npu:{torch.npu.current_device()}")
     num_local_experts = args.num_experts // num_ranks
+    state = get_memory_profile_state()
+    if state is not None:
+        state.begin_case(iteration, case_index, case)
 
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -932,6 +1169,9 @@ def finalize_case(
         )
     if synchronize_ranks:
         dist.barrier()
+    state = get_memory_profile_state()
+    if state is not None:
+        state.end_case()
 
 
 def test_main(
@@ -952,69 +1192,81 @@ def test_main(
 
     iterations = args.performance_iters if args.enable_performance else 1
     cases = build_case_matrix(args)
+    if args.enable_memory_profile:
+        iterations = 1
+        cases = cases[: max(1, args.memory_profile_steps)]
     device = torch.device(f"npu:{torch.npu.current_device()}")
     num_local_experts = args.num_experts // num_ranks
-    weights = prepare_scene_weights(
-        args.hidden,
-        args.moe_intermediate_size,
-        num_local_experts,
-        device,
-    )
-    info_rank0(
-        rank,
-        f"baseline_group_ep={baseline_group_ep} mega_group_ep={mega_group_ep}",
-    )
-    if args.enable_performance:
-        launched_cases = []
-        for iteration in range(iterations):
-            for case_index, case in enumerate(cases):
-                launched_cases.append(
-                    launch_case(
-                        args,
-                        rank,
-                        num_ranks,
-                        fused_buffer,
-                        weights,
-                        case,
-                        iteration,
-                        case_index,
-                        baseline_group_ep,
-                        baseline_group,
-                        mega_group,
-                        enable_dispatch_v2,
+    state = get_memory_profile_state()
+    if state is not None:
+        state.start_profiler()
+    try:
+        weights = prepare_scene_weights(
+            args.hidden,
+            args.moe_intermediate_size,
+            num_local_experts,
+            device,
+        )
+        info_rank0(
+            rank,
+            f"baseline_group_ep={baseline_group_ep} mega_group_ep={mega_group_ep}",
+        )
+        if args.enable_performance and not args.enable_memory_profile:
+            launched_cases = []
+            for iteration in range(iterations):
+                for case_index, case in enumerate(cases):
+                    launched_cases.append(
+                        launch_case(
+                            args,
+                            rank,
+                            num_ranks,
+                            fused_buffer,
+                            weights,
+                            case,
+                            iteration,
+                            case_index,
+                            baseline_group_ep,
+                            baseline_group,
+                            mega_group,
+                            enable_dispatch_v2,
+                        )
                     )
-                )
 
-        torch.npu.synchronize()
-        dist.barrier()
-        for launched_case in launched_cases:
-            finalize_case(args, rank, launched_case, synchronize_ranks=False)
-    else:
-        for iteration in range(iterations):
-            for case_index, case in enumerate(cases):
-                finalize_case(
-                    args,
-                    rank,
-                    launch_case(
+            torch.npu.synchronize()
+            dist.barrier()
+            for launched_case in launched_cases:
+                finalize_case(args, rank, launched_case, synchronize_ranks=False)
+        else:
+            for iteration in range(iterations):
+                for case_index, case in enumerate(cases):
+                    finalize_case(
                         args,
                         rank,
-                        num_ranks,
-                        fused_buffer,
-                        weights,
-                        case,
-                        iteration,
-                        case_index,
-                        baseline_group_ep,
-                        baseline_group,
-                        mega_group,
-                        enable_dispatch_v2,
-                    ),
-                )
+                        launch_case(
+                            args,
+                            rank,
+                            num_ranks,
+                            fused_buffer,
+                            weights,
+                            case,
+                            iteration,
+                            case_index,
+                            baseline_group_ep,
+                            baseline_group,
+                            mega_group,
+                            enable_dispatch_v2,
+                        ),
+                    )
+    finally:
+        if state is not None:
+            state.stop_profiler()
     info_rank0(rank, "A3 W4A8 fused_deep_moe accuracy test completed")
 
 
 def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+    global _MEMORY_PROFILE_STATE
     rank, num_ranks, _ = init_dist(local_rank, num_local_ranks)
+    _MEMORY_PROFILE_STATE = MemoryProfileState(args, rank)
     ranks = list(range(num_ranks))
     baseline_group = dist.new_group(ranks=ranks, backend="hccl")
     mega_group = dist.new_group(ranks=ranks, backend="hccl")
@@ -1093,6 +1345,24 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=2026)
     parser.add_argument("--enable-performance", action="store_true")
     parser.add_argument("--performance-iters", type=int, default=30)
+    parser.add_argument("--enable-memory-profile", action="store_true")
+    parser.add_argument(
+        "--memory-profile-dir",
+        type=str,
+        default="./memory_profile",
+    )
+    parser.add_argument("--memory-profile-steps", type=int, default=1)
+    parser.add_argument(
+        "--memory-profile-export",
+        type=str,
+        default="tensorboard,html,json",
+    )
+    parser.add_argument(
+        "--memory-profile-interfaces",
+        type=str,
+        default="",
+        help="Optional comma-separated interface names to profile.",
+    )
     args = parser.parse_args()
     if args.num_ranks_per_server is None:
         args.num_ranks_per_server = args.num_processes
