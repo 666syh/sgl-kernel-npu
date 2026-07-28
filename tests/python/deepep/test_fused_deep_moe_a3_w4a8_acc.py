@@ -36,6 +36,24 @@ def warn_rank0(rank: int, message: str):
         print(f"[rank0][WARNING] {message}", flush=True)
 
 
+def bytes_to_kb(value: Optional[int]) -> Optional[float]:
+    if value is None:
+        return None
+    return value / 1024.0
+
+
+def bytes_to_mb(value: Optional[int]) -> Optional[float]:
+    if value is None:
+        return None
+    return value / float(1024**2)
+
+
+def format_mb(value: Optional[int]) -> str:
+    if value is None:
+        return "NA"
+    return f"{bytes_to_mb(value):.2f}MB"
+
+
 class MemoryProfileState:
     def __init__(self, args: argparse.Namespace, rank: int):
         self.args = args
@@ -83,6 +101,11 @@ class MemoryProfileState:
             return
         self.log(f"sample start: {name}")
         torch.npu.synchronize()
+        stats = {}
+        try:
+            stats = torch_npu.npu.memory_stats()
+        except Exception:
+            stats = {}
         record = {
             "name": name,
             "scope": self.current_scope,
@@ -91,10 +114,59 @@ class MemoryProfileState:
             "reserved": int(torch_npu.npu.memory_reserved()),
             "max_allocated": int(torch_npu.npu.max_memory_allocated()),
             "max_reserved": int(torch_npu.npu.max_memory_reserved()),
+            "cache_gap": int(
+                torch_npu.npu.memory_reserved() - torch_npu.npu.memory_allocated()
+            ),
+            "peak_gap": int(
+                torch_npu.npu.max_memory_reserved()
+                - torch_npu.npu.max_memory_allocated()
+            ),
+            "active_current": int(
+                stats.get("active_bytes.all.current", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
+            "active_peak": int(
+                stats.get("active_bytes.all.peak", 0) if isinstance(stats, dict) else 0
+            ),
+            "allocated_current": int(
+                stats.get("allocated_bytes.all.current", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
+            "allocated_peak": int(
+                stats.get("allocated_bytes.all.peak", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
+            "reserved_current": int(
+                stats.get("reserved_bytes.all.current", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
+            "reserved_peak": int(
+                stats.get("reserved_bytes.all.peak", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
+            "inactive_current": int(
+                stats.get("inactive_split_bytes.all.current", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
+            "inactive_peak": int(
+                stats.get("inactive_split_bytes.all.peak", 0)
+                if isinstance(stats, dict)
+                else 0
+            ),
         }
         self.samples.append(record)
         self.log(
-            f"sample end: {name} alloc={record['allocated']} reserved={record['reserved']}"
+            "sample end: "
+            f"{name} alloc={format_mb(record['allocated'])} "
+            f"reserved={format_mb(record['reserved'])} "
+            f"cache_gap={format_mb(record['cache_gap'])} "
+            f"peak_gap={format_mb(record['peak_gap'])}"
         )
 
     def start_profiler(self):
@@ -187,6 +259,20 @@ class MemoryProfileState:
             pair = pairs.get(base, {})
             before = pair.get("before")
             after = pair.get("after")
+            allocated_delta = (
+                after["allocated"] - before["allocated"] if before and after else None
+            )
+            reserved_delta = (
+                after["reserved"] - before["reserved"] if before and after else None
+            )
+            cache_gap_delta = (
+                after["cache_gap"] - before["cache_gap"] if before and after else None
+            )
+            inactive_delta = (
+                after["inactive_current"] - before["inactive_current"]
+                if before and after
+                else None
+            )
             summary.append(
                 {
                     "interface": base,
@@ -220,16 +306,44 @@ class MemoryProfileState:
                         if before or after
                         else None
                     ),
-                    "net_allocated_delta": (
-                        after["allocated"] - before["allocated"]
-                        if before and after
-                        else None
+                    "cache_gap_before": before["cache_gap"] if before else None,
+                    "cache_gap_after": after["cache_gap"] if after else None,
+                    "inactive_current_before": (
+                        before["inactive_current"] if before else None
                     ),
-                    "net_reserved_delta": (
-                        after["reserved"] - before["reserved"]
-                        if before and after
-                        else None
+                    "inactive_current_after": (
+                        after["inactive_current"] if after else None
                     ),
+                    "active_current_before": (
+                        before["active_current"] if before else None
+                    ),
+                    "active_current_after": after["active_current"] if after else None,
+                    "net_allocated_delta": allocated_delta,
+                    "net_reserved_delta": reserved_delta,
+                    "net_cache_gap_delta": cache_gap_delta,
+                    "net_inactive_delta": inactive_delta,
+                    "allocated_before_mb": bytes_to_mb(
+                        before["allocated"] if before else None
+                    ),
+                    "allocated_after_mb": bytes_to_mb(
+                        after["allocated"] if after else None
+                    ),
+                    "allocated_delta_mb": bytes_to_mb(allocated_delta),
+                    "reserved_before_mb": bytes_to_mb(
+                        before["reserved"] if before else None
+                    ),
+                    "reserved_after_mb": bytes_to_mb(
+                        after["reserved"] if after else None
+                    ),
+                    "reserved_delta_mb": bytes_to_mb(reserved_delta),
+                    "cache_gap_before_mb": bytes_to_mb(
+                        before["cache_gap"] if before else None
+                    ),
+                    "cache_gap_after_mb": bytes_to_mb(
+                        after["cache_gap"] if after else None
+                    ),
+                    "cache_gap_delta_mb": bytes_to_mb(cache_gap_delta),
+                    "inactive_delta_mb": bytes_to_mb(inactive_delta),
                 }
             )
         return summary
@@ -272,6 +386,21 @@ def memory_profile_range(name: str):
     with state.annotate(name):
         yield
     state.sample(f"{name}_after")
+    if len(state.samples) >= 2:
+        before = state.samples[-2]
+        after = state.samples[-1]
+        if before["name"] == f"{name}_before" and after["name"] == f"{name}_after":
+            alloc_delta = after["allocated"] - before["allocated"]
+            reserve_delta = after["reserved"] - before["reserved"]
+            cache_gap_delta = after["cache_gap"] - before["cache_gap"]
+            inactive_delta = after["inactive_current"] - before["inactive_current"]
+            state.log(
+                f"range delta: {name} "
+                f"alloc={format_mb(alloc_delta)} "
+                f"reserved={format_mb(reserve_delta)} "
+                f"cache_gap={format_mb(cache_gap_delta)} "
+                f"inactive={format_mb(inactive_delta)}"
+            )
     state.log(f"range end: {name}")
 
 
@@ -645,7 +774,7 @@ def build_scene_weight_source(
 
 
 def build_baseline_scene_weights(source: dict, device: torch.device) -> dict:
-    with memory_profile_range("build_baseline_scene_weights"):
+    with memory_profile_range("build_baseline_scene_weights_1"):
         new_quant_version = source["new_quant_version"]
 
         w13_weight_baseline_nz = torch_npu.npu_format_cast(
@@ -654,6 +783,8 @@ def build_baseline_scene_weights(source: dict, device: torch.device) -> dict:
         w2_weight_baseline_nz = torch_npu.npu_format_cast(
             source["w2_weight_packed_int8"].to(device), ACL_FORMAT_FRACTAL_NZ
         )
+
+    with memory_profile_range("build_baseline_scene_weights_2"):
         w13_weight_packed_stacked = pack_to_int32(
             w13_weight_baseline_nz, new_quant_version=new_quant_version
         )
@@ -676,7 +807,7 @@ def build_baseline_scene_weights(source: dict, device: torch.device) -> dict:
 
 
 def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
-    with memory_profile_range("build_fused_scene_weights"):
+    with memory_profile_range("build_fused_scene_weights_1"):
         hidden = source["hidden"]
         intermediate_hidden = source["intermediate_hidden"]
         num_local_experts = source["num_local_experts"]
@@ -700,6 +831,89 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
             )
             for weight in source["w2_weight_packed_int8"].unbind(dim=0)
         ]
+
+    with memory_profile_range("build_fused_scene_weights_2"):
+        fused_l1_scales = [
+            scale.to(device).reshape(-1).view(torch.uint64)
+            for scale in source["w13_scale_int64"].unbind(dim=0)
+        ]
+        fused_l2_scales = [
+            scale.to(device).reshape(-1).view(torch.uint64)
+            for scale in source["w2_scale_int64"].unbind(dim=0)
+        ]
+        fused_l1_bias = [
+            bias.to(device).reshape(-1).to(torch.float32)
+            for bias in source["w13_bias"].unbind(dim=0)
+        ]
+        fused_l2_bias = [
+            bias.to(device).reshape(-1).to(torch.float32)
+            for bias in source["w2_bias"].unbind(dim=0)
+        ]
+
+        expected_l1_shape = (hidden, (2 * intermediate_hidden) // 8)
+        expected_l2_shape = (intermediate_hidden, hidden // 8)
+        for weight in fused_l1_weights:
+            if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l1_shape:
+                raise ValueError(
+                    f"Invalid fused l1 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
+                    f"expected {expected_l1_shape} torch.int32."
+                )
+        for weight in fused_l2_weights:
+            if weight.dtype != torch.int32 or tuple(weight.shape) != expected_l2_shape:
+                raise ValueError(
+                    f"Invalid fused l2 weight shape/dtype: got {tuple(weight.shape)} {weight.dtype}, "
+                    f"expected {expected_l2_shape} torch.int32."
+                )
+        if (
+            len(fused_l1_weights) != num_local_experts
+            or len(fused_l2_weights) != num_local_experts
+        ):
+            raise ValueError("Fused weight list length mismatch.")
+        if (
+            len(fused_l1_scales) != num_local_experts
+            or len(fused_l2_scales) != num_local_experts
+        ):
+            raise ValueError("Fused scale list length mismatch.")
+        if (
+            len(fused_l1_bias) != num_local_experts
+            or len(fused_l2_bias) != num_local_experts
+        ):
+            raise ValueError("Fused bias list length mismatch.")
+
+        return {
+            "fused_l1_weights": fused_l1_weights,
+            "fused_l2_weights": fused_l2_weights,
+            "fused_l1_scales": fused_l1_scales,
+            "fused_l2_scales": fused_l2_scales,
+            "fused_l1_bias": fused_l1_bias,
+            "fused_l2_bias": fused_l2_bias,
+        }
+
+
+def build_sglang_scene_weights(source: dict, device: torch.device) -> dict:
+    with memory_profile_range("build_sglang_scene_weights_1"):
+        hidden = source["hidden"]
+        intermediate_hidden = source["intermediate_hidden"]
+        num_local_experts = source["num_local_experts"]
+        new_quant_version = source["new_quant_version"]
+
+        fused_l1_weights = torch_npu.npu_format_cast(
+            source["w13_weight_packed_int8"].contiguous().to(device),
+            ACL_FORMAT_FRACTAL_NZ,
+        )
+        fused_l1_weights = [
+            pack_to_int32(weight) for weight in fused_l1_weights.unbind(dim=0)
+        ]
+
+        fused_l2_weights = torch_npu.npu_format_cast(
+            source["w2_weight_packed_int8"].contiguous().to(device),
+            ACL_FORMAT_FRACTAL_NZ,
+        )
+        fused_l2_weights = [
+            pack_to_int32(weight) for weight in fused_l2_weights.unbind(dim=0)
+        ]
+
+    with memory_profile_range("build_sglang_scene_weights_2"):
         fused_l1_scales = [
             scale.to(device).reshape(-1).view(torch.uint64)
             for scale in source["w13_scale_int64"].unbind(dim=0)
@@ -774,6 +988,7 @@ def prepare_scene_weights(
         )
         baseline_weights = build_baseline_scene_weights(source, device)
         fused_weights = build_fused_scene_weights(source, device)
+        sglang_weights = build_sglang_scene_weights(source, device)
         return {
             "source": source,
             **baseline_weights,
@@ -1244,6 +1459,7 @@ def test_main(
             rank,
             f"baseline_group_ep={baseline_group_ep} mega_group_ep={mega_group_ep}",
         )
+        """
         if args.enable_performance and not args.enable_memory_profile:
             launched_cases = []
             for iteration in range(iterations):
@@ -1294,6 +1510,7 @@ def test_main(
                             enable_dispatch_v2,
                         ),
                     )
+        """
     finally:
         if state is not None:
             state.log("stopping profiler")
