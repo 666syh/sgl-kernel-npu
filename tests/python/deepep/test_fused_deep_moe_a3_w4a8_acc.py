@@ -861,18 +861,19 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
     new_quant_version = source["new_quant_version"]
     i = 1
 
-    with memory_profile_range(f"build_fused_scene_weights1_{i}"):
-        i += 1
-        fused_l1_weights = []
-        for weight in source["w13_weight_packed_int8"].unbind(dim=0):
+    fused_l1_weights = []
+    for weight in source["w13_weight_packed_int8"].unbind(dim=0):
+        with memory_profile_range(f"build_fused_scene_weights1_{i}"):
+            i += 1
             wc = weight.contiguous().to(device)
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
             wp = pack_to_int32(wnz)
             fused_l1_weights.append(wp)
 
-    with memory_profile_range("build_fused_scene_weights2_{i}"):
+    fused_l2_weights = []
+    i = 1
+    with memory_profile_range(f"build_fused_scene_weights2_{i}"):
         i += 1
-        fused_l2_weights = []
         for weight in source["w2_weight_packed_int8"].unbind(dim=0):
             wc = weight.contiguous().to(device)
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
@@ -938,29 +939,39 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
 
 
 def build_sglang_scene_weights(source: dict, device: torch.device) -> dict:
-    with memory_profile_range("build_sglang_scene_weights_1"):
-        hidden = source["hidden"]
-        intermediate_hidden = source["intermediate_hidden"]
-        num_local_experts = source["num_local_experts"]
-        new_quant_version = source["new_quant_version"]
 
+    hidden = source["hidden"]
+    intermediate_hidden = source["intermediate_hidden"]
+    num_local_experts = source["num_local_experts"]
+    new_quant_version = source["new_quant_version"]
+
+    with memory_profile_range(f"build_sglang_scene_weights1_contiguous"):
+        wc = source["w13_weight_packed_int8"].contiguous().to(device)
+
+    with memory_profile_range(f"build_sglang_scene_weights1_nz"):
         fused_l1_weights = torch_npu.npu_format_cast(
-            source["w13_weight_packed_int8"].contiguous().to(device),
+            wc,
             ACL_FORMAT_FRACTAL_NZ,
         )
+    with memory_profile_range(f"build_sglang_scene_weights1_int32"):
         fused_l1_weights = [
             pack_to_int32(weight) for weight in fused_l1_weights.unbind(dim=0)
         ]
 
+    with memory_profile_range("build_sglang_scene_weights2_contiguous"):
+        wc = source["w2_weight_packed_int8"].contiguous().to(device)
+
+    with memory_profile_range(f"build_sglang_scene_weights2_nz"):
         fused_l2_weights = torch_npu.npu_format_cast(
-            source["w2_weight_packed_int8"].contiguous().to(device),
+            wc,
             ACL_FORMAT_FRACTAL_NZ,
         )
+    with memory_profile_range(f"build_sglang_scene_weights2_int32"):
         fused_l2_weights = [
             pack_to_int32(weight) for weight in fused_l2_weights.unbind(dim=0)
         ]
 
-    with memory_profile_range("build_sglang_scene_weights_2"):
+    with memory_profile_range("build_sglang_scene_weights_rest"):
         fused_l1_scales = [
             scale.to(device).reshape(-1).view(torch.uint64)
             for scale in source["w13_scale_int64"].unbind(dim=0)
