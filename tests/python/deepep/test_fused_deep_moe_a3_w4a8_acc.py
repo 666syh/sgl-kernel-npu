@@ -855,32 +855,31 @@ def build_baseline_scene_weights(source: dict, device: torch.device) -> dict:
 
 
 def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
-    with memory_profile_range("build_fused_scene_weights_1"):
-        hidden = source["hidden"]
-        intermediate_hidden = source["intermediate_hidden"]
-        num_local_experts = source["num_local_experts"]
-        new_quant_version = source["new_quant_version"]
+    hidden = source["hidden"]
+    intermediate_hidden = source["intermediate_hidden"]
+    num_local_experts = source["num_local_experts"]
+    new_quant_version = source["new_quant_version"]
+    i = 1
 
-        fused_l1_weights = [
-            pack_to_int32(
-                torch_npu.npu_format_cast(
-                    weight.contiguous().to(device), ACL_FORMAT_FRACTAL_NZ
-                ),
-                new_quant_version=new_quant_version,
-            )
-            for weight in source["w13_weight_packed_int8"].unbind(dim=0)
-        ]
-        fused_l2_weights = [
-            pack_to_int32(
-                torch_npu.npu_format_cast(
-                    weight.contiguous().to(device), ACL_FORMAT_FRACTAL_NZ
-                ),
-                new_quant_version=new_quant_version,
-            )
-            for weight in source["w2_weight_packed_int8"].unbind(dim=0)
-        ]
+    with memory_profile_range(f"build_fused_scene_weights1_{i}"):
+        i += 1
+        fused_l1_weights = []
+        for weight in source["w13_weight_packed_int8"].unbind(dim=0):
+            wc = weight.contiguous().to(device)
+            wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
+            wp = pack_to_int32(wnz)
+            fused_l1_weights.append(wp)
 
-    with memory_profile_range("build_fused_scene_weights_2"):
+    with memory_profile_range("build_fused_scene_weights2_{i}"):
+        i += 1
+        fused_l2_weights = []
+        for weight in source["w13_weight_packed_int8"].unbind(dim=0):
+            wc = weight.contiguous().to(device)
+            wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
+            wp = pack_to_int32(wnz)
+            fused_l2_weights.append(wp)
+
+    with memory_profile_range("build_fused_scene_rest"):
         fused_l1_scales = [
             scale.to(device).reshape(-1).view(torch.uint64)
             for scale in source["w13_scale_int64"].unbind(dim=0)
