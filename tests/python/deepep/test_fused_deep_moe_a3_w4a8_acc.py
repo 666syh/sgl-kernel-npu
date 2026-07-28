@@ -869,6 +869,7 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
             wp = pack_to_int32(wnz)
             fused_l1_weights.append(wp)
+            del weight
 
     fused_l2_weights = []
     i = 1
@@ -879,6 +880,7 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
             wp = pack_to_int32(wnz)
             fused_l2_weights.append(wp)
+            del weight
 
     with memory_profile_range("build_fused_scene_rest"):
         fused_l1_scales = [
