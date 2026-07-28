@@ -873,7 +873,7 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
     with memory_profile_range("build_fused_scene_weights2_{i}"):
         i += 1
         fused_l2_weights = []
-        for weight in source["w13_weight_packed_int8"].unbind(dim=0):
+        for weight in source["w2_weight_packed_int8"].unbind(dim=0):
             wc = weight.contiguous().to(device)
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
             wp = pack_to_int32(wnz)
