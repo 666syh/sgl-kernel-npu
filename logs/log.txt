@@ -1,0 +1,24 @@
+[rank0] [memory-profile] memory summary table begin
+stage                                  | alloc_before | alloc_after | alloc_delta | reserved_before | reserved_after | reserved_delta | cache_gap_after | cache_gap_delta | inactive_delta
+---------------------------------------+--------------+-------------+-------------+-----------------+----------------+----------------+-----------------+-----------------+---------------
+prepare_scene_weights                  | 0.00MB       | 567.46MB    | 567.46MB    | 0.00MB          | 596.00MB       | 596.00MB       | 28.54MB         | 28.54MB         | 28.54MB       
+build_baseline_scene_weights_1         | 189.45MB     | 252.45MB    | 63.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 343.55MB        | -63.00MB        | 107.00MB      
+build_baseline_scene_weights_2         | 252.45MB     | 252.45MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 343.55MB        | 0.00MB          | 0.00MB        
+build_fused_scene_weights1_1           | 252.45MB     | 294.45MB    | 42.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 301.55MB        | -42.00MB        | -42.00MB      
+build_fused_scene_weights1_2           | 294.45MB     | 336.45MB    | 42.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 259.55MB        | -42.00MB        | -42.00MB      
+build_fused_scene_weights1_3           | 336.45MB     | 378.45MB    | 42.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 217.55MB        | -42.00MB        | -42.00MB      
+build_fused_scene_weights1_4           | 378.45MB     | 420.45MB    | 42.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 175.55MB        | -42.00MB        | -42.00MB      
+build_fused_scene_weights2_1           | 420.45MB     | 441.45MB    | 21.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 154.55MB        | -21.00MB        | -21.00MB      
+build_fused_scene_weights2_2           | 441.45MB     | 462.45MB    | 21.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 133.55MB        | -21.00MB        | -21.00MB      
+build_fused_scene_weights2_3           | 462.45MB     | 483.45MB    | 21.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 112.55MB        | -21.00MB        | -21.00MB      
+build_fused_scene_weights2_4           | 483.45MB     | 504.45MB    | 21.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 91.55MB         | -21.00MB        | -21.00MB      
+build_fused_scene_rest                 | 504.45MB     | 504.45MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 91.55MB         | 0.00MB          | 0.00MB        
+build_sglang_scene_weights1_contiguous | 504.45MB     | 504.45MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 91.55MB         | 0.00MB          | 0.00MB        
+build_sglang_scene_weights1_nz         | 504.45MB     | 546.45MB    | 42.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 49.55MB         | -42.00MB        | -42.00MB      
+build_sglang_scene_weights1_int32      | 546.45MB     | 546.45MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 49.55MB         | 0.00MB          | 0.00MB        
+build_sglang_scene_weights2_contiguous | 546.45MB     | 546.45MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 49.55MB         | 0.00MB          | 0.00MB        
+build_sglang_scene_weights2_nz         | 546.45MB     | 567.46MB    | 21.00MB     | 596.00MB        | 596.00MB       | 0.00MB         | 28.54MB         | -21.00MB        | -21.00MB      
+build_sglang_scene_weights2_int32      | 567.46MB     | 567.46MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 28.54MB         | 0.00MB          | 0.00MB        
+build_sglang_scene_weights_rest        | 567.46MB     | 567.46MB    | 0.00MB      | 596.00MB        | 596.00MB       | 0.00MB         | 28.54MB         | 0.00MB          | 0.00MB        
+[rank0] [memory-profile] memory summary table end
+[rank0] A3 W4A8 fused_deep_moe accuracy test completed
