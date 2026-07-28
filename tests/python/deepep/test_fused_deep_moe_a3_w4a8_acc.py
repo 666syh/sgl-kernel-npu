@@ -55,6 +55,12 @@ class MemoryProfileState:
             not self.interface_filter or name in self.interface_filter
         )
 
+    def log(self, message: str):
+        info_rank0(
+            self.rank,
+            f"[memory-profile] {message}",
+        )
+
     @contextmanager
     def annotate(self, name: str):
         if not self.should_trace(name):
@@ -62,8 +68,10 @@ class MemoryProfileState:
             return
         mstx = getattr(torch_npu.npu, "mstx", None)
         if mstx is not None and hasattr(mstx, "annotate"):
+            self.log(f"enter mstx range: {name}")
             with mstx.annotate(name, domain=MEMORY_PROFILE_DOMAIN):
                 yield
+            self.log(f"exit mstx range: {name}")
             return
         yield
 
@@ -73,6 +81,7 @@ class MemoryProfileState:
     def sample(self, name: str):
         if not self.should_trace(name):
             return
+        self.log(f"sample start: {name}")
         torch.npu.synchronize()
         record = {
             "name": name,
@@ -84,10 +93,14 @@ class MemoryProfileState:
             "max_reserved": int(torch_npu.npu.max_memory_reserved()),
         }
         self.samples.append(record)
+        self.log(
+            f"sample end: {name} alloc={record['allocated']} reserved={record['reserved']}"
+        )
 
     def start_profiler(self):
         if not self.enabled:
             return
+        self.log("start profiler")
         os.makedirs(self.output_dir, exist_ok=True)
         experimental_config = None
         if hasattr(torch_npu.profiler, "_ExperimentalConfig"):
@@ -115,10 +128,12 @@ class MemoryProfileState:
             experimental_config=experimental_config,
         )
         self.prof.__enter__()
+        self.log("profiler entered")
 
     def stop_profiler(self):
         if not self.enabled or self.prof is None:
             return
+        self.log("stop profiler begin")
         prof = self.prof
         self.prof = None
         prof.__exit__(None, None, None)
@@ -150,6 +165,7 @@ class MemoryProfileState:
         }
         with open(f"{prefix}_memory_summary.json", "w", encoding="utf-8") as fp:
             json.dump(payload, fp, indent=2)
+        self.log(f"memory summary saved: {prefix}_memory_summary.json")
 
     def build_summary(self):
         pairs = {}
@@ -229,12 +245,15 @@ class MemoryProfileState:
         self.set_scope(
             f"iter{iteration}_case{case_index}_{case['activation']}_beta{case['beta']}"
         )
+        self.log(f"begin case: iter={iteration} case={case_index} {case}")
         torch.npu.synchronize()
         torch_npu.npu.reset_peak_memory_stats()
         return True
 
     def end_case(self):
         if self.enabled:
+            self.log(f"end case: scope={self.current_scope}")
+            torch.npu.synchronize()
             self.set_scope("post_case")
 
 
@@ -248,10 +267,12 @@ def memory_profile_range(name: str):
     if state is None or not state.enabled:
         yield
         return
+    state.log(f"range begin: {name}")
     state.sample(f"{name}_before")
     with state.annotate(name):
         yield
     state.sample(f"{name}_after")
+    state.log(f"range end: {name}")
 
 
 def summarize_value(value) -> str:
@@ -1063,9 +1084,17 @@ def launch_case(
     np.random.seed(args.seed)
 
     x = torch.randn((args.num_tokens, args.hidden), dtype=torch.bfloat16, device=device)
+    if state is not None:
+        state.log(
+            f"inputs ready: x={summarize_value(x)} topk will be created on {device}"
+        )
     topk_idx, topk_weights = make_topk_inputs(
         args.num_tokens, args.num_experts, args.num_topk, device
     )
+    if state is not None:
+        state.log(
+            f"topk ready: idx={summarize_value(topk_idx)} weights={summarize_value(topk_weights)}"
+        )
     baseline_out, baseline_counts = run_baseline_reference(
         x,
         topk_idx,
@@ -1201,12 +1230,16 @@ def test_main(
     if state is not None:
         state.start_profiler()
     try:
+        if state is not None:
+            state.log("building weights")
         weights = prepare_scene_weights(
             args.hidden,
             args.moe_intermediate_size,
             num_local_experts,
             device,
         )
+        if state is not None:
+            state.log("weights built")
         info_rank0(
             rank,
             f"baseline_group_ep={baseline_group_ep} mega_group_ep={mega_group_ep}",
@@ -1239,6 +1272,10 @@ def test_main(
         else:
             for iteration in range(iterations):
                 for case_index, case in enumerate(cases):
+                    if state is not None:
+                        state.log(
+                            f"launch/finalize case sequential: iter={iteration} case={case_index}"
+                        )
                     finalize_case(
                         args,
                         rank,
@@ -1259,6 +1296,7 @@ def test_main(
                     )
     finally:
         if state is not None:
+            state.log("stopping profiler")
             state.stop_profiler()
     info_rank0(rank, "A3 W4A8 fused_deep_moe accuracy test completed")
 
