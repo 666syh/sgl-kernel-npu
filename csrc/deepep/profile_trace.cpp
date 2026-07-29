@@ -107,7 +107,8 @@ static std::string StageDisplayName(uint64_t stageId, uint64_t occurrenceId, uin
     oss << StageName(stageId);
     uint32_t stageOccurrenceCount =
         Cam::UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, static_cast<uint32_t>(stageId));
-    if (static_cast<Cam::FusedDeepMoeProfileStage>(stageId) == Cam::FusedDeepMoeProfileStage::Gmm1) {
+    auto stage = static_cast<Cam::FusedDeepMoeProfileStage>(stageId);
+    if (stage == Cam::FusedDeepMoeProfileStage::Gmm1 || stage == Cam::FusedDeepMoeProfileStage::Gmm2) {
         oss << "[group=" << occurrenceId << "]";
     } else if (stageOccurrenceCount > 1U || occurrenceId != 0U) {
         oss << "[occ=" << occurrenceId << "]";
@@ -188,7 +189,8 @@ static Cam::FusedDeepMoeProfileHeader BuildHeader(uint32_t launchCountCapacity, 
     header.launchCountsPacked = Cam::PackProfileLaunchCounts(launchCountCapacity, 0U);
     header.layoutPacked0 = Cam::PackProfileLayout0(static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT),
                                                    static_cast<uint16_t>(groupCountCapacity), 1U, 2U);
-    header.stageOccurrencesPacked = Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, 1U, 1U);
+    header.stageOccurrencesPacked =
+        Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, groupCountCapacity, 1U);
     header.layoutPacked1 = Cam::PackProfileLayout1(
         Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
         Cam::GetFusedDeepMoeProfileRecordsPerLaunch(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
@@ -452,7 +454,7 @@ uint32_t GetGroupCountCapacity(int64_t numExperts, int64_t numRanks)
 
 uint64_t BuildStageOccurrencesPacked(uint32_t groupCountCapacity)
 {
-    return Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, 1U, 1U);
+    return Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, groupCountCapacity, 1U);
 }
 
 uint64_t GetPerLaunchBytes(uint64_t stageOccurrencesPacked)

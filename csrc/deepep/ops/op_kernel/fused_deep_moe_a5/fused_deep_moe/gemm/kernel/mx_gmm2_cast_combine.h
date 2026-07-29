@@ -152,10 +152,6 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
-        uint64_t profStart = 0;
-        if (params.profile != nullptr) {
-            profStart = params.profile->Now();
-        }
         AscendC::ICachePreLoad(1);
 
         BlockScheduler blockScheduler;
@@ -193,6 +189,7 @@ public:
             auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
 
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+                uint64_t profGroupStart = 0;
                 gmMxScaleA.SetGlobalBuffer(params.ptrMxScaleA + gmGroupOffsetMxScaleA);
                 if constexpr (EXEC_FLAG & EXEC_FLAG_TENSOR_LIST) {
                     gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(groupIdx));
@@ -204,6 +201,9 @@ public:
                 }
                 currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                            : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                if (params.profile != nullptr) {
+                    profGroupStart = params.profile->Now();
+                }
                 GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
 
                 BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
@@ -271,6 +271,10 @@ public:
                 gmGroupOffsetMxScaleA += inGroupProblemShape.m() * mxScaleAlignedK;
 
                 startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::Gmm2, groupIdx, profGroupStart,
+                                           params.profile->Now());
+                }
             }
 
             if constexpr (BlockMmad::DispatchPolicy::ASYNC) {
@@ -344,9 +348,6 @@ public:
             }
         }
         AscendC::PipeBarrier<PIPE_ALL>();
-        if (params.profile != nullptr) {
-            params.profile->Record(FusedDeepMoeProfileStage::Gmm2, profStart, params.profile->Now());
-        }
     }
 
     template <>
