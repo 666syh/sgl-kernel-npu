@@ -958,29 +958,6 @@ class Buffer:
                 dispatch_quant_mode=dispatch_quant_mode,
                 dispatch_quant_out_dtype=dispatch_quant_out_dtype,
             )
-            # Here, we need to compare the actual ccl_buffer size required by mega_moe with the value configured in the environment variables.
-            configured_hccl_buffsize_int = 200
-            configured_hccl_buffsize_name = "DEEPEP_HCCL_BUFFSIZE"
-            configured_hccl_buffsize = os.getenv(configured_hccl_buffsize_name)
-            if configured_hccl_buffsize is None:
-                configured_hccl_buffsize_name = "HCCL_BUFFSIZE"
-                configured_hccl_buffsize = os.getenv(configured_hccl_buffsize_name)
-            if configured_hccl_buffsize is not None:
-                try:
-                    configured_hccl_buffsize_int = int(configured_hccl_buffsize)
-                except ValueError as exc:
-                    raise ValueError(
-                        f"Invalid {configured_hccl_buffsize_name} value "
-                        f"{configured_hccl_buffsize!r}. Expected an integer."
-                    ) from exc
-            if sym_buffer.ccl_buffer_size / 1024 / 1024 > configured_hccl_buffsize_int:
-                raise ValueError(
-                    "mega_moe computed ccl_buffer_size exceeds configured "
-                    f"{configured_hccl_buffsize_name}: computed="
-                    f"{sym_buffer.ccl_buffer_size}, configured="
-                    f"{configured_hccl_buffsize_int}."
-                )
-
             self._mega_moe_symm_buffer_cache[cache_key] = sym_buffer
         return sym_buffer
 
