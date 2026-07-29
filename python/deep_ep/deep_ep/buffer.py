@@ -984,6 +984,58 @@ class Buffer:
             self._mega_moe_symm_buffer_cache[cache_key] = sym_buffer
         return sym_buffer
 
+    def _pad_mega_moe_inputs(
+        self,
+        x: torch.Tensor,
+        topk_idx: torch.Tensor,
+        topk_weights: torch.Tensor,
+        num_max_dispatch_tokens_per_rank: int,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
+        original_num_tokens = x.size(0)
+        if original_num_tokens > num_max_dispatch_tokens_per_rank:
+            raise ValueError(
+                "The number of input tokens exceeds "
+                "`num_max_dispatch_tokens_per_rank`: "
+                f"{original_num_tokens} > {num_max_dispatch_tokens_per_rank}."
+            )
+
+        x_active_mask = torch.zeros(
+            num_max_dispatch_tokens_per_rank,
+            dtype=torch.int8,
+            device=x.device,
+        )
+        x_active_mask[:original_num_tokens] = 1
+
+        if original_num_tokens == num_max_dispatch_tokens_per_rank:
+            return x, topk_idx, topk_weights, x_active_mask, original_num_tokens
+
+        padding_size = num_max_dispatch_tokens_per_rank - original_num_tokens
+        x_padded = torch.cat(
+            (x, x.new_zeros((padding_size, x.size(1)))),
+            dim=0,
+        )
+        topk_idx_padded = torch.cat(
+            (
+                topk_idx,
+                topk_idx.new_zeros((padding_size, topk_idx.size(1))),
+            ),
+            dim=0,
+        )
+        topk_weights_padded = torch.cat(
+            (
+                topk_weights,
+                topk_weights.new_zeros((padding_size, topk_weights.size(1))),
+            ),
+            dim=0,
+        )
+        return (
+            x_padded,
+            topk_idx_padded,
+            topk_weights_padded,
+            x_active_mask,
+            original_num_tokens,
+        )
+
     def _resolve_fused_backend(
         self,
         *,
@@ -1245,10 +1297,24 @@ class Buffer:
             dispatch_quant_out_dtype=resolved_dispatch_quant_out_dtype,
             activation=activation,
         )
-        return mega_moe(
-            x=x,
-            topk_ids=topk_idx.to(torch.int32),
-            topk_weights=topk_weights,
+
+        (
+            x_padded,
+            topk_idx_padded,
+            topk_weights_padded,
+            x_active_mask,
+            original_num_tokens,
+        ) = self._pad_mega_moe_inputs(
+            x,
+            topk_idx,
+            topk_weights,
+            num_max_dispatch_tokens_per_rank,
+        )
+
+        output, expert_token_num = mega_moe(
+            x=x_padded,
+            topk_ids=topk_idx_padded.to(torch.int32),
+            topk_weights=topk_weights_padded,
             l1_weights=l1_weights,
             l2_weights=l2_weights,
             sym_buffer=sym_buffer,
@@ -1256,11 +1322,13 @@ class Buffer:
             l2_weights_sf=l2_weights_sf,
             l1_bias=l1_bias_list,
             l2_bias=l2_bias_list,
+            x_active_mask=x_active_mask,
             activation=activation,
             activation_clamp=activation_clamp,
             beta=beta,
             linear_beta=linear_beta,
         )
+        return output[:original_num_tokens], expert_token_num
 
     def fused_deep_moe(
         self,
