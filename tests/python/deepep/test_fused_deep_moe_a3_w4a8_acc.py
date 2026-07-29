@@ -523,6 +523,13 @@ def prepare_scene_weights(
         torch.device("cpu"),
     )
     baseline_weights = build_baseline_scene_weights(source, device)
+    print(
+        "[build_fused_scene_weights][source] "
+        + " | ".join(
+            f"{key}={summarize_value(value)}" for key, value in source.items()
+        ),
+        flush=True,
+    )
     fused_weights = build_fused_scene_weights(source, device)
     return {
         "source": source,
