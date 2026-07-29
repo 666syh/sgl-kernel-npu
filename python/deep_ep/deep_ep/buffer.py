@@ -1287,10 +1287,6 @@ class Buffer:
             topk_weights,
             num_max_dispatch_tokens_per_rank,
         )
-        print(
-            f"[mega_moe] x_active_mask_shape={tuple(x_active_mask.shape)}",
-            flush=True,
-        )
 
         output, expert_token_num = mega_moe(
             x=x_padded,
