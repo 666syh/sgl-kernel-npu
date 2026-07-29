@@ -1293,9 +1293,9 @@ class Buffer:
         )
 
         output, expert_token_num = mega_moe(
-            x=x,
-            topk_ids=topk_idx,
-            topk_weights=topk_weights,
+            x=x_padded,
+            topk_ids=topk_idx_padded,
+            topk_weights=topk_weights_padded,
             l1_weights=l1_weights,
             l2_weights=l2_weights,
             sym_buffer=sym_buffer,

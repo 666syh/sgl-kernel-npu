@@ -574,6 +574,7 @@ def run_mc2_dispatch(
     *,
     num_experts: int,
     global_bs: int,
+    x_active_mask: Optional[torch.Tensor],
     group_ep: str,
     barrier_group: dist.ProcessGroup,
     ep_world_size: int,
@@ -587,7 +588,7 @@ def run_mc2_dispatch(
         "shared_expert_rank_num": 0,
         "moe_expert_num": num_experts,
         "global_bs": global_bs,
-        "x_active_mask": None,
+        "x_active_mask": x_active_mask,
         "quant_mode": COMM_QUANT_MODE_INT8,
         "scales": None,
         "group_ep": group_ep,
@@ -610,6 +611,7 @@ def run_mc2_combine(
     *,
     num_experts: int,
     global_bs: int,
+    x_active_mask: Optional[torch.Tensor],
     ep_recv_counts: torch.Tensor,
     tp_recv_counts: torch.Tensor,
     assist_info_for_combine,
@@ -629,6 +631,7 @@ def run_mc2_combine(
         "moe_expert_num": num_experts,
         "global_bs": global_bs,
         "ep_send_counts": ep_recv_counts,
+        "x_active_mask": x_active_mask,
         "group_ep": group_ep,
         "ep_world_size": ep_world_size,
         "ep_rank_id": ep_rank_id,
@@ -660,7 +663,42 @@ def run_baseline_reference(
     ep_rank_id: int,
     enable_dispatch_v2: bool,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    global_bs = x.size(0) * ep_world_size
+    local_num_tokens = x.size(0)
+    max_num_tokens = 32
+    global_bs = max_num_tokens * ep_world_size
+
+    x_active_mask = torch.zeros(
+        max_num_tokens,
+        dtype=torch.bool,
+        device=x.device,
+    )
+    x_active_mask[:local_num_tokens] = True
+
+    if local_num_tokens == max_num_tokens:
+        x_padded = x
+        topk_idx_padded = topk_idx
+        topk_weights_padded = topk_weights
+    else:
+        padding_size = max_num_tokens - local_num_tokens
+        x_padded = torch.cat(
+            (x, x.new_zeros((padding_size, x.size(1)))),
+            dim=0,
+        )
+        topk_idx_padded = torch.cat(
+            (
+                topk_idx,
+                topk_idx.new_zeros((padding_size, topk_idx.size(1))),
+            ),
+            dim=0,
+        )
+        topk_weights_padded = torch.cat(
+            (
+                topk_weights,
+                topk_weights.new_zeros((padding_size, topk_weights.size(1))),
+            ),
+            dim=0,
+        )
+
     (
         recv_x_int8,
         recv_x_scale,
@@ -670,10 +708,11 @@ def run_baseline_reference(
         tp_recv_counts,
         expand_scales,
     ) = run_mc2_dispatch(
-        x,
-        topk_idx,
+        x_padded,
+        topk_idx_padded,
         num_experts=num_experts,
         global_bs=global_bs,
+        x_active_mask=x_active_mask,
         group_ep=group_ep,
         barrier_group=barrier_group,
         ep_world_size=ep_world_size,
@@ -718,10 +757,11 @@ def run_baseline_reference(
     )
     combined_x = run_mc2_combine(
         down,
-        topk_idx,
-        topk_weights,
+        topk_idx_padded,
+        topk_weights_padded,
         num_experts=num_experts,
         global_bs=global_bs,
+        x_active_mask=x_active_mask,
         ep_recv_counts=ep_recv_counts,
         tp_recv_counts=tp_recv_counts,
         assist_info_for_combine=assist_info_for_combine,
@@ -732,7 +772,7 @@ def run_baseline_reference(
         ep_rank_id=ep_rank_id,
         enable_dispatch_v2=enable_dispatch_v2,
     )
-    return combined_x, normalize_expert_counts(
+    return combined_x[:local_num_tokens], normalize_expert_counts(
         group_list,
         num_experts // dist.get_world_size(),
         x.device,
@@ -761,7 +801,7 @@ def run_fused_reference(
         gmm1_permuted_weight_scale=weights["fused_l1_scales"],
         gmm2_weight=weights["fused_l2_weights"],
         gmm2_weight_scale=weights["fused_l2_scales"],
-        num_max_dispatch_tokens_per_rank=num_tokens,
+        num_max_dispatch_tokens_per_rank=32,
         num_experts=num_experts,
         backend="mega_moe",
         fuse_mode=FuseMode.FUSED_DEEP_MOE,
@@ -1036,6 +1076,11 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
     baseline_group_ep = baseline_backend.get_hccl_comm_name(rank)
     mega_group_ep = mega_backend.get_hccl_comm_name(rank)
     enable_dispatch_v2 = hasattr(torch_npu, "npu_moe_distribute_dispatch_v2")
+
+    if rank == 0:
+        args.num_tokens = 32
+    else:
+        args.num_tokens = 1
 
     fused_buffer = deep_ep.Buffer(
         mega_group,
