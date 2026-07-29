@@ -866,6 +866,12 @@ def launch_case(
         case["activation_clamp"],
         mega_group,
     )
+    info_rank0(
+        rank,
+        f"iter={iteration} case={case_index} activation={case['activation']} "
+        f"baseline_out_shape={tuple(baseline_out.shape)} "
+        f"fused_out_shape={tuple(fused_out.shape)}",
+    )
 
     return {
         "case": case,
