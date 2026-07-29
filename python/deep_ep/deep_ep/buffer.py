@@ -1287,11 +1287,15 @@ class Buffer:
             topk_weights,
             num_max_dispatch_tokens_per_rank,
         )
+        print(
+            f"[mega_moe] x_active_mask_shape={tuple(x_active_mask.shape)}",
+            flush=True,
+        )
 
         output, expert_token_num = mega_moe(
-            x=x_padded,
-            topk_ids=topk_idx_padded.to(torch.int32),
-            topk_weights=topk_weights_padded,
+            x=x,
+            topk_ids=topk_idx,
+            topk_weights=topk_weights,
             l1_weights=l1_weights,
             l2_weights=l2_weights,
             sym_buffer=sym_buffer,
