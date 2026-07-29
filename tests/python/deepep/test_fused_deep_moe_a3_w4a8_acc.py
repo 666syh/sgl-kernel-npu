@@ -865,26 +865,26 @@ def build_fused_scene_weights(source: dict, device: torch.device) -> dict:
     for weight in source["w13_weight_packed_int8"].unbind(dim=0):
         with memory_profile_range(f"build_fused_scene_weights1_{i}"):
             i += 1
-            wc = weight.contiguous().to(device)
+            # Here, we need to call the `clone()` API before applying the NZ format,
+            # because applying the NZ format to slices of a 3D Tensor results in padding across the entire 3D space,
+            # causing a significant waste of space.
+            wc = weight.clone().contiguous().to(device)
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
             wp = pack_to_int32(wnz)
             fused_l1_weights.append(wp)
-            torch.npu.synchronize()
-            del weight
-            torch.npu.empty_cache()
 
     fused_l2_weights = []
     i = 1
     for weight in source["w2_weight_packed_int8"].unbind(dim=0):
         with memory_profile_range(f"build_fused_scene_weights2_{i}"):
             i += 1
-            wc = weight.contiguous().to(device)
+            # Here, we need to call the `clone()` API before applying the NZ format,
+            # because applying the NZ format to slices of a 3D Tensor results in padding across the entire 3D space,
+            # causing a significant waste of space.
+            wc = weight.clone().contiguous().to(device)
             wnz = torch_npu.npu_format_cast(wc, ACL_FORMAT_FRACTAL_NZ)
             wp = pack_to_int32(wnz)
             fused_l2_weights.append(wp)
-            torch.npu.synchronize()
-            del weight
-            torch.npu.empty_cache()
 
     with memory_profile_range("build_fused_scene_rest"):
         fused_l1_scales = [
