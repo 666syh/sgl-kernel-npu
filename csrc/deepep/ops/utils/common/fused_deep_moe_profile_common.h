@@ -23,7 +23,7 @@ constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = 1ULL;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = 2ULL;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY = 36U;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY = 72U;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_COUNT = 5U;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_COUNT = 6U;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY =
     FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY + FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS = 12U;
@@ -49,17 +49,16 @@ FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileLayout1(uint32_t log
     return (static_cast<uint64_t>(logicalCoreCountCapacity) << 32) | static_cast<uint64_t>(recordsPerLaunch);
 }
 
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileStageOccurrences(uint16_t dispatchOccurrence,
-                                                                             uint16_t gmm1Occurrence,
-                                                                             uint16_t swigluOccurrence,
-                                                                             uint16_t gmm2Occurrence,
-                                                                             uint16_t combineOccurrence)
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t
+PackProfileStageOccurrences(uint16_t dispatchOccurrence, uint16_t gmm1Occurrence, uint16_t swigluOccurrence,
+                            uint16_t gmm2Occurrence, uint16_t combineOccurrence, uint16_t weightSumOccurrence)
 {
     return (static_cast<uint64_t>(dispatchOccurrence) << (0U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
            (static_cast<uint64_t>(gmm1Occurrence) << (1U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
            (static_cast<uint64_t>(swigluOccurrence) << (2U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
            (static_cast<uint64_t>(gmm2Occurrence) << (3U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
-           (static_cast<uint64_t>(combineOccurrence) << (4U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS));
+           (static_cast<uint64_t>(combineOccurrence) << (4U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
+           (static_cast<uint64_t>(weightSumOccurrence) << (5U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS));
 }
 
 FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileFlags(uint32_t flags, uint32_t droppedLaunches)
@@ -181,7 +180,8 @@ enum class FusedDeepMoeProfileStage : uint32_t {
     SwigluQuant = 2,
     Gmm2 = 3,
     Combine = 4,
-    Count = 5,
+    WeightSum = 5,
+    Count = 6,
 };
 
 struct FusedDeepMoeProfileHeader {

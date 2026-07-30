@@ -96,6 +96,8 @@ static const char *StageName(uint64_t stageId)
             return "gmm2";
         case Cam::FusedDeepMoeProfileStage::Combine:
             return "combine";
+        case Cam::FusedDeepMoeProfileStage::WeightSum:
+            return "weight_sum";
         default:
             return "unknown";
     }
@@ -108,7 +110,8 @@ static std::string StageDisplayName(uint64_t stageId, uint64_t occurrenceId, uin
     uint32_t stageOccurrenceCount =
         Cam::UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, static_cast<uint32_t>(stageId));
     auto stage = static_cast<Cam::FusedDeepMoeProfileStage>(stageId);
-    if (stage == Cam::FusedDeepMoeProfileStage::Gmm1 || stage == Cam::FusedDeepMoeProfileStage::Gmm2) {
+    if (stage == Cam::FusedDeepMoeProfileStage::Gmm1 || stage == Cam::FusedDeepMoeProfileStage::Gmm2 ||
+        stage == Cam::FusedDeepMoeProfileStage::Combine) {
         oss << "[group=" << occurrenceId << "]";
     } else if (stageOccurrenceCount > 1U || occurrenceId != 0U) {
         oss << "[occ=" << occurrenceId << "]";
@@ -190,7 +193,7 @@ static Cam::FusedDeepMoeProfileHeader BuildHeader(uint32_t launchCountCapacity, 
     header.layoutPacked0 = Cam::PackProfileLayout0(static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT),
                                                    static_cast<uint16_t>(groupCountCapacity), 1U, 2U);
     header.stageOccurrencesPacked =
-        Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, groupCountCapacity, 1U);
+        Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, groupCountCapacity, groupCountCapacity, 1U);
     header.layoutPacked1 = Cam::PackProfileLayout1(
         Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
         Cam::GetFusedDeepMoeProfileRecordsPerLaunch(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
@@ -247,12 +250,14 @@ void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, cons
         header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm2));
     uint32_t combineOccurrence = Cam::UnpackProfileStageOccurrenceCount(
         header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Combine));
+    uint32_t weightSumOccurrence = Cam::UnpackProfileStageOccurrenceCount(
+        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::WeightSum));
     uint32_t expectedRecordsPerLaunch =
         Cam::GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCountCapacity, header->stageOccurrencesPacked);
     if (stageCount != Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT ||
         logicalCoreCountCapacity != Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY ||
         recordsPerLaunch != expectedRecordsPerLaunch || dispatchOccurrence == 0U || gmm1Occurrence == 0U ||
-        swigluOccurrence == 0U || gmm2Occurrence == 0U || combineOccurrence == 0U) {
+        swigluOccurrence == 0U || gmm2Occurrence == 0U || combineOccurrence == 0U || weightSumOccurrence == 0U) {
         TORCH_WARN("Unexpected fused deep moe profile layout, skip export.");
         return;
     }
@@ -454,7 +459,7 @@ uint32_t GetGroupCountCapacity(int64_t numExperts, int64_t numRanks)
 
 uint64_t BuildStageOccurrencesPacked(uint32_t groupCountCapacity)
 {
-    return Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, groupCountCapacity, 1U);
+    return Cam::PackProfileStageOccurrences(1U, groupCountCapacity, 1U, groupCountCapacity, groupCountCapacity, 1U);
 }
 
 uint64_t GetPerLaunchBytes(uint64_t stageOccurrencesPacked)
@@ -557,6 +562,9 @@ void EnsureInitialized(int64_t numExperts, int64_t numRanks)
     TORCH_CHECK(session.active, "profile session is not active.");
     TORCH_CHECK(session.launchCountCapacity > 0, "profile session launch capacity is not set.");
     uint32_t groupCountCapacity = GetGroupCountCapacity(numExperts, numRanks);
+    TORCH_CHECK(groupCountCapacity <= Cam::FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK,
+                "profile session group count exceeds occurrence capacity: groupCountCapacity=", groupCountCapacity,
+                ", max=", Cam::FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK);
     if (session.initialized) {
         TORCH_CHECK(session.groupCountCapacity == groupCountCapacity,
                     "profile session group count changed within one session: expected ", session.groupCountCapacity,

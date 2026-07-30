@@ -353,10 +353,6 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
-        uint64_t profStart = 0;
-        if (params.profile != nullptr) {
-            profStart = params.profile->Now();
-        }
         auto *combiner = (MoeDistributeCombineImpl::CamMoeDistributeCombine<TemplateMC2TypeFunc> *)params.combiner;
 
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
@@ -369,6 +365,8 @@ public:
 
         AscendC::GlobalTensor<ElementD> gmD;
         gmD.SetGlobalBuffer(params.ptrD);
+
+        uint64_t profWeightSumStart = 0;
 
         do {
             if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
@@ -390,8 +388,12 @@ public:
             auto tensorD = tla::MakeTensor(gmD, params.layoutC, Arch::PositionGM{});
 
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+                uint64_t profGroupStart = 0;
                 currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                            : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                if (params.profile != nullptr) {
+                    profGroupStart = params.profile->Now();
+                }
                 GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
                 BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
                 uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
@@ -425,6 +427,10 @@ public:
                 totalM += inGroupProblemShape.m();
 
                 startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::Combine, groupIdx, profGroupStart,
+                                           params.profile->Now());
+                }
             }
             AscendC::PipeBarrier<PIPE_ALL>();
             if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
@@ -473,6 +479,9 @@ public:
             }
         } while (false);
 
+        if (params.profile != nullptr) {
+            profWeightSumStart = params.profile->Now();
+        }
         icache_preload(4);
         if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
             if (AscendC::GetSubBlockIdx() == 1) {
@@ -514,7 +523,7 @@ public:
                               tmpZeroLocalTensor, GMM2::INT32_COUNT_PER_BLOCK);
         }
         if (params.profile != nullptr) {
-            params.profile->Record(FusedDeepMoeProfileStage::Combine, profStart, params.profile->Now());
+            params.profile->Record(FusedDeepMoeProfileStage::WeightSum, profWeightSumStart, params.profile->Now());
         }
     }
 
