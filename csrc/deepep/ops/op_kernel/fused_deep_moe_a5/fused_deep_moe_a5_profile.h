@@ -19,8 +19,8 @@ struct FusedDeepMoeProfileWriter {
     uint32_t logicalCoreCount{0};
     uint32_t recordsPerLaunch{0};
     uint32_t launchId{0};
-    uint64_t stageOccurrencesPacked{0};
     uint64_t profileBufferBytes{0};
+    __gm__ const FusedDeepMoeProfileStageLayout *stageLayout{nullptr};
 
     __aicore__ inline void Init(GM_ADDR profileGM, bool enable, uint32_t launchId_, uint32_t coreType_,
                                 uint64_t profileBufferBytes_)
@@ -49,12 +49,21 @@ struct FusedDeepMoeProfileWriter {
         }
         uint64_t launchCountCapacity = UnpackProfileLaunchCapacity(header->launchCountsPacked);
         uint32_t layoutStageCount = UnpackProfileStageCount(header->layoutPacked0);
+        uint32_t layoutGroupCountCapacity = UnpackProfileGroupCountCapacity(header->layoutPacked0);
         logicalCoreCount = UnpackProfileLogicalCoreCountCapacity(header->layoutPacked1);
         recordsPerLaunch = UnpackProfileRecordsPerLaunch(header->layoutPacked1);
-        stageOccurrencesPacked = header->stageOccurrencesPacked;
-        uint32_t layoutRecordsPerLaunch =
-            GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCount, stageOccurrencesPacked);
-        if (launchId >= launchCountCapacity || layoutStageCount != stageCount ||
+        stageLayout =
+            reinterpret_cast<__gm__ const FusedDeepMoeProfileStageLayout *>(base + sizeof(FusedDeepMoeProfileHeader));
+        uint32_t layoutActiveStageCapacity = static_cast<uint32_t>(stageLayout->activeStageCapacity);
+        uint32_t layoutRecordsPerLaunch = GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCount, *stageLayout);
+        if (launchId >= launchCountCapacity || layoutStageCount == 0U ||
+            layoutStageCount > FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY ||
+            layoutStageCount > FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY || layoutStageCount != stageCount ||
+            stageLayout->stageCount != stageCount ||
+            layoutActiveStageCapacity != FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY ||
+            layoutActiveStageCapacity > FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY ||
+            layoutGroupCountCapacity == 0U ||
+            layoutGroupCountCapacity > FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY ||
             logicalCoreCount != FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY ||
             layoutRecordsPerLaunch != recordsPerLaunch || recordsPerLaunch == 0U) {
             if (coreType == FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC && coreIdx == 0) {
@@ -68,7 +77,7 @@ struct FusedDeepMoeProfileWriter {
         uint64_t alignedLaunchBytes =
             (static_cast<uint64_t>(recordsPerLaunch) * sizeof(FusedDeepMoeProfileRecord) + 63ULL) / 64ULL * 64ULL;
         uint64_t requiredBytes =
-            sizeof(FusedDeepMoeProfileHeader) + (static_cast<uint64_t>(launchId) + 1ULL) * alignedLaunchBytes;
+            GetFusedDeepMoeProfileDataOffset() + (static_cast<uint64_t>(launchId) + 1ULL) * alignedLaunchBytes;
         if (requiredBytes > profileBufferBytes) {
             if (coreType == FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC && coreIdx == 0) {
                 uint32_t flags = UnpackProfileFlags(header->flagsPacked);
@@ -78,9 +87,9 @@ struct FusedDeepMoeProfileWriter {
             enabled = false;
             return;
         }
-        uint64_t launchOffset = GetFusedDeepMoeProfileLaunchOffset(
-            static_cast<uint32_t>(sizeof(FusedDeepMoeProfileHeader)), recordsPerLaunch,
-            static_cast<uint32_t>(sizeof(FusedDeepMoeProfileRecord)), launchId);
+        uint64_t launchOffset =
+            GetFusedDeepMoeProfileLaunchOffset(GetFusedDeepMoeProfileDataOffset(), recordsPerLaunch,
+                                               static_cast<uint32_t>(sizeof(FusedDeepMoeProfileRecord)), launchId);
         records = reinterpret_cast<__gm__ FusedDeepMoeProfileRecord *>(base + launchOffset);
     }
 
@@ -104,7 +113,10 @@ struct FusedDeepMoeProfileWriter {
         if (stageId >= stageCount) {
             return;
         }
-        uint32_t stageOccurrenceCount = UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, stageId);
+        if (stageLayout == nullptr) {
+            return;
+        }
+        uint32_t stageOccurrenceCount = GetProfileStageOccurrenceCount(*stageLayout, stageId);
         if (occurrenceId >= stageOccurrenceCount) {
             return;
         }
@@ -112,7 +124,7 @@ struct FusedDeepMoeProfileWriter {
         if (logicalCoreLinear == UINT32_MAX || logicalCoreLinear >= logicalCoreCount) {
             return;
         }
-        uint32_t stageBase = GetFusedDeepMoeProfileStageBaseOffset(stageOccurrencesPacked, stageId);
+        uint32_t stageBase = GetFusedDeepMoeProfileStageBaseOffset(*stageLayout, stageId);
         uint64_t slot = (static_cast<uint64_t>(stageBase) + static_cast<uint64_t>(occurrenceId)) *
                             static_cast<uint64_t>(logicalCoreCount) +
                         static_cast<uint64_t>(logicalCoreLinear);

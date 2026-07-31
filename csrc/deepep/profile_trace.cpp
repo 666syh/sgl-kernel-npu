@@ -27,6 +27,7 @@ constexpr uint64_t kCoreTypeAic = Cam::FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC;
 constexpr uint64_t kCoreTypeAiv = Cam::FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV;
 constexpr uint64_t kMaxBytesPerRank = 128ULL * 1024ULL * 1024ULL;
 constexpr uint64_t kHeaderBytes = sizeof(Cam::FusedDeepMoeProfileHeader);
+constexpr uint64_t kStageLayoutBytes = sizeof(Cam::FusedDeepMoeProfileStageLayout);
 constexpr uint64_t kRecordBytes = sizeof(Cam::FusedDeepMoeProfileRecord);
 
 struct TraceEventRow {
@@ -50,7 +51,7 @@ struct Session {
     int64_t expectedLaunches{0};
     int64_t capturedLaunches{0};
     uint32_t groupCountCapacity{0};
-    uint64_t stageOccurrencesPacked{0};
+    Cam::FusedDeepMoeProfileStageLayout stageLayout{};
     uint32_t recordsPerLaunch{0};
     std::string profileTraceDir;
     at::Tensor profileBuffer;
@@ -67,7 +68,7 @@ struct Session {
         expectedLaunches = 0;
         capturedLaunches = 0;
         groupCountCapacity = 0;
-        stageOccurrencesPacked = 0;
+        stageLayout = Cam::FusedDeepMoeProfileStageLayout{};
         recordsPerLaunch = 0;
         profileTraceDir.clear();
         profileBuffer = at::Tensor();
@@ -103,12 +104,12 @@ static const char *StageName(uint64_t stageId)
     }
 }
 
-static std::string StageDisplayName(uint64_t stageId, uint64_t occurrenceId, uint64_t stageOccurrencesPacked)
+static std::string StageDisplayName(uint64_t stageId, uint64_t occurrenceId,
+                                    const Cam::FusedDeepMoeProfileStageLayout &stageLayout)
 {
     std::ostringstream oss;
     oss << StageName(stageId);
-    uint32_t stageOccurrenceCount =
-        Cam::UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, static_cast<uint32_t>(stageId));
+    uint32_t stageOccurrenceCount = Cam::GetProfileStageOccurrenceCount(stageLayout, static_cast<uint32_t>(stageId));
     auto stage = static_cast<Cam::FusedDeepMoeProfileStage>(stageId);
     if (stage == Cam::FusedDeepMoeProfileStage::Dispatch || stage == Cam::FusedDeepMoeProfileStage::Gmm1 ||
         stage == Cam::FusedDeepMoeProfileStage::Gmm2 || stage == Cam::FusedDeepMoeProfileStage::Combine) {
@@ -183,7 +184,8 @@ static uint64_t AlignUp(uint64_t value, uint64_t alignment)
     return ((value + alignment - 1) / alignment) * alignment;
 }
 
-static Cam::FusedDeepMoeProfileHeader BuildHeader(uint32_t launchCountCapacity, uint32_t groupCountCapacity)
+static Cam::FusedDeepMoeProfileHeader BuildHeader(uint32_t launchCountCapacity, uint32_t groupCountCapacity,
+                                                  const Cam::FusedDeepMoeProfileStageLayout &stageLayout)
 {
     Cam::FusedDeepMoeProfileHeader header{};
     header.magic = Cam::FUSED_DEEP_MOE_PROFILE_MAGIC;
@@ -192,25 +194,31 @@ static Cam::FusedDeepMoeProfileHeader BuildHeader(uint32_t launchCountCapacity, 
     header.launchCountsPacked = Cam::PackProfileLaunchCounts(launchCountCapacity, 0U);
     header.layoutPacked0 = Cam::PackProfileLayout0(static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT),
                                                    static_cast<uint16_t>(groupCountCapacity), 1U, 2U);
-    header.stageOccurrencesPacked = Cam::PackProfileStageOccurrences(groupCountCapacity, groupCountCapacity, 1U,
-                                                                     groupCountCapacity, groupCountCapacity, 1U);
-    header.layoutPacked1 = Cam::PackProfileLayout1(
-        Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
-        Cam::GetFusedDeepMoeProfileRecordsPerLaunch(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
-                                                    header.stageOccurrencesPacked));
+    header.stageOccurrencesPacked = 0;
+    header.layoutPacked1 =
+        Cam::PackProfileLayout1(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
+                                Cam::GetFusedDeepMoeProfileRecordsPerLaunch(
+                                    Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY, stageLayout));
     header.flagsPacked =
         Cam::PackProfileFlags(static_cast<uint32_t>(Cam::FUSED_DEEP_MOE_PROFILE_FLAG_SESSION_BUFFER), 0U);
     return header;
 }
 
-static void CopyHeaderToDevice(const at::Tensor &profileBuffer, const Cam::FusedDeepMoeProfileHeader &header)
+static void CopyHeaderToDevice(const at::Tensor &profileBuffer, const Cam::FusedDeepMoeProfileHeader &header,
+                               const Cam::FusedDeepMoeProfileStageLayout &stageLayout)
 {
-    TORCH_CHECK(profileBuffer.defined() && profileBuffer.numel() >= static_cast<int64_t>(sizeof(header)),
-                "profile buffer is not large enough for header.");
+    TORCH_CHECK(
+        profileBuffer.defined() && profileBuffer.numel() >= static_cast<int64_t>(kHeaderBytes + kStageLayoutBytes),
+        "profile buffer is not large enough for profile metadata.");
     auto headerCpu =
         at::empty({static_cast<int64_t>(sizeof(header))}, at::TensorOptions().device(at::kCPU).dtype(c10::kByte));
     std::memcpy(headerCpu.data_ptr<uint8_t>(), &header, sizeof(header));
     profileBuffer.narrow(0, 0, static_cast<int64_t>(sizeof(header))).copy_(headerCpu);
+    auto layoutCpu =
+        at::empty({static_cast<int64_t>(sizeof(stageLayout))}, at::TensorOptions().device(at::kCPU).dtype(c10::kByte));
+    std::memcpy(layoutCpu.data_ptr<uint8_t>(), &stageLayout, sizeof(stageLayout));
+    profileBuffer.narrow(0, static_cast<int64_t>(kHeaderBytes), static_cast<int64_t>(sizeof(stageLayout)))
+        .copy_(layoutCpu);
 }
 
 void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
@@ -235,26 +243,31 @@ void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, cons
         header->version != Cam::FUSED_DEEP_MOE_PROFILE_VERSION || header->cycleToUs == 0) {
         return;
     }
+    auto *stageLayout = reinterpret_cast<const Cam::FusedDeepMoeProfileStageLayout *>(base + kHeaderBytes);
 
     uint32_t launchCountCapacity = Cam::UnpackProfileLaunchCapacity(header->launchCountsPacked);
     uint32_t stageCount = Cam::UnpackProfileStageCount(header->layoutPacked0);
+    uint32_t groupCountCapacity = Cam::UnpackProfileGroupCountCapacity(header->layoutPacked0);
     uint32_t logicalCoreCountCapacity = Cam::UnpackProfileLogicalCoreCountCapacity(header->layoutPacked1);
     uint32_t recordsPerLaunch = Cam::UnpackProfileRecordsPerLaunch(header->layoutPacked1);
-    uint32_t dispatchOccurrence = Cam::UnpackProfileStageOccurrenceCount(
-        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Dispatch));
-    uint32_t gmm1Occurrence = Cam::UnpackProfileStageOccurrenceCount(
-        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm1));
-    uint32_t swigluOccurrence = Cam::UnpackProfileStageOccurrenceCount(
-        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::SwigluQuant));
-    uint32_t gmm2Occurrence = Cam::UnpackProfileStageOccurrenceCount(
-        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm2));
-    uint32_t combineOccurrence = Cam::UnpackProfileStageOccurrenceCount(
-        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Combine));
-    uint32_t weightSumOccurrence = Cam::UnpackProfileStageOccurrenceCount(
-        header->stageOccurrencesPacked, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::WeightSum));
+    uint32_t dispatchOccurrence = Cam::GetProfileStageOccurrenceCount(
+        *stageLayout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Dispatch));
+    uint32_t gmm1Occurrence =
+        Cam::GetProfileStageOccurrenceCount(*stageLayout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm1));
+    uint32_t swigluOccurrence = Cam::GetProfileStageOccurrenceCount(
+        *stageLayout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::SwigluQuant));
+    uint32_t gmm2Occurrence =
+        Cam::GetProfileStageOccurrenceCount(*stageLayout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm2));
+    uint32_t combineOccurrence = Cam::GetProfileStageOccurrenceCount(
+        *stageLayout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Combine));
+    uint32_t weightSumOccurrence = Cam::GetProfileStageOccurrenceCount(
+        *stageLayout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::WeightSum));
     uint32_t expectedRecordsPerLaunch =
-        Cam::GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCountCapacity, header->stageOccurrencesPacked);
-    if (stageCount != Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT ||
+        Cam::GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCountCapacity, *stageLayout);
+    if (stageCount == 0U || stageCount > Cam::FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY ||
+        stageCount > Cam::FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY || stageLayout->stageCount != stageCount ||
+        stageLayout->activeStageCapacity != Cam::FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY ||
+        groupCountCapacity == 0U || groupCountCapacity > Cam::FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY ||
         logicalCoreCountCapacity != Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY ||
         recordsPerLaunch != expectedRecordsPerLaunch || dispatchOccurrence == 0U || gmm1Occurrence == 0U ||
         swigluOccurrence == 0U || gmm2Occurrence == 0U || combineOccurrence == 0U || weightSumOccurrence == 0U) {
@@ -263,7 +276,8 @@ void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, cons
     }
 
     uint64_t perLaunchBytes = static_cast<uint64_t>(recordsPerLaunch) * sizeof(Cam::FusedDeepMoeProfileRecord);
-    uint64_t requiredBytes = kHeaderBytes + launchCountCapacity * AlignUp(perLaunchBytes, 64ULL);
+    uint64_t requiredBytes =
+        Cam::GetFusedDeepMoeProfileDataOffset() + launchCountCapacity * AlignUp(perLaunchBytes, 64ULL);
     if (profileCpu.numel() < static_cast<int64_t>(requiredBytes)) {
         TORCH_WARN("profile buffer is smaller than expected, skip export.");
         return;
@@ -279,7 +293,7 @@ void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, cons
     launches.reserve(static_cast<size_t>(captured));
     for (uint64_t launchId = 0; launchId < captured; ++launchId) {
         auto *launchBase = base + Cam::GetFusedDeepMoeProfileLaunchOffset(
-                                      static_cast<uint32_t>(kHeaderBytes), recordsPerLaunch,
+                                      Cam::GetFusedDeepMoeProfileDataOffset(), recordsPerLaunch,
                                       static_cast<uint32_t>(sizeof(Cam::FusedDeepMoeProfileRecord)), launchId);
         auto *records = reinterpret_cast<const Cam::FusedDeepMoeProfileRecord *>(launchBase);
         LaunchTraceBundle bundle;
@@ -417,16 +431,16 @@ void ExportBufferToTraceImpl(const at::Tensor &profileBuffer, int64_t rank, cons
             args << "\"stage_id\":" << row.stageId << ",";
             args << "\"stage_name\":" << JsonEscape(StageName(row.stageId)) << ",";
             args << "\"occurrence_id\":" << row.occurrenceId << ",";
-            args << "\"stage_label\":"
-                 << JsonEscape(StageDisplayName(row.stageId, row.occurrenceId, header->stageOccurrencesPacked)) << ",";
+            args << "\"stage_label\":" << JsonEscape(StageDisplayName(row.stageId, row.occurrenceId, *stageLayout))
+                 << ",";
             args << "\"launch_id\":" << row.launchId << ",";
             args << "\"iteration_id\":" << row.launchId << ",";
             args << "\"is_warmup\":" << (row.isWarmup ? "true" : "false") << ",";
             args << "\"start_cycle\":" << row.startCycle << ",";
             args << "\"end_cycle\":" << row.endCycle;
             args << "}";
-            emitEvent(StageDisplayName(row.stageId, row.occurrenceId, header->stageOccurrencesPacked), "X",
-                      static_cast<uint64_t>(rank), tid, row.ts_us, row.dur_us, args.str());
+            emitEvent(StageDisplayName(row.stageId, row.occurrenceId, *stageLayout), "X", static_cast<uint64_t>(rank),
+                      tid, row.ts_us, row.dur_us, args.str());
         }
     }
 
@@ -457,29 +471,59 @@ uint32_t GetGroupCountCapacity(int64_t numExperts, int64_t numRanks)
     return static_cast<uint32_t>(numExperts / numRanks);
 }
 
-uint64_t BuildStageOccurrencesPacked(uint32_t groupCountCapacity)
+Cam::FusedDeepMoeProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
 {
-    return Cam::PackProfileStageOccurrences(groupCountCapacity, groupCountCapacity, 1U, groupCountCapacity,
-                                            groupCountCapacity, 1U);
+    TORCH_CHECK(groupCountCapacity >= 1U && groupCountCapacity <= Cam::FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY,
+                "groupCountCapacity must be in [1, 64].");
+    Cam::FusedDeepMoeProfileStageLayout layout{};
+    layout.stageCount = static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_STAGE_COUNT);
+    layout.activeStageCapacity = static_cast<uint16_t>(Cam::FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY);
+    TORCH_CHECK(Cam::SetProfileStageOccurrenceCount(
+                    layout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Dispatch), groupCountCapacity),
+                "invalid dispatch occurrence capacity.");
+    TORCH_CHECK(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm1),
+                                                    groupCountCapacity),
+                "invalid gmm1 occurrence capacity.");
+    TORCH_CHECK(Cam::SetProfileStageOccurrenceCount(
+                    layout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::SwigluQuant), 1U),
+                "invalid swiglu occurrence capacity.");
+    TORCH_CHECK(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Gmm2),
+                                                    groupCountCapacity),
+                "invalid gmm2 occurrence capacity.");
+    TORCH_CHECK(Cam::SetProfileStageOccurrenceCount(
+                    layout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::Combine), groupCountCapacity),
+                "invalid combine occurrence capacity.");
+    TORCH_CHECK(Cam::SetProfileStageOccurrenceCount(
+                    layout, static_cast<uint32_t>(Cam::FusedDeepMoeProfileStage::WeightSum), 1U),
+                "invalid weight sum occurrence capacity.");
+    return layout;
 }
 
-uint64_t GetPerLaunchBytes(uint64_t stageOccurrencesPacked)
+uint32_t GetRecordsPerLaunch(const Cam::FusedDeepMoeProfileStageLayout &stageLayout)
 {
-    return static_cast<uint64_t>(Cam::GetFusedDeepMoeProfileRecordsPerLaunch(
-               Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY, stageOccurrencesPacked)) *
-           sizeof(Cam::FusedDeepMoeProfileRecord);
+    return Cam::GetFusedDeepMoeProfileRecordsPerLaunch(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
+                                                       stageLayout);
+}
+
+uint64_t GetPerLaunchBytes(const Cam::FusedDeepMoeProfileStageLayout &stageLayout)
+{
+    return static_cast<uint64_t>(GetRecordsPerLaunch(stageLayout)) * sizeof(Cam::FusedDeepMoeProfileRecord);
 }
 
 uint64_t GetTotalBytes(uint64_t launchCountCapacity, uint64_t perLaunchBytes)
 {
-    return kHeaderBytes + launchCountCapacity * AlignUp(perLaunchBytes, 64ULL);
+    return Cam::GetFusedDeepMoeProfileDataOffset() + launchCountCapacity * AlignUp(perLaunchBytes, 64ULL);
 }
 
 at::Tensor AllocateBuffer(uint64_t totalBytes, uint32_t launchCountCapacity, uint32_t groupCountCapacity)
 {
+    auto stageLayout = BuildStageLayout(groupCountCapacity);
     at::TensorOptions options = at::TensorOptions(torch_npu::utils::get_npu_device_type());
     auto profileBuffer = at::zeros({static_cast<int64_t>(totalBytes)}, options.dtype(c10::kByte));
-    CopyHeaderToDevice(profileBuffer, BuildHeader(launchCountCapacity, groupCountCapacity));
+    auto header = BuildHeader(launchCountCapacity, groupCountCapacity, stageLayout);
+    header.layoutPacked1 = Cam::PackProfileLayout1(Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY,
+                                                   GetRecordsPerLaunch(stageLayout));
+    CopyHeaderToDevice(profileBuffer, header, stageLayout);
     return profileBuffer;
 }
 
@@ -540,6 +584,8 @@ void Begin(int64_t numWarmups, int64_t numTests, const std::string &profileTrace
     TORCH_CHECK(!GetSessionImpl().active, "profile session is already active.");
     int64_t expectedLaunches = numWarmups + numTests;
     TORCH_CHECK(expectedLaunches > 0, "profile session needs at least one launch.");
+    TORCH_CHECK(static_cast<uint64_t>(expectedLaunches) <= UINT32_MAX,
+                "profile session launch count exceeds uint32 capacity.");
     auto &session = GetSessionImpl();
     session.Reset();
     session.active = true;
@@ -563,9 +609,9 @@ void EnsureInitialized(int64_t numExperts, int64_t numRanks)
     TORCH_CHECK(session.active, "profile session is not active.");
     TORCH_CHECK(session.launchCountCapacity > 0, "profile session launch capacity is not set.");
     uint32_t groupCountCapacity = GetGroupCountCapacity(numExperts, numRanks);
-    TORCH_CHECK(groupCountCapacity <= Cam::FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK,
+    TORCH_CHECK(groupCountCapacity >= 1U && groupCountCapacity <= Cam::FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY,
                 "profile session group count exceeds occurrence capacity: groupCountCapacity=", groupCountCapacity,
-                ", max=", Cam::FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK);
+                ", valid_range=[1, ", Cam::FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY, "]");
     if (session.initialized) {
         TORCH_CHECK(session.groupCountCapacity == groupCountCapacity,
                     "profile session group count changed within one session: expected ", session.groupCountCapacity,
@@ -574,10 +620,9 @@ void EnsureInitialized(int64_t numExperts, int64_t numRanks)
     }
 
     session.groupCountCapacity = groupCountCapacity;
-    session.stageOccurrencesPacked = BuildStageOccurrencesPacked(groupCountCapacity);
-    session.recordsPerLaunch = Cam::GetFusedDeepMoeProfileRecordsPerLaunch(
-        Cam::FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY, session.stageOccurrencesPacked);
-    session.perLaunchBytes = GetPerLaunchBytes(session.stageOccurrencesPacked);
+    session.stageLayout = BuildStageLayout(groupCountCapacity);
+    session.recordsPerLaunch = GetRecordsPerLaunch(session.stageLayout);
+    session.perLaunchBytes = GetPerLaunchBytes(session.stageLayout);
     uint64_t totalBytes = GetTotalBytes(static_cast<uint64_t>(session.launchCountCapacity), session.perLaunchBytes);
     TORCH_CHECK(totalBytes <= kMaxBytesPerRank, "profile buffer would exceed the per-rank cap: totalBytes=", totalBytes,
                 ", cap=", kMaxBytesPerRank);

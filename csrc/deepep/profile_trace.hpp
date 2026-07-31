@@ -19,8 +19,9 @@ bool IsDebugEnabled();
 void DebugPrint(const std::string &msg);
 
 uint32_t GetGroupCountCapacity(int64_t numExperts, int64_t numRanks);
-uint64_t BuildStageOccurrencesPacked(uint32_t groupCountCapacity);
-uint64_t GetPerLaunchBytes(uint64_t stageOccurrencesPacked);
+Cam::FusedDeepMoeProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity);
+uint32_t GetRecordsPerLaunch(const Cam::FusedDeepMoeProfileStageLayout &stageLayout);
+uint64_t GetPerLaunchBytes(const Cam::FusedDeepMoeProfileStageLayout &stageLayout);
 uint64_t GetTotalBytes(uint64_t launchCountCapacity, uint64_t perLaunchBytes);
 at::Tensor AllocateBuffer(uint64_t totalBytes, uint32_t launchCountCapacity, uint32_t groupCountCapacity);
 

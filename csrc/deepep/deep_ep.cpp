@@ -1172,8 +1172,8 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
         profile_buffer_bytes_i64 = static_cast<int64_t>(profile_trace::GetProfileBufferBytes());
     } else if (profile_enable) {
         uint32_t group_count_capacity = profile_trace::GetGroupCountCapacity(num_experts, num_ranks);
-        uint64_t local_per_launch_bytes =
-            profile_trace::GetPerLaunchBytes(profile_trace::BuildStageOccurrencesPacked(group_count_capacity));
+        auto stage_layout = profile_trace::BuildStageLayout(group_count_capacity);
+        uint64_t local_per_launch_bytes = profile_trace::GetPerLaunchBytes(stage_layout);
         uint64_t local_total_bytes = profile_trace::GetTotalBytes(1, local_per_launch_bytes);
         local_profile_buffer = profile_trace::AllocateBuffer(local_total_bytes, 1U, group_count_capacity);
         profile_buffer_ptr = &local_profile_buffer;

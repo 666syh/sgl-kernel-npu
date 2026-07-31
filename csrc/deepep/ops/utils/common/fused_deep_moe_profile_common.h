@@ -15,20 +15,34 @@
 
 namespace Cam {
 
+// Current runtime contract:
+//   groupCountCapacity: [1, 64]
+//   active stage count: [1, 8]
+//   logical cores: 36 AIC + 72 AIV = 108
+// Reserved protocol capacity:
+//   the metadata table has 16 stage slots.
+//   Adding stages 7..16 only requires extending the enum/config/export names;
+//   record ABI and slot calculation remain unchanged.
+//   If stage count exceeds 16, enlarge the metadata table and bump the protocol version.
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_MAGIC = 0x46444D5035413031ULL;  // FDMP5A01
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_VERSION = 2;
+constexpr uint64_t FUSED_DEEP_MOE_PROFILE_VERSION = 3;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US = 1000;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_FLAG_SESSION_BUFFER = 0x1ULL;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = 1ULL;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = 2ULL;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY = 36U;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY = 72U;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_COUNT = 6U;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_LOGICAL_CORE_COUNT_CAPACITY =
     FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY + FUSED_DEEP_MOE_PROFILE_AIV_COUNT_CAPACITY;
-constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS = 12U;
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK =
-    (1ULL << FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS) - 1ULL;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY = 8U;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY = 16U;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY = 64U;
+constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_COUNT = 6U;
+
+static_assert(FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY <= FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY,
+              "active stage capacity must fit in the reserved metadata table");
+static_assert(FUSED_DEEP_MOE_PROFILE_STAGE_COUNT <= FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY,
+              "current stage count must fit in the active stage capacity");
 
 FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileLaunchCounts(uint32_t launchCountCapacity,
                                                                          uint32_t launchCountCaptured)
@@ -47,18 +61,6 @@ FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileLayout1(uint32_t log
                                                                     uint32_t recordsPerLaunch)
 {
     return (static_cast<uint64_t>(logicalCoreCountCapacity) << 32) | static_cast<uint64_t>(recordsPerLaunch);
-}
-
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t
-PackProfileStageOccurrences(uint16_t dispatchOccurrence, uint16_t gmm1Occurrence, uint16_t swigluOccurrence,
-                            uint16_t gmm2Occurrence, uint16_t combineOccurrence, uint16_t weightSumOccurrence)
-{
-    return (static_cast<uint64_t>(dispatchOccurrence) << (0U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
-           (static_cast<uint64_t>(gmm1Occurrence) << (1U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
-           (static_cast<uint64_t>(swigluOccurrence) << (2U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
-           (static_cast<uint64_t>(gmm2Occurrence) << (3U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
-           (static_cast<uint64_t>(combineOccurrence) << (4U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) |
-           (static_cast<uint64_t>(weightSumOccurrence) << (5U * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS));
 }
 
 FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t PackProfileFlags(uint32_t flags, uint32_t droppedLaunches)
@@ -116,47 +118,74 @@ FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileDroppedLaunches(ui
     return static_cast<uint32_t>(flagsPacked >> 32);
 }
 
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t UnpackProfileStageOccurrenceCount(uint64_t stageOccurrencesPacked,
-                                                                                   uint32_t stageId)
+struct FusedDeepMoeProfileStageLayout {
+    uint16_t occurrenceCount[FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY];
+    uint16_t stageCount;
+    uint16_t activeStageCapacity;
+    uint32_t reserved[7];
+};
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr bool SetProfileStageOccurrenceCount(FusedDeepMoeProfileStageLayout &layout,
+                                                                            uint32_t stageId, uint32_t count)
 {
-    if (stageId >= FUSED_DEEP_MOE_PROFILE_STAGE_COUNT) {
-        return 0U;
+    if (stageId >= FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY ||
+        count > FUSED_DEEP_MOE_PROFILE_MAX_GROUP_COUNT_CAPACITY) {
+        return false;
     }
-    return static_cast<uint32_t>((stageOccurrencesPacked >> (stageId * FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_BITS)) &
-                                 FUSED_DEEP_MOE_PROFILE_STAGE_OCCURRENCE_MASK);
+    layout.occurrenceCount[stageId] = static_cast<uint16_t>(count);
+    return true;
 }
 
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileStageBaseOffset(uint64_t stageOccurrencesPacked,
-                                                                                       uint32_t stageId)
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t
+GetProfileStageOccurrenceCount(const FusedDeepMoeProfileStageLayout &layout, uint32_t stageId)
 {
+    if (stageId >= FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY ||
+        stageId >= static_cast<uint32_t>(layout.stageCount)) {
+        return 0U;
+    }
+    return static_cast<uint32_t>(layout.occurrenceCount[stageId]);
+}
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t
+GetFusedDeepMoeProfileStageBaseOffset(const FusedDeepMoeProfileStageLayout &layout, uint32_t stageId)
+{
+    if (stageId >= FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY ||
+        stageId >= static_cast<uint32_t>(layout.stageCount)) {
+        return 0U;
+    }
     uint32_t base = 0U;
-    for (uint32_t i = 0U; i < stageId && i < FUSED_DEEP_MOE_PROFILE_STAGE_COUNT; ++i) {
-        base += UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, i);
+    for (uint32_t i = 0U; i < stageId; ++i) {
+        base += static_cast<uint32_t>(layout.occurrenceCount[i]);
     }
     return base;
 }
 
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileTotalOccurrences(uint64_t stageOccurrencesPacked)
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t
+GetFusedDeepMoeProfileTotalOccurrences(const FusedDeepMoeProfileStageLayout &layout)
 {
     uint32_t total = 0U;
-    for (uint32_t i = 0U; i < FUSED_DEEP_MOE_PROFILE_STAGE_COUNT; ++i) {
-        total += UnpackProfileStageOccurrenceCount(stageOccurrencesPacked, i);
+    uint32_t stageCount = static_cast<uint32_t>(layout.stageCount);
+    if (stageCount > FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY) {
+        return 0U;
+    }
+    for (uint32_t i = 0U; i < stageCount; ++i) {
+        total += static_cast<uint32_t>(layout.occurrenceCount[i]);
     }
     return total;
 }
 
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileRecordsPerLaunch(uint32_t logicalCoreCount,
-                                                                                        uint64_t stageOccurrencesPacked)
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t
+GetFusedDeepMoeProfileRecordsPerLaunch(uint32_t logicalCoreCount, const FusedDeepMoeProfileStageLayout &layout)
 {
-    return logicalCoreCount * GetFusedDeepMoeProfileTotalOccurrences(stageOccurrencesPacked);
+    return logicalCoreCount * GetFusedDeepMoeProfileTotalOccurrences(layout);
 }
 
-FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t GetFusedDeepMoeProfileLaunchOffset(uint32_t headerBytes,
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint64_t GetFusedDeepMoeProfileLaunchOffset(uint32_t dataOffset,
                                                                                     uint32_t recordsPerLaunch,
                                                                                     uint32_t recordBytes,
                                                                                     uint64_t launchId)
 {
-    return static_cast<uint64_t>(headerBytes) +
+    return static_cast<uint64_t>(dataOffset) +
            launchId * static_cast<uint64_t>(recordsPerLaunch) * static_cast<uint64_t>(recordBytes);
 }
 
@@ -191,9 +220,16 @@ struct FusedDeepMoeProfileHeader {
     uint64_t launchCountsPacked;
     uint64_t layoutPacked0;
     uint64_t layoutPacked1;
-    uint64_t stageOccurrencesPacked;
+    uint64_t stageOccurrencesPacked;  // Reserved for pre-v3 readers; must not be used by v3 code.
     uint64_t flagsPacked;
 };
+
+FUSED_DEEP_MOE_PROFILE_INLINE constexpr uint32_t GetFusedDeepMoeProfileDataOffset()
+{
+    constexpr uint32_t raw = static_cast<uint32_t>(sizeof(FusedDeepMoeProfileHeader)) +
+                             static_cast<uint32_t>(sizeof(FusedDeepMoeProfileStageLayout));
+    return (raw + 63U) / 64U * 64U;
+}
 
 struct FusedDeepMoeProfileRecord {
     uint64_t coreType;
@@ -207,6 +243,7 @@ struct FusedDeepMoeProfileRecord {
 };
 
 static_assert(sizeof(FusedDeepMoeProfileHeader) == 64, "Unexpected fused profile header size");
+static_assert(sizeof(FusedDeepMoeProfileStageLayout) == 64, "Unexpected fused profile stage layout size");
 static_assert(sizeof(FusedDeepMoeProfileRecord) == 64, "Unexpected fused profile record size");
 
 }  // namespace Cam
