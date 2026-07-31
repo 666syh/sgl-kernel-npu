@@ -1339,10 +1339,6 @@ public:
         AscendC::SetCtrlSpr<60, 60>(0);
         AivInitParams(params);
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-            uint64_t profDispatchStart = 0;
-            if (params.profile != nullptr) {
-                profDispatchStart = params.profile->Now();
-            }
             AivInitState();
             if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
                 if (isShareQuantCore) {
@@ -1356,9 +1352,6 @@ public:
             }
             if (isRecvCore) {
                 RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount);
-            }
-            if (params.profile != nullptr) {
-                params.profile->Record(FusedDeepMoeProfileStage::Dispatch, profDispatchStart, params.profile->Now());
             }
         }
 
@@ -1428,6 +1421,10 @@ public:
             AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
 
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+                uint64_t profGroupStart = 0;
+                if (params.profile != nullptr) {
+                    profGroupStart = params.profile->Now();
+                }
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                     groupTokenNumStateTensor.SetGlobalBuffer(
                         (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) + groupIdx * GROUP_INFO_SIZE);
@@ -1473,6 +1470,12 @@ public:
                 totalM += inGroupProblemShape.m();
 
                 startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
+                if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                    if (params.profile != nullptr) {
+                        params.profile->Record(FusedDeepMoeProfileStage::Dispatch, groupIdx, profGroupStart,
+                                               params.profile->Now());
+                    }
+                }
             }
             AscendC::PipeBarrier<PIPE_ALL>();
         }
