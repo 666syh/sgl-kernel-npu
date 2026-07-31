@@ -1332,10 +1332,6 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
-        uint64_t profStart = 0;
-        if (params.profile != nullptr) {
-            profStart = params.profile->Now();
-        }
         AscendC::SetCtrlSpr<60, 60>(0);
         AivInitParams(params);
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
@@ -1491,11 +1487,16 @@ public:
                                    params.shareProblemShape.n(), startCoreIdx);
         }
         {
+            uint64_t profSwigluQuantStart = 0;
+            if (params.profile != nullptr) {
+                profSwigluQuantStart = params.profile->Now();
+            }
             PostSwigluDynamicQuant(params.gmSwigluOut, params.ptrX2, params.gmX2Scale, totalTokenNum,
                                    params.problemShape.n(), startCoreIdx);
-        }
-        if (params.profile != nullptr) {
-            params.profile->Record(FusedDeepMoeProfileStage::SwigluQuant, profStart, params.profile->Now());
+            if (params.profile != nullptr) {
+                params.profile->Record(FusedDeepMoeProfileStage::SwigluQuant, profSwigluQuantStart,
+                                       params.profile->Now());
+            }
         }
     }
 
