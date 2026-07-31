@@ -20,7 +20,9 @@ struct FusedDeepMoeProfileWriter {
     uint32_t recordsPerLaunch{0};
     uint32_t launchId{0};
     uint64_t profileBufferBytes{0};
-    __gm__ const FusedDeepMoeProfileStageLayout *stageLayout{nullptr};
+    // Keep the metadata layout in local memory.  AscendC does not allow a
+    // __gm__ object to bind to the common helper's local-memory reference.
+    FusedDeepMoeProfileStageLayout stageLayout{};
 
     __aicore__ inline void Init(GM_ADDR profileGM, bool enable, uint32_t launchId_, uint32_t coreType_,
                                 uint64_t profileBufferBytes_)
@@ -52,14 +54,25 @@ struct FusedDeepMoeProfileWriter {
         uint32_t layoutGroupCountCapacity = UnpackProfileGroupCountCapacity(header->layoutPacked0);
         logicalCoreCount = UnpackProfileLogicalCoreCountCapacity(header->layoutPacked1);
         recordsPerLaunch = UnpackProfileRecordsPerLaunch(header->layoutPacked1);
-        stageLayout =
+        // The metadata block is only 64B and this writer has no UB queue
+        // available. Read its scalar fields into the local snapshot instead
+        // of passing a GM object to the host/device-shared helpers.
+        auto *stageLayoutGM =
             reinterpret_cast<__gm__ const FusedDeepMoeProfileStageLayout *>(base + sizeof(FusedDeepMoeProfileHeader));
-        uint32_t layoutActiveStageCapacity = static_cast<uint32_t>(stageLayout->activeStageCapacity);
-        uint32_t layoutRecordsPerLaunch = GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCount, *stageLayout);
+        for (uint32_t i = 0U; i < FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY; ++i) {
+            stageLayout.occurrenceCount[i] = stageLayoutGM->occurrenceCount[i];
+        }
+        stageLayout.stageCount = stageLayoutGM->stageCount;
+        stageLayout.activeStageCapacity = stageLayoutGM->activeStageCapacity;
+        for (uint32_t i = 0U; i < 7U; ++i) {
+            stageLayout.reserved[i] = 0U;
+        }
+        uint32_t layoutActiveStageCapacity = static_cast<uint32_t>(stageLayout.activeStageCapacity);
+        uint32_t layoutRecordsPerLaunch = GetFusedDeepMoeProfileRecordsPerLaunch(logicalCoreCount, stageLayout);
         if (launchId >= launchCountCapacity || layoutStageCount == 0U ||
             layoutStageCount > FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY ||
             layoutStageCount > FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY || layoutStageCount != stageCount ||
-            stageLayout->stageCount != stageCount ||
+            stageLayout.stageCount != stageCount ||
             layoutActiveStageCapacity != FUSED_DEEP_MOE_PROFILE_ACTIVE_STAGE_CAPACITY ||
             layoutActiveStageCapacity > FUSED_DEEP_MOE_PROFILE_RESERVED_STAGE_CAPACITY ||
             layoutGroupCountCapacity == 0U ||
@@ -113,10 +126,7 @@ struct FusedDeepMoeProfileWriter {
         if (stageId >= stageCount) {
             return;
         }
-        if (stageLayout == nullptr) {
-            return;
-        }
-        uint32_t stageOccurrenceCount = GetProfileStageOccurrenceCount(*stageLayout, stageId);
+        uint32_t stageOccurrenceCount = GetProfileStageOccurrenceCount(stageLayout, stageId);
         if (occurrenceId >= stageOccurrenceCount) {
             return;
         }
@@ -124,7 +134,7 @@ struct FusedDeepMoeProfileWriter {
         if (logicalCoreLinear == UINT32_MAX || logicalCoreLinear >= logicalCoreCount) {
             return;
         }
-        uint32_t stageBase = GetFusedDeepMoeProfileStageBaseOffset(*stageLayout, stageId);
+        uint32_t stageBase = GetFusedDeepMoeProfileStageBaseOffset(stageLayout, stageId);
         uint64_t slot = (static_cast<uint64_t>(stageBase) + static_cast<uint64_t>(occurrenceId)) *
                             static_cast<uint64_t>(logicalCoreCount) +
                         static_cast<uint64_t>(logicalCoreLinear);
