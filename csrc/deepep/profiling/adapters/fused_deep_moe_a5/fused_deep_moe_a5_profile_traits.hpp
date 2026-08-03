@@ -18,6 +18,8 @@ static_assert(kStageCount <= Cam::PROFILE_ACTIVE_STAGE_CAPACITY,
               "fused_deep_moe_a5 stage count must fit in active profiling stage capacity");
 
 const ProfileSchema &GetProfileSchema();
+const ProfileOpRegistration &GetProfileRegistration();
+const char *GetLaunchEventName();
 const char *GetStageName(uint64_t stageId);
 std::string GetStageDisplayName(uint64_t stageId, uint64_t occurrenceId, const Cam::ProfileStageLayout &stageLayout);
 Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity);

@@ -19,6 +19,7 @@ struct ProfileLaunchContext {
     bool sessionActive{false};
     int64_t launchId{0};
     int64_t profileBufferBytes{0};
+    const ProfileOpRegistration *registration{nullptr};
     const at::Tensor *profileBuffer{nullptr};
     at::Tensor ownedProfileBuffer;
 };
@@ -26,14 +27,17 @@ struct ProfileLaunchContext {
 bool IsDebugEnabled();
 void DebugPrint(const std::string &msg);
 bool IsSessionActive();
+std::string GetProfileTraceDir();
+int64_t GetNumProfileSkipLaunches();
+int64_t GetNumProfileActiveLaunches();
+int64_t GetExpectedLaunches();
 
-void BeginSession(const ProfileSchema &schema, int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches,
-                  const std::string &profileTraceDir);
+void BeginSession(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir);
 void EndSession(int64_t rank);
 
-ProfileLaunchContext PrepareLaunch(bool profileEnable, uint32_t groupCountCapacity,
-                                   const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema);
-void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const ProfileSchema &schema);
+ProfileLaunchContext PrepareLaunch(const ProfileOpRegistration &registration, const ProfileLaunchConfig &launchConfig,
+                                   bool profileEnable);
+void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank);
 
 }  // namespace deep_ep::profiling::runtime
 

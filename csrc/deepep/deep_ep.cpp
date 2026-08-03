@@ -1165,9 +1165,9 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
         std::ostringstream oss;
         oss << "fused_deep_moe entry: profile_enable=" << profile_enable << ", use_profile=" << use_profile
             << ", session_active=" << profile_session_active
-            << ", trace_dir=" << profiling::fused_deep_moe_a5::GetProfileTraceDir()
-            << ", num_profile_skip_launches=" << profiling::fused_deep_moe_a5::GetNumProfileSkipLaunches()
-            << ", num_profile_active_launches=" << profiling::fused_deep_moe_a5::GetNumProfileActiveLaunches()
+            << ", trace_dir=" << profiling::runtime::GetProfileTraceDir()
+            << ", num_profile_skip_launches=" << profiling::runtime::GetNumProfileSkipLaunches()
+            << ", num_profile_active_launches=" << profiling::runtime::GetNumProfileActiveLaunches()
             << ", launch_id=" << profile_launch_id_i64 << ", profile_buffer_bytes=" << profile_buffer_bytes_i64;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
@@ -1225,41 +1225,30 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
 void Buffer::begin_profile(int64_t num_profile_skip_launches, int64_t num_profile_active_launches,
                            const std::string &profile_trace_dir)
 {
-    profiling::fused_deep_moe_a5::BeginProfile(num_profile_skip_launches, num_profile_active_launches,
-                                               profile_trace_dir);
+    profiling::runtime::BeginSession(num_profile_skip_launches, num_profile_active_launches, profile_trace_dir);
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
         oss << "begin session: rank=" << rank << ", num_profile_skip_launches=" << num_profile_skip_launches
-            << ", num_profile_active_launches=" << num_profile_active_launches
-            << ", launch_capacity=" << profiling::fused_deep_moe_a5::GetLaunchCountCapacity()
-            << ", trace_dir=" << profile_trace_dir;
+            << ", num_profile_active_launches=" << num_profile_active_launches << ", trace_dir=" << profile_trace_dir;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
 }
 
 void Buffer::end_profile()
 {
-    if (!profiling::fused_deep_moe_a5::IsActive()) {
+    if (!profiling::runtime::IsSessionActive()) {
         if (IsFusedDeepMoeProfileDebugEnabled()) {
             FusedDeepMoeProfileDebugPrint("end session ignored: inactive");
         }
         return;
     }
-    if (profiling::fused_deep_moe_a5::GetCapturedLaunches() != profiling::fused_deep_moe_a5::GetExpectedLaunches() ||
-        profiling::fused_deep_moe_a5::GetDroppedLaunches() > 0) {
-        TORCH_WARN("FusedDeepMoe profile session captured ", profiling::fused_deep_moe_a5::GetCapturedLaunches(),
-                   " launches, expected ", profiling::fused_deep_moe_a5::GetExpectedLaunches(),
-                   ", dropped extra launches=", profiling::fused_deep_moe_a5::GetDroppedLaunches(), ".");
-    }
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
-        oss << "end session: launches=" << profiling::fused_deep_moe_a5::GetCapturedLaunches()
-            << ", expected=" << profiling::fused_deep_moe_a5::GetExpectedLaunches()
-            << ", dropped=" << profiling::fused_deep_moe_a5::GetDroppedLaunches()
-            << ", trace_dir=" << profiling::fused_deep_moe_a5::GetProfileTraceDir();
+        oss << "end session: expected=" << profiling::runtime::GetExpectedLaunches()
+            << ", trace_dir=" << profiling::runtime::GetProfileTraceDir();
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
-    profiling::fused_deep_moe_a5::EndProfile(rank);
+    profiling::runtime::EndSession(rank);
 }
 
 std::vector<at::Tensor> Buffer::dispatch_ffn_combine(const at::Tensor &x, const at::Tensor &expert_ids,

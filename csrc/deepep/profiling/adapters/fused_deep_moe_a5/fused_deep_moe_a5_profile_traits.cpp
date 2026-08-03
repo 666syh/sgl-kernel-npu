@@ -23,6 +23,21 @@ const ProfileSchema &GetProfileSchema()
     return schema;
 }
 
+const ProfileOpRegistration &GetProfileRegistration()
+{
+    static const ProfileOpRegistration registration{
+        "fused_deep_moe_a5",
+        &GetProfileSchema,
+        &GetLaunchEventName,
+    };
+    return registration;
+}
+
+const char *GetLaunchEventName()
+{
+    return "fused_deep_moe_launch";
+}
+
 const char *GetStageName(uint64_t stageId)
 {
     switch (static_cast<ProfileStage>(stageId)) {

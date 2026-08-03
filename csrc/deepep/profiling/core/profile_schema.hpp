@@ -27,6 +27,17 @@ struct ProfileSchema {
                                     const Cam::ProfileStageLayout &layout){nullptr};
 };
 
+struct ProfileLaunchConfig {
+    uint32_t groupCountCapacity{0};
+    Cam::ProfileStageLayout stageLayout{};
+};
+
+struct ProfileOpRegistration {
+    const char *opKey{nullptr};
+    const ProfileSchema &(*schemaProvider)(){nullptr};
+    const char *(*launchEventName)(){nullptr};
+};
+
 }  // namespace deep_ep::profiling
 
 #endif  // DEEPEP_PROFILING_CORE_PROFILE_SCHEMA_HPP

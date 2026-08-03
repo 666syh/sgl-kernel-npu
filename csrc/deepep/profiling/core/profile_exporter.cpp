@@ -18,6 +18,10 @@ namespace deep_ep::profiling::exporter {
 namespace {
 
 struct TraceEventRow {
+    std::string opName;
+    std::string launchEventName;
+    std::string stageName;
+    std::string stageLabel;
     double ts_us{0.0};
     double dur_us{0.0};
     int64_t launchId{0};
@@ -28,6 +32,16 @@ struct TraceEventRow {
     uint64_t occurrenceId{0};
     uint64_t startCycle{0};
     uint64_t endCycle{0};
+};
+
+struct LaunchTraceBundle {
+    std::string opName;
+    std::string launchEventName;
+    int64_t launchId{0};
+    bool isWarmup{false};
+    uint64_t minStartCycle{0};
+    uint64_t maxEndCycle{0};
+    std::vector<TraceEventRow> rows;
 };
 
 static std::string JsonEscape(const std::string &value)
@@ -82,21 +96,17 @@ static std::string CoreTypeName(uint64_t coreType)
     return (coreType == Cam::PROFILE_CORE_TYPE_AIV) ? "AIV" : "AIC";
 }
 
-}  // namespace
-
-void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
-                         int64_t numProfileSkipLaunches, int64_t launchCountCaptured, const ProfileSchema &schema)
+static std::string DefaultLaunchEventName(const ProfileSchema &schema)
 {
-    struct LaunchTraceBundle {
-        int64_t launchId{0};
-        bool isWarmup{false};
-        uint64_t minStartCycle{0};
-        uint64_t maxEndCycle{0};
-        std::vector<TraceEventRow> rows;
-    };
+    return std::string(schema.opName ? schema.opName : "profile") + "_launch";
+}
 
+static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileSkipLaunches,
+                            int64_t launchCountCaptured, const ProfileSchema &schema, const char *launchEventName,
+                            std::vector<LaunchTraceBundle> &launches)
+{
     if (!profileBuffer.defined() || profileBuffer.numel() == 0) {
-        return;
+        return false;
     }
 
     auto profileCpu = profileBuffer.to(at::kCPU).contiguous();
@@ -104,7 +114,7 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
     auto *header = reinterpret_cast<const Cam::ProfileHeader *>(base);
     if (header == nullptr || header->magic != Cam::PROFILE_MAGIC || header->version != Cam::PROFILE_VERSION ||
         header->cycleToUs == 0) {
-        return;
+        return false;
     }
     auto *stageLayout = reinterpret_cast<const Cam::ProfileStageLayout *>(base + sizeof(Cam::ProfileHeader));
 
@@ -119,31 +129,38 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
         stageLayout->activeStageCapacity != Cam::PROFILE_ACTIVE_STAGE_CAPACITY || groupCountCapacity == 0U ||
         groupCountCapacity > Cam::PROFILE_MAX_GROUP_COUNT_CAPACITY ||
         logicalCoreCountCapacity != schema.topology.logicalCoreCount || recordsPerLaunch != expectedRecordsPerLaunch) {
-        TORCH_WARN("Unexpected profile layout, skip export.");
-        return;
+        TORCH_WARN("Unexpected profile layout for op=", schema.opName ? schema.opName : "profile", ", skip export.");
+        return false;
     }
 
     uint64_t perLaunchBytes = static_cast<uint64_t>(recordsPerLaunch) * sizeof(Cam::ProfileRecord);
     uint64_t requiredBytes = Cam::GetProfileDataOffset() + launchCountCapacity * AlignUp(perLaunchBytes, 64ULL);
     if (profileCpu.numel() < static_cast<int64_t>(requiredBytes)) {
-        TORCH_WARN("profile buffer is smaller than expected, skip export.");
-        return;
+        TORCH_WARN("profile buffer is smaller than expected for op=", schema.opName ? schema.opName : "profile",
+                   ", skip export.");
+        return false;
     }
 
     uint64_t captured = static_cast<uint64_t>(std::max<int64_t>(0, launchCountCaptured));
     captured = std::min<uint64_t>(captured, launchCountCapacity);
     if (captured == 0) {
-        return;
+        return false;
     }
 
-    std::vector<LaunchTraceBundle> launches;
-    launches.reserve(static_cast<size_t>(captured));
+    std::string opName = schema.opName ? schema.opName : "profile";
+    std::string launchName = (launchEventName != nullptr && launchEventName[0] != '\0')
+                                 ? std::string(launchEventName)
+                                 : DefaultLaunchEventName(schema);
+
+    launches.reserve(launches.size() + static_cast<size_t>(captured));
     for (uint64_t launchId = 0; launchId < captured; ++launchId) {
         auto *launchBase =
             base + Cam::GetProfileLaunchOffset(Cam::GetProfileDataOffset(), recordsPerLaunch,
                                                static_cast<uint32_t>(sizeof(Cam::ProfileRecord)), launchId);
         auto *records = reinterpret_cast<const Cam::ProfileRecord *>(launchBase);
         LaunchTraceBundle bundle;
+        bundle.opName = opName;
+        bundle.launchEventName = launchName;
         bundle.launchId = static_cast<int64_t>(launchId);
         bundle.isWarmup = static_cast<int64_t>(launchId) < numProfileSkipLaunches;
         bool haveRange = false;
@@ -152,12 +169,25 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
             if (record.endCycle <= record.startCycle) {
                 continue;
             }
-            bundle.rows.push_back(
-                {static_cast<double>(record.startCycle) / static_cast<double>(header->cycleToUs),
-                 static_cast<double>(record.endCycle - record.startCycle) / static_cast<double>(header->cycleToUs),
-                 static_cast<int64_t>(record.launchId), static_cast<int64_t>(record.launchId) < numProfileSkipLaunches,
-                 record.coreType, record.coreIdx, record.stageId, record.occurrenceId, record.startCycle,
-                 record.endCycle});
+            TraceEventRow row;
+            row.opName = opName;
+            row.launchEventName = launchName;
+            row.stageName = schema.stageName ? schema.stageName(record.stageId) : "unknown";
+            row.stageLabel = schema.stageDisplayName
+                                 ? schema.stageDisplayName(record.stageId, record.occurrenceId, *stageLayout)
+                                 : std::string("unknown");
+            row.ts_us = static_cast<double>(record.startCycle) / static_cast<double>(header->cycleToUs);
+            row.dur_us =
+                static_cast<double>(record.endCycle - record.startCycle) / static_cast<double>(header->cycleToUs);
+            row.launchId = static_cast<int64_t>(record.launchId);
+            row.isWarmup = static_cast<int64_t>(record.launchId) < numProfileSkipLaunches;
+            row.coreType = record.coreType;
+            row.coreIdx = record.coreIdx;
+            row.stageId = record.stageId;
+            row.occurrenceId = record.occurrenceId;
+            row.startCycle = record.startCycle;
+            row.endCycle = record.endCycle;
+            bundle.rows.push_back(std::move(row));
             if (!haveRange) {
                 bundle.minStartCycle = record.startCycle;
                 bundle.maxEndCycle = record.endCycle;
@@ -187,38 +217,45 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
         }
     }
 
-    if (launches.empty()) {
-        return;
-    }
+    return !launches.empty();
+}
 
+static std::filesystem::path ResolveTracePath(const std::string &profileTraceDir, const std::string &fileName)
+{
     std::filesystem::path traceDir =
         std::filesystem::path(profileTraceDir.empty() ? std::filesystem::current_path().string() : profileTraceDir);
     std::error_code ec;
     std::filesystem::create_directories(traceDir, ec);
     if (ec) {
         TORCH_WARN("Failed to create profile trace dir: ", traceDir.string(), ", error=", ec.message());
-        return;
+        return {};
+    }
+    return traceDir / fileName;
+}
+
+static bool WriteTraceFile(const std::vector<LaunchTraceBundle> &launches, int64_t rank, const std::string &tracePath)
+{
+    if (launches.empty()) {
+        return false;
     }
 
-    std::filesystem::path tracePath =
-        traceDir / (std::string(schema.opName ? schema.opName : "profile") + "_rank" + std::to_string(rank) + ".json");
     std::ofstream ofs(tracePath, std::ios::out | std::ios::trunc);
     if (!ofs.is_open()) {
-        TORCH_WARN("Failed to open profile trace file: ", tracePath.string());
-        return;
+        TORCH_WARN("Failed to open profile trace file: ", tracePath);
+        return false;
     }
 
     ofs << "{\n  \"traceEvents\": [\n";
     bool needComma = false;
-    auto emitEvent = [&](const std::string &name, const std::string &ph, uint64_t pid, uint64_t tid, double ts,
-                         double dur, const std::string &argsJson) {
+    auto emitEvent = [&](const std::string &name, const std::string &cat, const std::string &ph, uint64_t pid,
+                         uint64_t tid, double ts, double dur, const std::string &argsJson) {
         if (needComma) {
             ofs << ",\n";
         }
         needComma = true;
         ofs << "    {"
             << "\"name\":" << JsonEscape(name) << ","
-            << "\"cat\":" << JsonEscape(schema.opName ? schema.opName : "profile") << ","
+            << "\"cat\":" << JsonEscape(cat) << ","
             << "\"ph\":" << JsonEscape(ph) << ","
             << "\"ts\":" << std::fixed << std::setprecision(3) << ts << ","
             << "\"pid\":" << pid << ","
@@ -232,18 +269,21 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
         ofs << "}";
     };
 
-    emitEvent("process_name", "M", static_cast<uint64_t>(rank), 0, 0.0, 0.0,
+    emitEvent("process_name", "profile", "M", static_cast<uint64_t>(rank), 0, 0.0, 0.0,
               std::string("{\"name\":") + JsonEscape("rank" + std::to_string(rank)) + "}");
 
     std::set<uint64_t> seenThreads;
-    for (const auto &bundle : launches) {
-        uint64_t launchTid = 1000000ULL + static_cast<uint64_t>(bundle.launchId);
-        emitEvent(std::string(schema.opName ? schema.opName : "profile") + "_launch", "X", static_cast<uint64_t>(rank),
-                  launchTid, static_cast<double>(bundle.minStartCycle) / Cam::PROFILE_CYCLE_TO_US,
+    for (size_t sourceIdx = 0; sourceIdx < launches.size(); ++sourceIdx) {
+        const auto &bundle = launches[sourceIdx];
+        uint64_t launchTid = 1000000ULL + static_cast<uint64_t>(sourceIdx) * 100000ULL +
+                             static_cast<uint64_t>(std::max<int64_t>(0, bundle.launchId));
+        emitEvent(bundle.launchEventName, bundle.opName, "X", static_cast<uint64_t>(rank), launchTid,
+                  static_cast<double>(bundle.minStartCycle) / Cam::PROFILE_CYCLE_TO_US,
                   static_cast<double>(bundle.maxEndCycle - bundle.minStartCycle) /
                       static_cast<double>(Cam::PROFILE_CYCLE_TO_US),
-                  std::string("{\"rank\":") + std::to_string(rank) + ",\"launch_id\":" +
-                      std::to_string(bundle.launchId) + ",\"iteration_id\":" + std::to_string(bundle.launchId) +
+                  std::string("{\"rank\":") + std::to_string(rank) + ",\"op_name\":" + JsonEscape(bundle.opName) +
+                      ",\"launch_id\":" + std::to_string(bundle.launchId) +
+                      ",\"iteration_id\":" + std::to_string(bundle.launchId) +
                       ",\"is_warmup\":" + (bundle.isWarmup ? std::string("true") : std::string("false")) + "}");
 
         for (const auto &row : bundle.rows) {
@@ -252,7 +292,7 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
                 continue;
             }
             if (seenThreads.insert(tid).second) {
-                emitEvent("thread_name", "M", static_cast<uint64_t>(rank), tid, 0.0, 0.0,
+                emitEvent("thread_name", "profile", "M", static_cast<uint64_t>(rank), tid, 0.0, 0.0,
                           std::string("{\"name\":") +
                               JsonEscape(CoreTypeName(row.coreType) + "-" + std::to_string(row.coreIdx)) + "}");
             }
@@ -266,31 +306,79 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
             std::ostringstream args;
             args << "{";
             args << "\"rank\":" << rank << ",";
+            args << "\"op_name\":" << JsonEscape(row.opName) << ",";
             args << "\"core_type\":" << JsonEscape(CoreTypeName(row.coreType)) << ",";
             args << "\"core_type_raw\":" << row.coreType << ",";
             args << "\"core_idx\":" << row.coreIdx << ",";
             args << "\"stage_id\":" << row.stageId << ",";
-            args << "\"stage_name\":" << JsonEscape(schema.stageName ? schema.stageName(row.stageId) : "unknown")
-                 << ",";
+            args << "\"stage_name\":" << JsonEscape(row.stageName) << ",";
             args << "\"occurrence_id\":" << row.occurrenceId << ",";
-            args << "\"stage_label\":"
-                 << JsonEscape(schema.stageDisplayName
-                                   ? schema.stageDisplayName(row.stageId, row.occurrenceId, *stageLayout)
-                                   : std::string("unknown"))
-                 << ",";
+            args << "\"stage_label\":" << JsonEscape(row.stageLabel) << ",";
             args << "\"launch_id\":" << row.launchId << ",";
             args << "\"iteration_id\":" << row.launchId << ",";
             args << "\"is_warmup\":" << (row.isWarmup ? "true" : "false") << ",";
             args << "\"start_cycle\":" << row.startCycle << ",";
             args << "\"end_cycle\":" << row.endCycle;
             args << "}";
-            emitEvent(schema.stageDisplayName ? schema.stageDisplayName(row.stageId, row.occurrenceId, *stageLayout)
-                                              : std::string("unknown"),
-                      "X", static_cast<uint64_t>(rank), tid, row.ts_us, row.dur_us, args.str());
+            emitEvent(row.stageLabel, row.opName, "X", static_cast<uint64_t>(rank), tid, row.ts_us, row.dur_us,
+                      args.str());
         }
     }
 
     ofs << "\n  ]\n}\n";
+    return true;
+}
+
+}  // namespace
+
+void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
+                         int64_t numProfileSkipLaunches, int64_t launchCountCaptured, const ProfileSchema &schema)
+{
+    std::vector<LaunchTraceBundle> launches;
+    if (!CollectLaunches(profileBuffer, numProfileSkipLaunches, launchCountCaptured, schema, nullptr, launches)) {
+        return;
+    }
+
+    std::filesystem::path tracePath =
+        ResolveTracePath(profileTraceDir, std::string(schema.opName ? schema.opName : "profile") + "_rank" +
+                                              std::to_string(rank) + ".json");
+    if (tracePath.empty()) {
+        return;
+    }
+    WriteTraceFile(launches, rank, tracePath.string());
+}
+
+void ExportAggregatedTrace(const std::vector<ProfileTraceSource> &sources, int64_t rank,
+                           const std::string &profileTraceDir)
+{
+    std::vector<LaunchTraceBundle> launches;
+    for (const auto &source : sources) {
+        if (source.profileBuffer == nullptr || source.schema == nullptr) {
+            continue;
+        }
+        CollectLaunches(*source.profileBuffer, source.numProfileSkipLaunches, source.launchCountCaptured,
+                        *source.schema, source.launchEventName, launches);
+    }
+    if (launches.empty()) {
+        return;
+    }
+
+    std::sort(launches.begin(), launches.end(), [](const LaunchTraceBundle &lhs, const LaunchTraceBundle &rhs) {
+        if (lhs.minStartCycle != rhs.minStartCycle) {
+            return lhs.minStartCycle < rhs.minStartCycle;
+        }
+        if (lhs.opName != rhs.opName) {
+            return lhs.opName < rhs.opName;
+        }
+        return lhs.launchId < rhs.launchId;
+    });
+
+    std::filesystem::path tracePath =
+        ResolveTracePath(profileTraceDir, "profile_rank" + std::to_string(rank) + ".json");
+    if (tracePath.empty()) {
+        return;
+    }
+    WriteTraceFile(launches, rank, tracePath.string());
 }
 
 }  // namespace deep_ep::profiling::exporter
