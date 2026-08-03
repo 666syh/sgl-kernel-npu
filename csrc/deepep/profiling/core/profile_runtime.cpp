@@ -27,9 +27,10 @@ bool IsSessionActive()
     return session::IsActive();
 }
 
-void BeginSession(const ProfileSchema &schema, int64_t numWarmups, int64_t numTests, const std::string &profileTraceDir)
+void BeginSession(const ProfileSchema &schema, int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches,
+                  const std::string &profileTraceDir)
 {
-    session::Begin(schema, numWarmups, numTests, profileTraceDir);
+    session::Begin(schema, numProfileSkipLaunches, numProfileActiveLaunches, profileTraceDir);
 }
 
 void EndSession(int64_t rank)
@@ -37,7 +38,7 @@ void EndSession(int64_t rank)
     session::ExportAndReset(rank);
 }
 
-ProfileLaunchContext PrepareLaunch(bool profileEnable, const std::string &profileTraceDir, uint32_t groupCountCapacity,
+ProfileLaunchContext PrepareLaunch(bool profileEnable, uint32_t groupCountCapacity,
                                    const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema)
 {
     ProfileLaunchContext ctx{};
@@ -68,14 +69,13 @@ ProfileLaunchContext PrepareLaunch(bool profileEnable, const std::string &profil
     if (debug::IsEnabled()) {
         std::ostringstream oss;
         oss << "prepare one-shot launch: op=" << (schema.opName ? schema.opName : "profile")
-            << ", bytes=" << ctx.profileBufferBytes << ", trace_dir=" << profileTraceDir;
+            << ", bytes=" << ctx.profileBufferBytes << ", trace_dir=" << session::GetProfileTraceDir();
         debug::Print(oss.str());
     }
     return ctx;
 }
 
-void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const std::string &profileTraceDir,
-                    const ProfileSchema &schema)
+void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const ProfileSchema &schema)
 {
     if (!ctx.enabled) {
         return;
@@ -85,7 +85,8 @@ void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const std::st
         if (debug::IsEnabled()) {
             std::ostringstream oss;
             oss << "captured launch=" << (session::GetCapturedLaunches() - 1)
-                << ", op=" << (schema.opName ? schema.opName : "profile") << ", trace_dir=" << profileTraceDir;
+                << ", op=" << (schema.opName ? schema.opName : "profile")
+                << ", trace_dir=" << session::GetProfileTraceDir();
             debug::Print(oss.str());
         }
         return;
@@ -93,7 +94,7 @@ void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const std::st
 
     TORCH_CHECK(ctx.profileBuffer != nullptr && ctx.profileBuffer->defined(), schema.opName ? schema.opName : "profile",
                 " one-shot profile buffer is missing.");
-    exporter::ExportBufferToTrace(*ctx.profileBuffer, rank, profileTraceDir, 0, 1, schema);
+    exporter::ExportBufferToTrace(*ctx.profileBuffer, rank, session::GetProfileTraceDir(), 0, 1, schema);
 }
 
 }  // namespace deep_ep::profiling::runtime

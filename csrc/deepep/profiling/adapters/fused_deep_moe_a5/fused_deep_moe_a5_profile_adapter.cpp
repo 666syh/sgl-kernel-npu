@@ -23,27 +23,26 @@ bool IsActive()
     return runtime::IsSessionActive();
 }
 
-void Begin(int64_t numWarmups, int64_t numTests, const std::string &profileTraceDir)
+void BeginProfile(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir)
 {
-    runtime::BeginSession(GetProfileSchema(), numWarmups, numTests, profileTraceDir);
+    runtime::BeginSession(GetProfileSchema(), numProfileSkipLaunches, numProfileActiveLaunches, profileTraceDir);
 }
 
-void End(int64_t rank)
+void EndProfile(int64_t rank)
 {
     runtime::EndSession(rank);
 }
 
-LaunchContext PrepareLaunch(int64_t numExperts, int64_t numRanks, bool profileEnable,
-                            const std::string &profileTraceDir)
+LaunchContext PrepareLaunch(int64_t numExperts, int64_t numRanks, bool profileEnable)
 {
     uint32_t groupCountCapacity = GetGroupCountCapacity(numExperts, numRanks);
     auto stageLayout = BuildStageLayout(groupCountCapacity);
-    return runtime::PrepareLaunch(profileEnable, profileTraceDir, groupCountCapacity, stageLayout, GetProfileSchema());
+    return runtime::PrepareLaunch(profileEnable, groupCountCapacity, stageLayout, GetProfileSchema());
 }
 
-void CompleteLaunch(const LaunchContext &ctx, int64_t rank, const std::string &profileTraceDir)
+void CompleteLaunch(const LaunchContext &ctx, int64_t rank)
 {
-    runtime::CompleteLaunch(ctx, rank, profileTraceDir, GetProfileSchema());
+    runtime::CompleteLaunch(ctx, rank, GetProfileSchema());
 }
 
 int64_t GetExpectedLaunches()
@@ -62,13 +61,13 @@ std::string GetProfileTraceDir()
 {
     return session::GetProfileTraceDir();
 }
-int64_t GetNumWarmups()
+int64_t GetNumProfileSkipLaunches()
 {
-    return session::GetNumWarmups();
+    return session::GetNumProfileSkipLaunches();
 }
-int64_t GetNumTests()
+int64_t GetNumProfileActiveLaunches()
 {
-    return session::GetNumTests();
+    return session::GetNumProfileActiveLaunches();
 }
 
 }  // namespace deep_ep::profiling::fused_deep_moe_a5

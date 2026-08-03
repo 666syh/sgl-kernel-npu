@@ -296,7 +296,6 @@ def run_buffer_fused(
         args.num_experts,
         FUSED_COMPAT_QUANT_MODE,
         profile_enable=kernel_trace_dir is not None,
-        profile_trace_dir=kernel_trace_dir or "",
     )
     return output, ep_recv_count
 
@@ -802,7 +801,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     f"trace_dir={args.kernel_trace_dir}, warmups={args.num_warmups}, tests={args.num_tests}",
                     flush=True,
                 )
-                buffer.runtime.begin_fused_deep_moe_profile(
+                buffer.runtime.begin_profile(
                     args.num_warmups, args.num_tests, args.kernel_trace_dir
                 )
 
@@ -861,7 +860,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                         f"[rank{rank}] end fused kernel profiling: trace_dir={args.kernel_trace_dir}",
                         flush=True,
                     )
-                    buffer.runtime.end_fused_deep_moe_profile()
+                    buffer.runtime.end_profile()
         dist.barrier()
 
         if small_stats is not None:

@@ -1115,11 +1115,13 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
     return {combined_x, event, std::function<void()>([] {})};
 }
 
-std::vector<at::Tensor> Buffer::fused_deep_moe(
-    const at::Tensor &x, const at::Tensor &expert_ids, const at::Tensor &gmm1_permuted_weight,
-    const at::Tensor &gmm1_permuted_weight_scale, const at::Tensor &gmm2_weight, const at::Tensor &gmm2_weight_scale,
-    const at::Tensor &expert_scales_optional, int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
-    int quant_mode, bool profile_enable, const std::string &profile_trace_dir)
+std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Tensor &expert_ids,
+                                               const at::Tensor &gmm1_permuted_weight,
+                                               const at::Tensor &gmm1_permuted_weight_scale,
+                                               const at::Tensor &gmm2_weight, const at::Tensor &gmm2_weight_scale,
+                                               const at::Tensor &expert_scales_optional,
+                                               int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
+                                               int quant_mode, bool profile_enable)
 {
     EP_HOST_ASSERT(expert_ids.dim() == 2);
     EP_HOST_ASSERT(expert_scales_optional.dim() == 2);
@@ -1151,8 +1153,7 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
     at::Tensor share_output = at::empty({bs, h}, x.options());
     int64_t num_local_experts = num_experts / num_ranks;
     at::Tensor expert_token_nums = at::empty({num_local_experts}, x.options().dtype(at::kLong));
-    auto profile_ctx =
-        profiling::fused_deep_moe_a5::PrepareLaunch(num_experts, num_ranks, profile_enable, profile_trace_dir);
+    auto profile_ctx = profiling::fused_deep_moe_a5::PrepareLaunch(num_experts, num_ranks, profile_enable);
     bool profile_session_active = profile_ctx.sessionActive;
     bool use_profile = profile_ctx.enabled;
     int64_t profile_enable_i64 = static_cast<int64_t>(use_profile);
@@ -1163,10 +1164,11 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
         oss << "fused_deep_moe entry: profile_enable=" << profile_enable << ", use_profile=" << use_profile
-            << ", session_active=" << profile_session_active << ", trace_dir=" << profile_trace_dir
-            << ", num_warmups=" << profiling::fused_deep_moe_a5::GetNumWarmups()
-            << ", num_tests=" << profiling::fused_deep_moe_a5::GetNumTests() << ", launch_id=" << profile_launch_id_i64
-            << ", profile_buffer_bytes=" << profile_buffer_bytes_i64;
+            << ", session_active=" << profile_session_active
+            << ", trace_dir=" << profiling::fused_deep_moe_a5::GetProfileTraceDir()
+            << ", num_profile_skip_launches=" << profiling::fused_deep_moe_a5::GetNumProfileSkipLaunches()
+            << ", num_profile_active_launches=" << profiling::fused_deep_moe_a5::GetNumProfileActiveLaunches()
+            << ", launch_id=" << profile_launch_id_i64 << ", profile_buffer_bytes=" << profile_buffer_bytes_i64;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
 
@@ -1187,7 +1189,7 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
 
         auto workspace_tensor = invoke_profiled_op(*profile_buffer_ptr);
         (void)workspace_tensor;
-        profiling::fused_deep_moe_a5::CompleteLaunch(profile_ctx, rank, profile_trace_dir);
+        profiling::fused_deep_moe_a5::CompleteLaunch(profile_ctx, rank);
     } else {
         EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
                      gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
@@ -1220,19 +1222,22 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
 #endif
 }
 
-void Buffer::begin_fused_deep_moe_profile(int64_t num_warmups, int64_t num_tests, const std::string &profile_trace_dir)
+void Buffer::begin_profile(int64_t num_profile_skip_launches, int64_t num_profile_active_launches,
+                           const std::string &profile_trace_dir)
 {
-    profiling::fused_deep_moe_a5::Begin(num_warmups, num_tests, profile_trace_dir);
+    profiling::fused_deep_moe_a5::BeginProfile(num_profile_skip_launches, num_profile_active_launches,
+                                               profile_trace_dir);
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
-        oss << "begin session: rank=" << rank << ", num_warmups=" << num_warmups << ", num_tests=" << num_tests
+        oss << "begin session: rank=" << rank << ", num_profile_skip_launches=" << num_profile_skip_launches
+            << ", num_profile_active_launches=" << num_profile_active_launches
             << ", launch_capacity=" << profiling::fused_deep_moe_a5::GetLaunchCountCapacity()
             << ", trace_dir=" << profile_trace_dir;
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
 }
 
-void Buffer::end_fused_deep_moe_profile()
+void Buffer::end_profile()
 {
     if (!profiling::fused_deep_moe_a5::IsActive()) {
         if (IsFusedDeepMoeProfileDebugEnabled()) {
@@ -1251,7 +1256,7 @@ void Buffer::end_fused_deep_moe_profile()
             << ", trace_dir=" << profiling::fused_deep_moe_a5::GetProfileTraceDir();
         FusedDeepMoeProfileDebugPrint(oss.str());
     }
-    profiling::fused_deep_moe_a5::End(rank);
+    profiling::fused_deep_moe_a5::EndProfile(rank);
 }
 
 std::vector<at::Tensor> Buffer::dispatch_ffn_combine(const at::Tensor &x, const at::Tensor &expert_ids,

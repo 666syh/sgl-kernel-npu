@@ -13,7 +13,7 @@
 namespace deep_ep::profiling::exporter {
 
 void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
-                         int64_t numWarmups, int64_t launchCountCaptured, const ProfileSchema &schema);
+                         int64_t numProfileSkipLaunches, int64_t launchCountCaptured, const ProfileSchema &schema);
 
 }  // namespace deep_ep::profiling::exporter
 

@@ -27,14 +27,13 @@ bool IsDebugEnabled();
 void DebugPrint(const std::string &msg);
 bool IsSessionActive();
 
-void BeginSession(const ProfileSchema &schema, int64_t numWarmups, int64_t numTests,
+void BeginSession(const ProfileSchema &schema, int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches,
                   const std::string &profileTraceDir);
 void EndSession(int64_t rank);
 
-ProfileLaunchContext PrepareLaunch(bool profileEnable, const std::string &profileTraceDir, uint32_t groupCountCapacity,
+ProfileLaunchContext PrepareLaunch(bool profileEnable, uint32_t groupCountCapacity,
                                    const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema);
-void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const std::string &profileTraceDir,
-                    const ProfileSchema &schema);
+void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank, const ProfileSchema &schema);
 
 }  // namespace deep_ep::profiling::runtime
 

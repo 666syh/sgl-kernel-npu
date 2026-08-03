@@ -17,8 +17,8 @@ namespace deep_ep::profiling::session {
 struct SessionState {
     bool active{false};
     bool initialized{false};
-    int64_t numWarmups{0};
-    int64_t numTests{0};
+    int64_t numProfileSkipLaunches{0};
+    int64_t numProfileActiveLaunches{0};
     int64_t expectedLaunches{0};
     int64_t capturedLaunches{0};
     uint32_t groupCountCapacity{0};
@@ -42,8 +42,8 @@ uint32_t GetLaunchCountCapacity();
 uint64_t GetProfileBufferBytes();
 std::string GetProfileTraceDir();
 const at::Tensor &GetProfileBuffer();
-int64_t GetNumWarmups();
-int64_t GetNumTests();
+int64_t GetNumProfileSkipLaunches();
+int64_t GetNumProfileActiveLaunches();
 uint32_t GetGroupCountCapacity();
 const Cam::ProfileStageLayout &GetStageLayout();
 const ProfileSchema &GetSchema();
@@ -56,7 +56,8 @@ uint64_t GetTotalBytes(uint64_t launchCountCapacity, uint64_t perLaunchBytes);
 at::Tensor AllocateBuffer(uint64_t totalBytes, uint32_t launchCountCapacity, uint32_t groupCountCapacity,
                           const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema);
 
-void Begin(const ProfileSchema &schema, int64_t numWarmups, int64_t numTests, const std::string &profileTraceDir);
+void Begin(const ProfileSchema &schema, int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches,
+           const std::string &profileTraceDir);
 void EnsureInitialized(uint32_t groupCountCapacity, const Cam::ProfileStageLayout &stageLayout);
 void IncrementCapturedLaunches();
 void ExportAndReset(int64_t rank);

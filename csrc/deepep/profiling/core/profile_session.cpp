@@ -70,8 +70,8 @@ void SessionState::Reset()
 {
     active = false;
     initialized = false;
-    numWarmups = 0;
-    numTests = 0;
+    numProfileSkipLaunches = 0;
+    numProfileActiveLaunches = 0;
     expectedLaunches = 0;
     capturedLaunches = 0;
     groupCountCapacity = 0;
@@ -117,13 +117,13 @@ const at::Tensor &GetProfileBuffer()
 {
     return GetSessionImpl().profileBuffer;
 }
-int64_t GetNumWarmups()
+int64_t GetNumProfileSkipLaunches()
 {
-    return GetSessionImpl().numWarmups;
+    return GetSessionImpl().numProfileSkipLaunches;
 }
-int64_t GetNumTests()
+int64_t GetNumProfileActiveLaunches()
 {
-    return GetSessionImpl().numTests;
+    return GetSessionImpl().numProfileActiveLaunches;
 }
 uint32_t GetGroupCountCapacity()
 {
@@ -175,29 +175,31 @@ at::Tensor AllocateBuffer(uint64_t totalBytes, uint32_t launchCountCapacity, uin
     return profileBuffer;
 }
 
-void Begin(const ProfileSchema &schema, int64_t numWarmups, int64_t numTests, const std::string &profileTraceDir)
+void Begin(const ProfileSchema &schema, int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches,
+           const std::string &profileTraceDir)
 {
-    TORCH_CHECK(numWarmups >= 0, "num_warmups must be non-negative");
-    TORCH_CHECK(numTests >= 0, "num_tests must be non-negative");
+    TORCH_CHECK(numProfileSkipLaunches >= 0, "num_profile_skip_launches must be non-negative");
+    TORCH_CHECK(numProfileActiveLaunches >= 0, "num_profile_active_launches must be non-negative");
     TORCH_CHECK(!GetSessionImpl().active, "profile session is already active.");
-    int64_t expectedLaunches = numWarmups + numTests;
+    int64_t expectedLaunches = numProfileSkipLaunches + numProfileActiveLaunches;
     TORCH_CHECK(expectedLaunches > 0, "profile session needs at least one launch.");
     TORCH_CHECK(static_cast<uint64_t>(expectedLaunches) <= UINT32_MAX,
                 "profile session launch count exceeds uint32 capacity.");
     auto &session = GetSessionImpl();
     session.Reset();
     session.active = true;
-    session.numWarmups = numWarmups;
-    session.numTests = numTests;
+    session.numProfileSkipLaunches = numProfileSkipLaunches;
+    session.numProfileActiveLaunches = numProfileActiveLaunches;
     session.expectedLaunches = expectedLaunches;
     session.profileTraceDir = profileTraceDir;
     session.launchCountCapacity = static_cast<uint32_t>(expectedLaunches);
     session.schema = &schema;
     if (debug::IsEnabled()) {
         std::ostringstream oss;
-        oss << "begin session: op=" << (schema.opName ? schema.opName : "profile") << ", num_warmups=" << numWarmups
-            << ", num_tests=" << numTests << ", launch_capacity=" << session.launchCountCapacity
-            << ", trace_dir=" << profileTraceDir;
+        oss << "begin session: op=" << (schema.opName ? schema.opName : "profile")
+            << ", num_profile_skip_launches=" << numProfileSkipLaunches
+            << ", num_profile_active_launches=" << numProfileActiveLaunches
+            << ", launch_capacity=" << session.launchCountCapacity << ", trace_dir=" << profileTraceDir;
         debug::Print(oss.str());
     }
 }
@@ -253,7 +255,7 @@ void ExportAndReset(int64_t rank)
             << ", trace_dir=" << session.profileTraceDir;
         debug::Print(oss.str());
     }
-    exporter::ExportBufferToTrace(session.profileBuffer, rank, session.profileTraceDir, session.numWarmups,
+    exporter::ExportBufferToTrace(session.profileBuffer, rank, session.profileTraceDir, session.numProfileSkipLaunches,
                                   session.capturedLaunches, *session.schema);
     session.Reset();
 }

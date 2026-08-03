@@ -85,7 +85,7 @@ static std::string CoreTypeName(uint64_t coreType)
 }  // namespace
 
 void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const std::string &profileTraceDir,
-                         int64_t numWarmups, int64_t launchCountCaptured, const ProfileSchema &schema)
+                         int64_t numProfileSkipLaunches, int64_t launchCountCaptured, const ProfileSchema &schema)
 {
     struct LaunchTraceBundle {
         int64_t launchId{0};
@@ -145,7 +145,7 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
         auto *records = reinterpret_cast<const Cam::ProfileRecord *>(launchBase);
         LaunchTraceBundle bundle;
         bundle.launchId = static_cast<int64_t>(launchId);
-        bundle.isWarmup = static_cast<int64_t>(launchId) < numWarmups;
+        bundle.isWarmup = static_cast<int64_t>(launchId) < numProfileSkipLaunches;
         bool haveRange = false;
         for (uint64_t i = 0; i < recordsPerLaunch; ++i) {
             const auto &record = records[i];
@@ -155,7 +155,7 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
             bundle.rows.push_back(
                 {static_cast<double>(record.startCycle) / static_cast<double>(header->cycleToUs),
                  static_cast<double>(record.endCycle - record.startCycle) / static_cast<double>(header->cycleToUs),
-                 static_cast<int64_t>(record.launchId), static_cast<int64_t>(record.launchId) < numWarmups,
+                 static_cast<int64_t>(record.launchId), static_cast<int64_t>(record.launchId) < numProfileSkipLaunches,
                  record.coreType, record.coreIdx, record.stageId, record.occurrenceId, record.startCycle,
                  record.endCycle});
             if (!haveRange) {
