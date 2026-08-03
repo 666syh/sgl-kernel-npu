@@ -51,9 +51,18 @@ ProfileLaunchContext PrepareLaunch(bool profileEnable, uint32_t groupCountCapaci
         session::EnsureInitialized(groupCountCapacity, stageLayout);
         TORCH_CHECK(session::GetProfileBuffer().defined() && session::GetProfileBuffer().numel() > 0,
                     schema.opName ? schema.opName : "profile", " session is active but profile buffer is missing.");
-        TORCH_CHECK(session::GetCapturedLaunches() < session::GetExpectedLaunches(),
-                    schema.opName ? schema.opName : "profile", " session expected ", session::GetExpectedLaunches(),
-                    " launches but received ", session::GetCapturedLaunches(), ".");
+        if (session::GetCapturedLaunches() >= session::GetExpectedLaunches()) {
+            session::IncrementDroppedLaunches();
+            ctx.enabled = false;
+            if (debug::IsEnabled()) {
+                std::ostringstream oss;
+                oss << "drop extra launch: op=" << (schema.opName ? schema.opName : "profile")
+                    << ", captured=" << session::GetCapturedLaunches()
+                    << ", expected=" << session::GetExpectedLaunches() << ", dropped=" << session::GetDroppedLaunches();
+                debug::Print(oss.str());
+            }
+            return ctx;
+        }
         ctx.launchId = session::GetCapturedLaunches();
         ctx.profileBuffer = &session::GetProfileBuffer();
         ctx.profileBufferBytes = static_cast<int64_t>(session::GetProfileBufferBytes());

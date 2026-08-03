@@ -74,6 +74,7 @@ void SessionState::Reset()
     numProfileActiveLaunches = 0;
     expectedLaunches = 0;
     capturedLaunches = 0;
+    droppedLaunches = 0;
     groupCountCapacity = 0;
     stageLayout = Cam::ProfileStageLayout{};
     recordsPerLaunch = 0;
@@ -100,6 +101,10 @@ int64_t GetExpectedLaunches()
 int64_t GetCapturedLaunches()
 {
     return GetSessionImpl().capturedLaunches;
+}
+int64_t GetDroppedLaunches()
+{
+    return GetSessionImpl().droppedLaunches;
 }
 uint32_t GetLaunchCountCapacity()
 {
@@ -236,6 +241,11 @@ void IncrementCapturedLaunches()
     ++GetSessionImpl().capturedLaunches;
 }
 
+void IncrementDroppedLaunches()
+{
+    ++GetSessionImpl().droppedLaunches;
+}
+
 void ExportAndReset(int64_t rank)
 {
     auto &session = GetSessionImpl();
@@ -245,14 +255,14 @@ void ExportAndReset(int64_t rank)
         }
         return;
     }
-    if (session.capturedLaunches != session.expectedLaunches) {
+    if (session.capturedLaunches != session.expectedLaunches || session.droppedLaunches > 0) {
         TORCH_WARN("profile session captured ", session.capturedLaunches, " launches, expected ",
-                   session.expectedLaunches, ".");
+                   session.expectedLaunches, ", dropped extra launches=", session.droppedLaunches, ".");
     }
     if (debug::IsEnabled()) {
         std::ostringstream oss;
         oss << "end session: launches=" << session.capturedLaunches << ", expected=" << session.expectedLaunches
-            << ", trace_dir=" << session.profileTraceDir;
+            << ", dropped=" << session.droppedLaunches << ", trace_dir=" << session.profileTraceDir;
         debug::Print(oss.str());
     }
     exporter::ExportBufferToTrace(session.profileBuffer, rank, session.profileTraceDir, session.numProfileSkipLaunches,

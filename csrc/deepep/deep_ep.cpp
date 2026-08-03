@@ -1245,14 +1245,17 @@ void Buffer::end_profile()
         }
         return;
     }
-    if (profiling::fused_deep_moe_a5::GetCapturedLaunches() != profiling::fused_deep_moe_a5::GetExpectedLaunches()) {
+    if (profiling::fused_deep_moe_a5::GetCapturedLaunches() != profiling::fused_deep_moe_a5::GetExpectedLaunches() ||
+        profiling::fused_deep_moe_a5::GetDroppedLaunches() > 0) {
         TORCH_WARN("FusedDeepMoe profile session captured ", profiling::fused_deep_moe_a5::GetCapturedLaunches(),
-                   " launches, expected ", profiling::fused_deep_moe_a5::GetExpectedLaunches(), ".");
+                   " launches, expected ", profiling::fused_deep_moe_a5::GetExpectedLaunches(),
+                   ", dropped extra launches=", profiling::fused_deep_moe_a5::GetDroppedLaunches(), ".");
     }
     if (IsFusedDeepMoeProfileDebugEnabled()) {
         std::ostringstream oss;
         oss << "end session: launches=" << profiling::fused_deep_moe_a5::GetCapturedLaunches()
             << ", expected=" << profiling::fused_deep_moe_a5::GetExpectedLaunches()
+            << ", dropped=" << profiling::fused_deep_moe_a5::GetDroppedLaunches()
             << ", trace_dir=" << profiling::fused_deep_moe_a5::GetProfileTraceDir();
         FusedDeepMoeProfileDebugPrint(oss.str());
     }

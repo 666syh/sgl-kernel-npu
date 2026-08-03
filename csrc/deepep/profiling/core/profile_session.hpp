@@ -21,6 +21,7 @@ struct SessionState {
     int64_t numProfileActiveLaunches{0};
     int64_t expectedLaunches{0};
     int64_t capturedLaunches{0};
+    int64_t droppedLaunches{0};
     uint32_t groupCountCapacity{0};
     Cam::ProfileStageLayout stageLayout{};
     uint32_t recordsPerLaunch{0};
@@ -38,6 +39,7 @@ bool IsActive();
 bool IsInitialized();
 int64_t GetExpectedLaunches();
 int64_t GetCapturedLaunches();
+int64_t GetDroppedLaunches();
 uint32_t GetLaunchCountCapacity();
 uint64_t GetProfileBufferBytes();
 std::string GetProfileTraceDir();
@@ -60,6 +62,7 @@ void Begin(const ProfileSchema &schema, int64_t numProfileSkipLaunches, int64_t 
            const std::string &profileTraceDir);
 void EnsureInitialized(uint32_t groupCountCapacity, const Cam::ProfileStageLayout &stageLayout);
 void IncrementCapturedLaunches();
+void IncrementDroppedLaunches();
 void ExportAndReset(int64_t rank);
 
 }  // namespace deep_ep::profiling::session

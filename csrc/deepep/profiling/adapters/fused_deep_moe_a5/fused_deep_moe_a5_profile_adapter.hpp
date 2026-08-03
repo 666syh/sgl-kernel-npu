@@ -25,6 +25,7 @@ void CompleteLaunch(const LaunchContext &ctx, int64_t rank);
 
 int64_t GetExpectedLaunches();
 int64_t GetCapturedLaunches();
+int64_t GetDroppedLaunches();
 uint32_t GetLaunchCountCapacity();
 std::string GetProfileTraceDir();
 int64_t GetNumProfileSkipLaunches();

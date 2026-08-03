@@ -53,6 +53,10 @@ int64_t GetCapturedLaunches()
 {
     return session::GetCapturedLaunches();
 }
+int64_t GetDroppedLaunches()
+{
+    return session::GetDroppedLaunches();
+}
 uint32_t GetLaunchCountCapacity()
 {
     return session::GetLaunchCountCapacity();
