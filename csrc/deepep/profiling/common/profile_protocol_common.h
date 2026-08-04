@@ -25,9 +25,10 @@ namespace Cam {
 //   record ABI and slot calculation remain unchanged.
 //   If stage count exceeds 16, enlarge the metadata table and bump the protocol version.
 constexpr uint64_t PROFILE_MAGIC = 0x46444D5035413031ULL;  // FDMP5A01
-constexpr uint64_t PROFILE_VERSION = 3;
+constexpr uint64_t PROFILE_VERSION = 4;
 constexpr uint64_t PROFILE_CYCLE_TO_US = 1000;
 constexpr uint64_t PROFILE_FLAG_SESSION_BUFFER = 0x1ULL;
+constexpr uint64_t PROFILE_RECORD_FLAG_PRIVATE_DATA_VALID = 0x1ULL;
 constexpr uint64_t PROFILE_CORE_TYPE_AIC = 1ULL;
 constexpr uint64_t PROFILE_CORE_TYPE_AIV = 2ULL;
 constexpr uint32_t PROFILE_AIC_COUNT_CAPACITY = 36U;
@@ -174,8 +175,9 @@ DEEPEP_PROFILE_INLINE constexpr uint32_t GetProfileRecordsPerLaunch(uint32_t log
 DEEPEP_PROFILE_INLINE constexpr uint64_t GetProfileLaunchOffset(uint32_t dataOffset, uint32_t recordsPerLaunch,
                                                                 uint32_t recordBytes, uint64_t launchId)
 {
-    return static_cast<uint64_t>(dataOffset) +
-           launchId * static_cast<uint64_t>(recordsPerLaunch) * static_cast<uint64_t>(recordBytes);
+    const uint64_t perLaunchBytes = static_cast<uint64_t>(recordsPerLaunch) * static_cast<uint64_t>(recordBytes);
+    const uint64_t alignedPerLaunchBytes = (perLaunchBytes + 63ULL) / 64ULL * 64ULL;
+    return static_cast<uint64_t>(dataOffset) + launchId * alignedPerLaunchBytes;
 }
 
 DEEPEP_PROFILE_INLINE constexpr uint32_t GetProfileLogicalCoreLinear(uint64_t coreType, uint64_t coreIdx)
@@ -197,7 +199,7 @@ struct ProfileHeader {
     uint64_t launchCountsPacked;
     uint64_t layoutPacked0;
     uint64_t layoutPacked1;
-    uint64_t stageOccurrencesPacked;  // Reserved for pre-v3 readers; must not be used by v3 code.
+    uint64_t recordBytes;
     uint64_t flagsPacked;
 };
 
@@ -208,6 +210,12 @@ DEEPEP_PROFILE_INLINE constexpr uint32_t GetProfileDataOffset()
     return (raw + 63U) / 64U * 64U;
 }
 
+union ProfilePrivateData {
+    uint8_t bytes[16];
+    uint32_t u32[4];
+    uint64_t u64[2];
+};
+
 struct ProfileRecord {
     uint64_t coreType;
     uint64_t coreIdx;
@@ -216,12 +224,14 @@ struct ProfileRecord {
     uint64_t launchId;
     uint64_t startCycle;
     uint64_t endCycle;
-    uint64_t reserved0;
+    uint64_t privateDataFlags;
+    ProfilePrivateData privateData;
 };
 
 static_assert(sizeof(ProfileHeader) == 64, "Unexpected profile header size");
 static_assert(sizeof(ProfileStageLayout) == 64, "Unexpected profile stage layout size");
-static_assert(sizeof(ProfileRecord) == 64, "Unexpected profile record size");
+static_assert(sizeof(ProfilePrivateData) == 16, "Unexpected profile private data size");
+static_assert(sizeof(ProfileRecord) == 80, "Unexpected profile record size");
 
 }  // namespace Cam
 
