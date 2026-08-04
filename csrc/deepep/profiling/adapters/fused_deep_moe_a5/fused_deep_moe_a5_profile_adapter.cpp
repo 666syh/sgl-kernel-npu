@@ -10,14 +10,6 @@
 
 namespace deep_ep::profiling::fused_deep_moe_a5 {
 
-bool IsDebugEnabled()
-{
-    return runtime::IsDebugEnabled();
-}
-void DebugPrint(const std::string &msg)
-{
-    runtime::DebugPrint(msg);
-}
 bool IsActive()
 {
     return runtime::IsSessionActive();

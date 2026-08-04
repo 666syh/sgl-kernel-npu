@@ -23,7 +23,6 @@ message(STATUS "CMAKE_PREFIX_PATH = ${CMAKE_PREFIX_PATH}")
 
 file(GLOB SOURCES_DEEPEP *.cpp)
 list(APPEND SOURCES_DEEPEP
-    profiling/core/profile_debug.cpp
     profiling/core/profile_exporter.cpp
     profiling/core/profile_runtime.cpp
     profiling/core/profile_session.cpp

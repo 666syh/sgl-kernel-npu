@@ -24,8 +24,6 @@ struct ProfileLaunchContext {
     at::Tensor ownedProfileBuffer;
 };
 
-bool IsDebugEnabled();
-void DebugPrint(const std::string &msg);
 bool IsSessionActive();
 std::string GetProfileTraceDir();
 int64_t GetNumProfileSkipLaunches();

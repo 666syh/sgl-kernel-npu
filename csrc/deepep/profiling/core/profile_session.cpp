@@ -5,10 +5,8 @@
 #include "profiling/core/profile_session.hpp"
 
 #include <cstring>
-#include <sstream>
 
 #include "exception.hpp"
-#include "profiling/core/profile_debug.hpp"
 #include "profiling/core/profile_exporter.hpp"
 #include "pytorch_npu_helper.hpp"
 
@@ -173,12 +171,6 @@ void Begin(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, con
     manager.numProfileActiveLaunches = numProfileActiveLaunches;
     manager.expectedLaunches = expectedLaunches;
     manager.profileTraceDir = profileTraceDir;
-    if (debug::IsEnabled()) {
-        std::ostringstream oss;
-        oss << "begin session: num_profile_skip_launches=" << numProfileSkipLaunches
-            << ", num_profile_active_launches=" << numProfileActiveLaunches << ", trace_dir=" << profileTraceDir;
-        debug::Print(oss.str());
-    }
 }
 
 OpProfileSession &EnsureOpSession(const ProfileOpRegistration &registration, const ProfileLaunchConfig &launchConfig)
@@ -264,9 +256,6 @@ void ExportAndReset(int64_t rank)
 {
     auto &manager = GetManagerSession();
     if (!manager.active) {
-        if (debug::IsEnabled()) {
-            debug::Print("end session ignored: inactive");
-        }
         return;
     }
 
@@ -280,13 +269,6 @@ void ExportAndReset(int64_t rank)
             TORCH_WARN("profile session op=", opKey, " captured ", opSession.capturedLaunches, " launches, expected ",
                        manager.expectedLaunches, ", dropped extra launches=", opSession.droppedLaunches, ".");
         }
-        if (debug::IsEnabled()) {
-            std::ostringstream oss;
-            oss << "end op session: op=" << opKey << ", launches=" << opSession.capturedLaunches
-                << ", expected=" << manager.expectedLaunches << ", dropped=" << opSession.droppedLaunches
-                << ", trace_dir=" << manager.profileTraceDir;
-            debug::Print(oss.str());
-        }
         const auto &schema = opSession.registration->schemaProvider();
         sources.push_back(exporter::ProfileTraceSource{
             &opSession.profileBuffer,
@@ -298,9 +280,6 @@ void ExportAndReset(int64_t rank)
     }
 
     if (sources.empty()) {
-        if (debug::IsEnabled()) {
-            debug::Print("end session without initialized op buffers; reset without export");
-        }
         manager.Reset();
         return;
     }

@@ -13,8 +13,6 @@ namespace deep_ep::profiling::fused_deep_moe_a5 {
 
 using LaunchContext = runtime::ProfileLaunchContext;
 
-bool IsDebugEnabled();
-void DebugPrint(const std::string &msg);
 bool IsActive();
 
 LaunchContext PrepareLaunch(int64_t numExperts, int64_t numRanks, bool profileEnable);

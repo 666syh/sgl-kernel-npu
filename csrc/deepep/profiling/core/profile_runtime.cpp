@@ -4,23 +4,10 @@
 
 #include "profiling/core/profile_runtime.hpp"
 
-#include <sstream>
-
-#include "profiling/core/profile_debug.hpp"
 #include "profiling/core/profile_exporter.hpp"
 #include "profiling/core/profile_session.hpp"
 
 namespace deep_ep::profiling::runtime {
-
-bool IsDebugEnabled()
-{
-    return debug::IsEnabled();
-}
-
-void DebugPrint(const std::string &msg)
-{
-    debug::Print(msg);
-}
 
 bool IsSessionActive()
 {
@@ -76,14 +63,6 @@ ProfileLaunchContext PrepareLaunch(const ProfileOpRegistration &registration, co
         if (session::GetCapturedLaunches(registration.opKey) >= session::GetExpectedLaunches()) {
             session::IncrementDroppedLaunches(registration.opKey);
             ctx.enabled = false;
-            if (debug::IsEnabled()) {
-                std::ostringstream oss;
-                oss << "drop extra launch: op=" << (schema.opName ? schema.opName : "profile")
-                    << ", captured=" << session::GetCapturedLaunches(registration.opKey)
-                    << ", expected=" << session::GetExpectedLaunches()
-                    << ", dropped=" << session::GetDroppedLaunches(registration.opKey);
-                debug::Print(oss.str());
-            }
             return ctx;
         }
         ctx.launchId = session::GetCapturedLaunches(registration.opKey);
@@ -99,12 +78,6 @@ ProfileLaunchContext PrepareLaunch(const ProfileOpRegistration &registration, co
     ctx.profileBuffer = &ctx.ownedProfileBuffer;
     ctx.profileBufferBytes = static_cast<int64_t>(ctx.ownedProfileBuffer.numel());
     ctx.launchId = 0;
-    if (debug::IsEnabled()) {
-        std::ostringstream oss;
-        oss << "prepare one-shot launch: op=" << (schema.opName ? schema.opName : "profile")
-            << ", bytes=" << ctx.profileBufferBytes << ", trace_dir=" << session::GetProfileTraceDir();
-        debug::Print(oss.str());
-    }
     return ctx;
 }
 
@@ -118,13 +91,6 @@ void CompleteLaunch(const ProfileLaunchContext &ctx, int64_t rank)
     const auto &schema = ctx.registration->schemaProvider();
     if (ctx.sessionActive) {
         session::IncrementCapturedLaunches(ctx.registration->opKey);
-        if (debug::IsEnabled()) {
-            std::ostringstream oss;
-            oss << "captured launch=" << (session::GetCapturedLaunches(ctx.registration->opKey) - 1)
-                << ", op=" << (schema.opName ? schema.opName : "profile")
-                << ", trace_dir=" << session::GetProfileTraceDir();
-            debug::Print(oss.str());
-        }
         return;
     }
 

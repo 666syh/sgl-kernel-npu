@@ -20,17 +20,6 @@
 #include "pytorch_npu_helper.hpp"
 
 namespace deep_ep {
-namespace {
-static bool IsFusedDeepMoeProfileDebugEnabled()
-{
-    return profiling::fused_deep_moe_a5::IsDebugEnabled();
-}
-
-static void FusedDeepMoeProfileDebugPrint(const std::string &msg)
-{
-    profiling::fused_deep_moe_a5::DebugPrint(msg);
-}
-}  // namespace
 
 constexpr int PADDING_SIZE = 1;
 constexpr size_t HCOMM_NAME_LEN = 128;
@@ -1102,17 +1091,6 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
     int64_t profile_buffer_bytes_i64 = profile_ctx.profileBufferBytes;
     int64_t profile_launch_id_i64 = profile_ctx.launchId;
 
-    if (IsFusedDeepMoeProfileDebugEnabled()) {
-        std::ostringstream oss;
-        oss << "fused_deep_moe entry: profile_enable=" << profile_enable << ", use_profile=" << use_profile
-            << ", session_active=" << profile_session_active
-            << ", trace_dir=" << profiling::runtime::GetProfileTraceDir()
-            << ", num_profile_skip_launches=" << profiling::runtime::GetNumProfileSkipLaunches()
-            << ", num_profile_active_launches=" << profiling::runtime::GetNumProfileActiveLaunches()
-            << ", launch_id=" << profile_launch_id_i64 << ", profile_buffer_bytes=" << profile_buffer_bytes_i64;
-        FusedDeepMoeProfileDebugPrint(oss.str());
-    }
-
     if (use_profile) {
         TORCH_CHECK(profile_buffer_ptr != nullptr, "FusedDeepMoe profiling requires a valid profile buffer.");
         EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
@@ -1160,27 +1138,12 @@ void Buffer::begin_profile(int64_t num_profile_skip_launches, int64_t num_profil
                            const std::string &profile_trace_dir)
 {
     profiling::runtime::BeginSession(num_profile_skip_launches, num_profile_active_launches, profile_trace_dir);
-    if (IsFusedDeepMoeProfileDebugEnabled()) {
-        std::ostringstream oss;
-        oss << "begin session: rank=" << rank << ", num_profile_skip_launches=" << num_profile_skip_launches
-            << ", num_profile_active_launches=" << num_profile_active_launches << ", trace_dir=" << profile_trace_dir;
-        FusedDeepMoeProfileDebugPrint(oss.str());
-    }
 }
 
 void Buffer::end_profile()
 {
     if (!profiling::runtime::IsSessionActive()) {
-        if (IsFusedDeepMoeProfileDebugEnabled()) {
-            FusedDeepMoeProfileDebugPrint("end session ignored: inactive");
-        }
         return;
-    }
-    if (IsFusedDeepMoeProfileDebugEnabled()) {
-        std::ostringstream oss;
-        oss << "end session: expected=" << profiling::runtime::GetExpectedLaunches()
-            << ", trace_dir=" << profiling::runtime::GetProfileTraceDir();
-        FusedDeepMoeProfileDebugPrint(oss.str());
     }
     profiling::runtime::EndSession(rank);
 }
