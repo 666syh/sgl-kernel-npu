@@ -84,21 +84,25 @@ def log_quant_tensor(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
 
 
 def make_umdk_static_inputs(
-    rank: int, world_size: int, args: argparse.Namespace
+    rank: int,
+    world_size: int,
+    local_num_tokens: int,
+    token_prefix_before_rank: int,
+    args: argparse.Namespace,
 ) -> Dict[str, torch.Tensor]:
     quant_cfg = get_mx_quant_config(args)
     assert args.num_experts % world_size == 0
     local_experts = args.num_experts // world_size
 
-    x = torch.rand((args.num_tokens, args.hidden)).bfloat16().npu() * 2 - 1
+    x = torch.rand((local_num_tokens, args.hidden)).bfloat16().npu() * 2 - 1
     expert_ids = torch.arange(
-        rank * args.num_tokens * args.num_topk,
-        (rank + 1) * args.num_tokens * args.num_topk,
+        token_prefix_before_rank * args.num_topk,
+        (token_prefix_before_rank + local_num_tokens) * args.num_topk,
         dtype=torch.int32,
-    ).view(args.num_tokens, args.num_topk)
+    ).view(local_num_tokens, args.num_topk)
     expert_ids = expert_ids.remainder(args.num_experts).npu()
     expert_scales = torch.rand(
-        (args.num_tokens, args.num_topk), dtype=torch.float32
+        (local_num_tokens, args.num_topk), dtype=torch.float32
     ).npu()
 
     gmm1_fp = (
@@ -139,13 +143,13 @@ def make_umdk_static_inputs(
 
 
 def make_small_warmup_burn_in_buffers(
-    args: argparse.Namespace,
+    local_num_tokens: int, args: argparse.Namespace
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     # These tensors are dedicated to the first warmup burn-in path and are not
     # consumed by the routed MoE computation. Keeping them separate makes the
     # functional path easier to reason about.
     dim_scale = SMALL_FIRST_WARMUP_MATMUL_DIM_SCALE
-    lhs_rows = args.num_tokens * dim_scale
+    lhs_rows = local_num_tokens * dim_scale
     shared_dim = args.hidden * dim_scale
     rhs_cols = args.moe_intermediate_size * dim_scale
     lhs = torch.rand((lhs_rows, shared_dim)).bfloat16().npu() * 2 - 1
@@ -153,11 +157,51 @@ def make_small_warmup_burn_in_buffers(
     return lhs, rhs
 
 
+def make_small_op_padded_inputs(
+    inputs: Dict[str, torch.Tensor],
+    local_num_tokens: int,
+    padded_num_tokens: int,
+) -> Dict[str, torch.Tensor]:
+    x_padded = torch.zeros(
+        (padded_num_tokens, inputs["x"].shape[1]),
+        dtype=inputs["x"].dtype,
+        device=inputs["x"].device,
+    )
+    expert_ids_padded = torch.zeros(
+        (padded_num_tokens, inputs["expert_ids"].shape[1]),
+        dtype=inputs["expert_ids"].dtype,
+        device=inputs["expert_ids"].device,
+    )
+    expert_scales_padded = torch.zeros(
+        (padded_num_tokens, inputs["expert_scales"].shape[1]),
+        dtype=inputs["expert_scales"].dtype,
+        device=inputs["expert_scales"].device,
+    )
+    x_active_mask = torch.zeros(
+        (padded_num_tokens,), dtype=torch.bool, device=inputs["x"].device
+    )
+
+    x_padded[:local_num_tokens] = inputs["x"]
+    expert_ids_padded[:local_num_tokens] = inputs["expert_ids"]
+    expert_scales_padded[:local_num_tokens] = inputs["expert_scales"]
+    x_active_mask[:local_num_tokens] = True
+
+    return {
+        **inputs,
+        "x": x_padded,
+        "expert_ids": expert_ids_padded,
+        "expert_scales": expert_scales_padded,
+        "x_active_mask": x_active_mask,
+        "padded_num_tokens": padded_num_tokens,
+    }
+
+
 def run_small_op_baseline(
     inputs: Dict[str, torch.Tensor],
     hcomm_name: str,
     rank: int,
     world_size: int,
+    global_bs: int,
     args: argparse.Namespace,
     gmm_burn_in_repeats: int = 1,
     warmup_burn_in_buffers: Tuple[torch.Tensor, torch.Tensor] = None,
@@ -170,7 +214,7 @@ def run_small_op_baseline(
         expert_ids=inputs["expert_ids"],
         expert_scales=inputs["expert_scales"],
         scales=None,
-        x_active_mask=None,
+        x_active_mask=inputs["x_active_mask"],
         group_ep=hcomm_name,
         ep_world_size=world_size,
         ep_rank_id=rank,
@@ -182,7 +226,7 @@ def run_small_op_baseline(
         shared_expert_num=1,
         shared_expert_rank_num=0,
         quant_mode=quant_cfg["dispatch_quant_mode"],
-        global_bs=args.num_tokens * world_size,
+        global_bs=global_bs,
         expert_token_nums_type=1,
         y_dtype=quant_cfg["dispatch_y_dtype"],
     )
@@ -260,7 +304,7 @@ def run_small_op_baseline(
         assist_info_for_combine=assist_info_for_combine,
         ep_send_counts=ep_send_counts,
         expert_scales=inputs["expert_scales"],
-        x_active_mask=None,
+        x_active_mask=inputs["x_active_mask"],
         group_ep=hcomm_name,
         ep_world_size=world_size,
         ep_rank_id=rank,
@@ -273,7 +317,7 @@ def run_small_op_baseline(
         expert_shard_type=0,
         shared_expert_num=1,
         shared_expert_rank_num=0,
-        global_bs=args.num_tokens * world_size,
+        global_bs=global_bs,
     )
     return output, expert_token_nums.to(torch.int32)
 
@@ -281,6 +325,7 @@ def run_small_op_baseline(
 def run_buffer_fused(
     buffer: deep_ep.Buffer,
     inputs: Dict[str, torch.Tensor],
+    local_num_tokens: int,
     args: argparse.Namespace,
     kernel_trace_dir: str = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -292,7 +337,7 @@ def run_buffer_fused(
         inputs["gmm1_weight_scale"],
         inputs["gmm2_weight_q"],
         inputs["gmm2_weight_scale"],
-        args.num_tokens,
+        local_num_tokens,
         args.num_experts,
         FUSED_COMPAT_QUANT_MODE,
         profile_enable=kernel_trace_dir is not None,
@@ -303,6 +348,7 @@ def run_buffer_fused(
 def run_buffer_fused_with_burn_in(
     buffer: deep_ep.Buffer,
     inputs: Dict[str, torch.Tensor],
+    local_num_tokens: int,
     args: argparse.Namespace,
     fused_burn_in_repeats: int = 1,
     warmup_burn_in_buffers: Tuple[torch.Tensor, torch.Tensor] = None,
@@ -317,7 +363,9 @@ def run_buffer_fused_with_burn_in(
         for _ in range(fused_burn_in_repeats):
             _ = torch.matmul(burn_in_lhs, burn_in_rhs)
 
-    return run_buffer_fused(buffer, inputs, args, kernel_trace_dir=kernel_trace_dir)
+    return run_buffer_fused(
+        buffer, inputs, local_num_tokens, args, kernel_trace_dir=kernel_trace_dir
+    )
 
 
 def format_triplet(name: str, values_us: Tuple[float, float, float]) -> str:
@@ -577,8 +625,7 @@ def summarize_tensor_stats(tensor: torch.Tensor) -> Tuple[float, float]:
 
 
 def get_uniform_expected_counts(
-    num_tokens: int,
-    world_size: int,
+    total_num_tokens: int,
     num_topk: int,
     num_experts: int,
     local_experts: int,
@@ -588,7 +635,7 @@ def get_uniform_expected_counts(
     # only exist when the total routed assignments divide evenly by num_experts.
     # When that is not true, we intentionally skip strict expected_counts
     # assertions and only enforce small_counts == fused_counts.
-    total_assignments = num_tokens * world_size * num_topk
+    total_assignments = total_num_tokens * num_topk
     if total_assignments % num_experts != 0:
         return None, total_assignments
     expected_per_expert = total_assignments // num_experts
@@ -617,15 +664,52 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             buffer.runtime.is_a5_build()
         ), "The installed DeepEP wheel is not an A5 build"
 
-        inputs = make_umdk_static_inputs(rank, world_size, args)
-        warmup_burn_in_buffers = make_small_warmup_burn_in_buffers(args)
+        if args.num_token_jitter > 0:
+            token_jitter_gen = torch.Generator()
+            token_jitter_gen.manual_seed(args.num_token_jitter_seed + rank)
+            token_delta = int(
+                torch.randint(
+                    -args.num_token_jitter,
+                    args.num_token_jitter + 1,
+                    (1,),
+                    generator=token_jitter_gen,
+                ).item()
+            )
+        else:
+            token_delta = 0
+        local_num_tokens = max(1, min(256, args.num_tokens + token_delta))
+        local_num_tokens_tensor = torch.tensor(
+            [local_num_tokens], dtype=torch.int64, device="npu"
+        )
+        gathered_num_tokens = [
+            torch.empty_like(local_num_tokens_tensor) for _ in range(world_size)
+        ]
+        dist.all_gather(gathered_num_tokens, local_num_tokens_tensor)
+        all_num_tokens = [int(t.item()) for t in gathered_num_tokens]
+        real_global_bs = sum(all_num_tokens)
+        padded_num_tokens = max(all_num_tokens)
+        small_op_global_bs = padded_num_tokens * world_size
+        token_prefix_before_rank = sum(all_num_tokens[:rank])
+
+        inputs = make_umdk_static_inputs(
+            rank,
+            world_size,
+            local_num_tokens,
+            token_prefix_before_rank,
+            args,
+        )
+        small_op_inputs = make_small_op_padded_inputs(
+            inputs, local_num_tokens, padded_num_tokens
+        )
+        warmup_burn_in_buffers = make_small_warmup_burn_in_buffers(
+            local_num_tokens, args
+        )
         hcomm_name_small = group_small._get_backend(
             torch.device("npu")
         ).get_hccl_comm_name(rank)
         local_experts = args.num_experts // world_size
         expected_counts, total_assignments = get_uniform_expected_counts(
-            args.num_tokens,
-            world_size,
+            real_global_bs,
             args.num_topk,
             args.num_experts,
             local_experts,
@@ -634,7 +718,13 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             print(
                 "Config: "
                 f"num_processes={num_processes}, "
-                f"num_tokens={args.num_tokens}, "
+                f"base_num_tokens={args.num_tokens}, "
+                f"num_token_jitter={args.num_token_jitter}, "
+                f"num_token_jitter_seed={args.num_token_jitter_seed}, "
+                f"per_rank_num_tokens={all_num_tokens}, "
+                f"padded_num_tokens={padded_num_tokens}, "
+                f"real_global_bs={real_global_bs}, "
+                f"small_op_global_bs={small_op_global_bs}, "
                 f"hidden={args.hidden}, "
                 f"moe_intermediate_size={args.moe_intermediate_size}, "
                 f"num_experts={args.num_experts}, "
@@ -656,13 +746,20 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 )
 
         small_output, small_counts = run_small_op_baseline(
-            inputs, hcomm_name_small, rank, world_size, args
+            small_op_inputs,
+            hcomm_name_small,
+            rank,
+            world_size,
+            small_op_global_bs,
+            args,
         )
-        fused_output, fused_counts = run_buffer_fused(buffer, inputs, args)
+        fused_output, fused_counts = run_buffer_fused(
+            buffer, inputs, local_num_tokens, args
+        )
         torch.npu.synchronize()
 
-        assert small_output.shape == (args.num_tokens, args.hidden)
-        assert fused_output.shape == (args.num_tokens, args.hidden)
+        assert small_output.shape == (padded_num_tokens, args.hidden)
+        assert fused_output.shape == (local_num_tokens, args.hidden)
         assert small_output.dtype == torch.bfloat16
         assert fused_output.dtype == torch.bfloat16
         assert small_counts.shape == (local_experts,)
@@ -674,7 +771,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         if expected_counts is not None:
             torch.testing.assert_close(small_counts, expected_counts)
             torch.testing.assert_close(fused_counts, expected_counts)
-        valid_token_num = args.num_tokens
+        valid_token_num = local_num_tokens
 
         avg_diff, max_diff, cosine_diff = summarize_output_diff(
             small_output[:valid_token_num], fused_output[:valid_token_num]
@@ -748,10 +845,11 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 )
                 small_profile_call_idx += 1
                 return run_small_op_baseline(
-                    inputs,
+                    small_op_inputs,
                     hcomm_name_small,
                     rank,
                     world_size,
+                    small_op_global_bs,
                     args,
                     gmm_burn_in_repeats=gmm_burn_in_repeats,
                     warmup_burn_in_buffers=warmup_burn_in_buffers,
@@ -822,6 +920,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 return run_buffer_fused(
                     buffer,
                     inputs,
+                    local_num_tokens,
                     args,
                     kernel_trace_dir=args.kernel_trace_dir,
                 )
@@ -969,6 +1068,18 @@ def main():
         help="Per-rank token count for the routed tokens.",
     )
     parser.add_argument(
+        "--num-token-jitter",
+        type=int,
+        default=0,
+        help="Optional per-rank symmetric integer jitter applied to --num-tokens before generating inputs.",
+    )
+    parser.add_argument(
+        "--num-token-jitter-seed",
+        type=int,
+        default=2026,
+        help="Base seed used to derive deterministic per-rank token jitter.",
+    )
+    parser.add_argument(
         "--hidden",
         type=int,
         default=7168,
@@ -1046,6 +1157,8 @@ def main():
         parser.error("--num-topk must be in [1, min(--num-experts, 12)]")
     if not 1 <= args.num_tokens <= 256:
         parser.error("--num-tokens must be in [1, 256]")
+    if args.num_token_jitter < 0:
+        parser.error("--num-token-jitter must be non-negative")
     if not 512 <= args.hidden <= 7168:
         parser.error("--hidden must be in [512, 7168]")
     if not 1024 <= gmm1_hidden <= 6144 or gmm1_hidden % 1024 != 0:
