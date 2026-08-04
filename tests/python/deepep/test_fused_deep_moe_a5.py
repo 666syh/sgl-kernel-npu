@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import random
 from typing import Dict, List, Tuple
 
 import deep_ep
@@ -665,15 +666,9 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         ), "The installed DeepEP wheel is not an A5 build"
 
         if args.num_token_jitter > 0:
-            token_jitter_gen = torch.Generator()
-            token_jitter_gen.manual_seed(args.num_token_jitter_seed + rank)
-            token_delta = int(
-                torch.randint(
-                    -args.num_token_jitter,
-                    args.num_token_jitter + 1,
-                    (1,),
-                    generator=token_jitter_gen,
-                ).item()
+            token_jitter_rng = random.Random(args.num_token_jitter_seed + rank)
+            token_delta = token_jitter_rng.randint(
+                -args.num_token_jitter, args.num_token_jitter
             )
         else:
             token_delta = 0
