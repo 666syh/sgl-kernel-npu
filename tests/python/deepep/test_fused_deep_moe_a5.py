@@ -807,22 +807,22 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
 
             def fused_profile_fn():
                 nonlocal fused_profile_call_idx
-                # Only the first profiler warmup iteration gets the extra
-                # burn-in. The extra work is excluded from the profiled
-                # iterations, so it only helps keep the device occupied longer
-                # during launch without changing the measured fused KPI.
-                fused_burn_in_repeats = (
-                    SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS
-                    if fused_profile_call_idx == 0 and args.num_warmups > 0
-                    else 1
-                )
+                # Insert extra device work only between the first and second
+                # fused warmup iterations. This keeps warmup #0 on the normal
+                # fused path while giving the host more time before warmup #1.
+                if (
+                    fused_profile_call_idx == 1
+                    and args.num_warmups >= 2
+                    and warmup_burn_in_buffers is not None
+                ):
+                    burn_in_lhs, burn_in_rhs = warmup_burn_in_buffers
+                    for _ in range(SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS):
+                        _ = torch.matmul(burn_in_lhs, burn_in_rhs)
                 fused_profile_call_idx += 1
-                return run_buffer_fused_with_burn_in(
+                return run_buffer_fused(
                     buffer,
                     inputs,
                     args,
-                    fused_burn_in_repeats=fused_burn_in_repeats,
-                    warmup_burn_in_buffers=warmup_burn_in_buffers,
                     kernel_trace_dir=args.kernel_trace_dir,
                 )
 
