@@ -1084,7 +1084,6 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
     int64_t num_local_experts = num_experts / num_ranks;
     at::Tensor expert_token_nums = at::empty({num_local_experts}, x.options().dtype(at::kLong));
     auto profile_ctx = profiling::fused_deep_moe_a5::PrepareLaunch(num_experts, num_ranks, profile_enable);
-    bool profile_session_active = profile_ctx.sessionActive;
     bool use_profile = profile_ctx.enabled;
     int64_t profile_enable_i64 = static_cast<int64_t>(use_profile);
     const at::Tensor *profile_buffer_ptr = profile_ctx.profileBuffer;
