@@ -1115,17 +1115,24 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
 
     if (use_profile) {
         TORCH_CHECK(profile_buffer_ptr != nullptr, "FusedDeepMoe profiling requires a valid profile buffer.");
-    }
-    EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list, gmm2_scale_list,
-                 expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
-                 static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                 static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                 static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                 use_profile ? *profile_buffer_ptr : static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name,
-                 num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64,
-                 profile_launch_id_i64, output, share_output, expert_token_nums);
-    if (use_profile) {
+        EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
+                     gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                     *profile_buffer_ptr, hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs,
+                     profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output, share_output,
+                     expert_token_nums);
         profiling::fused_deep_moe_a5::CompleteLaunch(profile_ctx, rank);
+    } else {
+        EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
+                     gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                     static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank, num_experts,
+                     quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output,
+                     share_output, expert_token_nums);
     }
 
     return {output, expert_token_nums.to(expert_ids.scalar_type())};
