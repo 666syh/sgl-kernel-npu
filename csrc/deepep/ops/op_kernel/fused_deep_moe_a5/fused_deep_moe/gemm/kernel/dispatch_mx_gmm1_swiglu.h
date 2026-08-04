@@ -764,8 +764,12 @@ public:
     }
 
     CATLASS_DEVICE void SendCoreFunc(GM_ADDR gmX, GM_ADDR gmExpertIds, GM_ADDR gmMoeSmoothScales, GM_ADDR gmExpandIdx,
-                                     GM_ADDR gmXActiveMask)
+                                     GM_ADDR gmXActiveMask, FusedDeepMoeProfileWriter *profile)
     {
+        uint64_t profDispatchSendStart = 0;
+        if (profile != nullptr) {
+            profDispatchSendStart = profile->Now();
+        }
         if constexpr (EXEC_FLAG & EXEC_FLAG_X_ACTIVE_MASK) {
             ubOffset = 0;
             maskInputTensor = resource.ubBuf.template GetBufferByByte<bool>(ubOffset);
@@ -824,6 +828,9 @@ public:
         sendToMoeAivNum = sendCoreNum;
         SendToMoeExprt(gmX, gmExpandIdx, gmMoeSmoothScales);
         AscendC::PipeBarrier<PIPE_ALL>();
+        if (profile != nullptr) {
+            profile->Record(FusedDeepMoeProfileStage::DispatchSend, 0U, profDispatchSendStart, profile->Now());
+        }
     }
 
     CATLASS_DEVICE
@@ -1041,7 +1048,7 @@ public:
     }
 
     CATLASS_DEVICE
-    void RecvCoreFunc(GM_ADDR gmX1, GM_ADDR gmX1Scale, GM_ADDR gmEpSendCount)
+    void RecvCoreFunc(GM_ADDR gmX1, GM_ADDR gmX1Scale, GM_ADDR gmEpSendCount, FusedDeepMoeProfileWriter *profile)
     {
         ubOffset = 0;
 
@@ -1087,6 +1094,10 @@ public:
             CEIL_UP(expertCntUp * UB_BLOCK_SIZE) + CEIL_UP(UB_BLOCK_SIZE) + CEIL_UP(expertCntUp * sizeof(float));
         uint32_t preExpertToken = 0;
         for (uint32_t groupId = 0; groupId < localExpertNum; ++groupId) {
+            uint64_t profDispatchRecvStart = 0;
+            if (profile != nullptr) {
+                profDispatchRecvStart = profile->Now();
+            }
             GetCumSum((groupId + 1) * epRankSize - 1, recvExpertNum, ubOffset);
             uint32_t currentM = gatherMaskOutCountTensor.GetValue(0) - preExpertToken;
 
@@ -1137,6 +1148,9 @@ public:
 
             startCoreIdx = (startCoreIdx + currentM) % recvCoreNum;
             preExpertToken += currentM;
+            if (profile != nullptr) {
+                profile->Record(FusedDeepMoeProfileStage::DispatchRecv, groupId, profDispatchRecvStart, profile->Now());
+            }
         }
 
         uint32_t sendCountNum = expertCntUp;
@@ -1344,10 +1358,11 @@ public:
             }
             if (isSendCore) {
                 SendCoreFunc((GM_ADDR)params.gmX, (GM_ADDR)params.gmExpertIds, (GM_ADDR)params.gmMoeSmoothScales,
-                             (GM_ADDR)params.gmExpandIdx, (GM_ADDR)params.gmXActiveMask);
+                             (GM_ADDR)params.gmExpandIdx, (GM_ADDR)params.gmXActiveMask, params.profile);
             }
             if (isRecvCore) {
-                RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount);
+                RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount,
+                             params.profile);
             }
         }
 
@@ -1417,10 +1432,7 @@ public:
             AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
 
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
-                uint64_t profGroupStart = 0;
-                if (params.profile != nullptr) {
-                    profGroupStart = params.profile->Now();
-                }
+                uint64_t profSwigluStart = 0;
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                     groupTokenNumStateTensor.SetGlobalBuffer(
                         (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) + groupIdx * GROUP_INFO_SIZE);
@@ -1431,6 +1443,9 @@ public:
                 } else {
                     currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                }
+                if (params.profile != nullptr) {
+                    profSwigluStart = params.profile->Now();
                 }
                 totalTokenNum += currentM;
                 GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
@@ -1466,11 +1481,9 @@ public:
                 totalM += inGroupProblemShape.m();
 
                 startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
-                if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    if (params.profile != nullptr) {
-                        params.profile->Record(FusedDeepMoeProfileStage::Dispatch, groupIdx, profGroupStart,
-                                               params.profile->Now());
-                    }
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::Swiglu, groupIdx, profSwigluStart,
+                                           params.profile->Now());
                 }
             }
             AscendC::PipeBarrier<PIPE_ALL>();
@@ -1487,15 +1500,14 @@ public:
                                    params.shareProblemShape.n(), startCoreIdx);
         }
         {
-            uint64_t profSwigluQuantStart = 0;
+            uint64_t profQuantStart = 0;
             if (params.profile != nullptr) {
-                profSwigluQuantStart = params.profile->Now();
+                profQuantStart = params.profile->Now();
             }
             PostSwigluDynamicQuant(params.gmSwigluOut, params.ptrX2, params.gmX2Scale, totalTokenNum,
                                    params.problemShape.n(), startCoreIdx);
             if (params.profile != nullptr) {
-                params.profile->Record(FusedDeepMoeProfileStage::SwigluQuant, profSwigluQuantStart,
-                                       params.profile->Now());
+                params.profile->Record(FusedDeepMoeProfileStage::Quant, profQuantStart, params.profile->Now());
             }
         }
     }

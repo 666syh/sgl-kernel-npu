@@ -42,12 +42,16 @@ const char *GetLaunchEventName()
 const char *GetStageName(uint64_t stageId)
 {
     switch (static_cast<ProfileStage>(stageId)) {
-        case ProfileStage::Dispatch:
-            return "dispatch";
+        case ProfileStage::DispatchSend:
+            return "dispatch_send";
+        case ProfileStage::DispatchRecv:
+            return "dispatch_recv";
         case ProfileStage::Gmm1:
             return "gmm1";
-        case ProfileStage::SwigluQuant:
-            return "swiglu_quant";
+        case ProfileStage::Swiglu:
+            return "swiglu";
+        case ProfileStage::Quant:
+            return "quant";
         case ProfileStage::Gmm2:
             return "gmm2";
         case ProfileStage::Combine:
@@ -65,8 +69,8 @@ std::string GetStageDisplayName(uint64_t stageId, uint64_t occurrenceId, const C
     oss << GetStageName(stageId);
     uint32_t stageOccurrenceCount = Cam::GetProfileStageOccurrenceCount(stageLayout, static_cast<uint32_t>(stageId));
     auto stage = static_cast<ProfileStage>(stageId);
-    if (stage == ProfileStage::Dispatch || stage == ProfileStage::Gmm1 || stage == ProfileStage::Gmm2 ||
-        stage == ProfileStage::Combine) {
+    if (stage == ProfileStage::DispatchRecv || stage == ProfileStage::Gmm1 || stage == ProfileStage::Swiglu ||
+        stage == ProfileStage::Gmm2 || stage == ProfileStage::Combine) {
         oss << "[group=" << occurrenceId << "]";
     } else if (stageOccurrenceCount > 1U || occurrenceId != 0U) {
         oss << "[occ=" << occurrenceId << "]";
@@ -81,14 +85,19 @@ Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
     Cam::ProfileStageLayout layout{};
     layout.stageCount = static_cast<uint16_t>(kStageCount);
     layout.activeStageCapacity = static_cast<uint16_t>(Cam::PROFILE_ACTIVE_STAGE_CAPACITY);
-    EP_HOST_ASSERT_S(
-        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Dispatch), groupCountCapacity),
-        "invalid dispatch occurrence capacity.");
+    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchSend), 1U),
+                     "invalid dispatch send occurrence capacity.");
+    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecv),
+                                                         groupCountCapacity),
+                     "invalid dispatch receive occurrence capacity.");
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Gmm1), groupCountCapacity),
         "invalid gmm1 occurrence capacity.");
-    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::SwigluQuant), 1U),
-                     "invalid swiglu occurrence capacity.");
+    EP_HOST_ASSERT_S(
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Swiglu), groupCountCapacity),
+        "invalid swiglu occurrence capacity.");
+    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Quant), 1U),
+                     "invalid quant occurrence capacity.");
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Gmm2), groupCountCapacity),
         "invalid gmm2 occurrence capacity.");
