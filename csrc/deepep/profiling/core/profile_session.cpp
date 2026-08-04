@@ -44,7 +44,7 @@ Cam::ProfileHeader BuildHeader(uint32_t launchCountCapacity, uint32_t groupCount
     header.launchCountsPacked = Cam::PackProfileLaunchCounts(launchCountCapacity, 0U);
     header.layoutPacked0 = Cam::PackProfileLayout0(static_cast<uint16_t>(schema.stageCount),
                                                    static_cast<uint16_t>(groupCountCapacity), 1U, 2U);
-    header.recordBytes = sizeof(Cam::ProfileRecord);
+    header.stageOccurrencesPacked = 0;
     header.layoutPacked1 =
         Cam::PackProfileLayout1(schema.topology.logicalCoreCount,
                                 Cam::GetProfileRecordsPerLaunch(schema.topology.logicalCoreCount, stageLayout));

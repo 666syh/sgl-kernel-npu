@@ -14,7 +14,6 @@ constexpr uint64_t FUSED_DEEP_MOE_PROFILE_MAGIC = PROFILE_MAGIC;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_VERSION = PROFILE_VERSION;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CYCLE_TO_US = PROFILE_CYCLE_TO_US;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_FLAG_SESSION_BUFFER = PROFILE_FLAG_SESSION_BUFFER;
-constexpr uint64_t FUSED_DEEP_MOE_PROFILE_RECORD_FLAG_PRIVATE_DATA_VALID = PROFILE_RECORD_FLAG_PRIVATE_DATA_VALID;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIC = PROFILE_CORE_TYPE_AIC;
 constexpr uint64_t FUSED_DEEP_MOE_PROFILE_CORE_TYPE_AIV = PROFILE_CORE_TYPE_AIV;
 constexpr uint32_t FUSED_DEEP_MOE_PROFILE_AIC_COUNT_CAPACITY = PROFILE_AIC_COUNT_CAPACITY;
@@ -29,7 +28,6 @@ constexpr uint32_t FUSED_DEEP_MOE_PROFILE_STAGE_COUNT = static_cast<uint32_t>(Fu
 
 using FusedDeepMoeProfileStageLayout = ProfileStageLayout;
 using FusedDeepMoeProfileHeader = ProfileHeader;
-using FusedDeepMoeProfilePrivateData = ProfilePrivateData;
 using FusedDeepMoeProfileRecord = ProfileRecord;
 
 inline constexpr uint32_t GetFusedDeepMoeProfileStageBaseOffset(const FusedDeepMoeProfileStageLayout &layout,

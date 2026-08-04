@@ -37,7 +37,7 @@ struct ProfileWriter {
         auto *base = reinterpret_cast<__gm__ uint8_t *>(profileGM);
         auto *header = reinterpret_cast<__gm__ ProfileHeader *>(base);
         if (header == nullptr || header->magic != PROFILE_MAGIC || header->version != PROFILE_VERSION ||
-            header->recordBytes != sizeof(ProfileRecord) || header->cycleToUs == 0 ||
+            header->cycleToUs == 0 ||
             (UnpackProfileFlags(header->flagsPacked) & static_cast<uint32_t>(PROFILE_FLAG_SESSION_BUFFER)) == 0U) {
             enabled = false;
             return;
@@ -95,29 +95,6 @@ struct ProfileWriter {
         return static_cast<uint64_t>(AscendC::GetSystemCycle());
     }
 
-    __aicore__ inline bool GetRecordSlot(uint32_t stageId, uint32_t occurrenceId, uint64_t &slot) const
-    {
-        if (!enabled || stageId >= stageCount) {
-            return false;
-        }
-        uint32_t stageOccurrenceCount = GetProfileStageOccurrenceCount(stageLayout, stageId);
-        if (occurrenceId >= stageOccurrenceCount) {
-            return false;
-        }
-        uint32_t logicalCoreLinear = GetProfileLogicalCoreLinear(coreType, coreIdx);
-        if (logicalCoreLinear == UINT32_MAX || logicalCoreLinear >= logicalCoreCount) {
-            return false;
-        }
-        uint32_t stageBase = GetProfileStageBaseOffset(stageLayout, stageId);
-        slot = (static_cast<uint64_t>(stageBase) + static_cast<uint64_t>(occurrenceId)) *
-                   static_cast<uint64_t>(logicalCoreCount) +
-               static_cast<uint64_t>(logicalCoreLinear);
-        if (slot >= recordsPerLaunch) {
-            return false;
-        }
-        return true;
-    }
-
     __aicore__ inline void Record(uint32_t stageId, uint64_t startCycle, uint64_t endCycle) const
     {
         Record(stageId, 0U, startCycle, endCycle);
@@ -125,8 +102,22 @@ struct ProfileWriter {
 
     __aicore__ inline void Record(uint32_t stageId, uint32_t occurrenceId, uint64_t startCycle, uint64_t endCycle) const
     {
-        uint64_t slot = 0;
-        if (!GetRecordSlot(stageId, occurrenceId, slot)) {
+        if (!enabled || stageId >= stageCount) {
+            return;
+        }
+        uint32_t stageOccurrenceCount = GetProfileStageOccurrenceCount(stageLayout, stageId);
+        if (occurrenceId >= stageOccurrenceCount) {
+            return;
+        }
+        uint32_t logicalCoreLinear = GetProfileLogicalCoreLinear(coreType, coreIdx);
+        if (logicalCoreLinear == UINT32_MAX || logicalCoreLinear >= logicalCoreCount) {
+            return;
+        }
+        uint32_t stageBase = GetProfileStageBaseOffset(stageLayout, stageId);
+        uint64_t slot = (static_cast<uint64_t>(stageBase) + static_cast<uint64_t>(occurrenceId)) *
+                            static_cast<uint64_t>(logicalCoreCount) +
+                        static_cast<uint64_t>(logicalCoreLinear);
+        if (slot >= recordsPerLaunch) {
             return;
         }
         records[slot].coreType = coreType;
@@ -136,27 +127,7 @@ struct ProfileWriter {
         records[slot].launchId = launchId;
         records[slot].startCycle = startCycle;
         records[slot].endCycle = endCycle;
-        records[slot].privateDataFlags = 0;
-    }
-
-    __aicore__ inline void Record(uint32_t stageId, uint32_t occurrenceId, uint64_t startCycle, uint64_t endCycle,
-                                  const ProfilePrivateData &privateData) const
-    {
-        uint64_t slot = 0;
-        if (!GetRecordSlot(stageId, occurrenceId, slot)) {
-            return;
-        }
-        records[slot].coreType = coreType;
-        records[slot].coreIdx = coreIdx;
-        records[slot].stageId = stageId;
-        records[slot].occurrenceId = occurrenceId;
-        records[slot].launchId = launchId;
-        records[slot].startCycle = startCycle;
-        records[slot].endCycle = endCycle;
-        records[slot].privateDataFlags = PROFILE_RECORD_FLAG_PRIVATE_DATA_VALID;
-        for (uint32_t i = 0U; i < 2U; ++i) {
-            records[slot].privateData.u64[i] = privateData.u64[i];
-        }
+        records[slot].reserved0 = 0;
     }
 };
 

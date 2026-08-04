@@ -32,12 +32,6 @@ struct FusedDeepMoeProfileWriter : public ProfileWriter {
     {
         ProfileWriter::Record(static_cast<uint32_t>(stage), occurrenceId, startCycle, endCycle);
     }
-
-    __aicore__ inline void Record(deep_ep::profiling::fused_deep_moe_a5::ProfileStage stage, uint32_t occurrenceId,
-                                  uint64_t startCycle, uint64_t endCycle, const ProfilePrivateData &privateData) const
-    {
-        ProfileWriter::Record(static_cast<uint32_t>(stage), occurrenceId, startCycle, endCycle, privateData);
-    }
 };
 
 }  // namespace Cam

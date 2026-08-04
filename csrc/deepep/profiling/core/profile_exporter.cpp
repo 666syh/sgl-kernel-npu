@@ -32,9 +32,6 @@ struct TraceEventRow {
     uint64_t occurrenceId{0};
     uint64_t startCycle{0};
     uint64_t endCycle{0};
-    uint64_t privateDataFlags{0};
-    Cam::ProfilePrivateData privateData{};
-    std::string privateDataJson;
 };
 
 struct LaunchTraceBundle {
@@ -116,7 +113,7 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
     auto *base = profileCpu.data_ptr<uint8_t>();
     auto *header = reinterpret_cast<const Cam::ProfileHeader *>(base);
     if (header == nullptr || header->magic != Cam::PROFILE_MAGIC || header->version != Cam::PROFILE_VERSION ||
-        header->recordBytes != sizeof(Cam::ProfileRecord) || header->cycleToUs == 0) {
+        header->cycleToUs == 0) {
         return false;
     }
     auto *stageLayout = reinterpret_cast<const Cam::ProfileStageLayout *>(base + sizeof(Cam::ProfileHeader));
@@ -190,13 +187,6 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
             row.occurrenceId = record.occurrenceId;
             row.startCycle = record.startCycle;
             row.endCycle = record.endCycle;
-            row.privateDataFlags = record.privateDataFlags;
-            if ((record.privateDataFlags & Cam::PROFILE_RECORD_FLAG_PRIVATE_DATA_VALID) != 0U &&
-                schema.privateDataToJson != nullptr) {
-                row.privateData = record.privateData;
-                row.privateDataJson = schema.privateDataToJson(record.stageId, record.occurrenceId,
-                                                               record.privateDataFlags, record.privateData);
-            }
             bundle.rows.push_back(std::move(row));
             if (!haveRange) {
                 bundle.minStartCycle = record.startCycle;
@@ -329,12 +319,6 @@ static bool WriteTraceFile(const std::vector<LaunchTraceBundle> &launches, int64
             args << "\"is_warmup\":" << (row.isWarmup ? "true" : "false") << ",";
             args << "\"start_cycle\":" << row.startCycle << ",";
             args << "\"end_cycle\":" << row.endCycle;
-            if ((row.privateDataFlags & Cam::PROFILE_RECORD_FLAG_PRIVATE_DATA_VALID) != 0U) {
-                args << ",\"private_data_present\":true";
-                if (!row.privateDataJson.empty()) {
-                    args << ",\"private_data\":" << row.privateDataJson;
-                }
-            }
             args << "}";
             emitEvent(row.stageLabel, row.opName, "X", static_cast<uint64_t>(rank), tid, row.ts_us, row.dur_us,
                       args.str());

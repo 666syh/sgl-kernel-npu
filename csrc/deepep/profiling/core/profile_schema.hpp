@@ -25,8 +25,6 @@ struct ProfileSchema {
     const char *(*stageName)(uint64_t stageId){nullptr};
     std::string (*stageDisplayName)(uint64_t stageId, uint64_t occurrenceId,
                                     const Cam::ProfileStageLayout &layout){nullptr};
-    std::string (*privateDataToJson)(uint64_t stageId, uint64_t occurrenceId, uint64_t privateDataFlags,
-                                     const Cam::ProfilePrivateData &privateData){nullptr};
 };
 
 struct ProfileLaunchConfig {

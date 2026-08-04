@@ -19,7 +19,6 @@ const ProfileSchema &GetProfileSchema()
         {Cam::PROFILE_AIC_COUNT_CAPACITY, Cam::PROFILE_AIV_COUNT_CAPACITY, Cam::PROFILE_LOGICAL_CORE_COUNT_CAPACITY},
         &GetStageName,
         &GetStageDisplayName,
-        nullptr,
     };
     return schema;
 }
