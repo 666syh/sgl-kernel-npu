@@ -17,7 +17,7 @@ namespace Cam {
 
 // Current runtime contract:
 //   groupCountCapacity: [1, 64]
-//   active stage count: [1, 8]
+//   active stage count: [1, 16]
 //   logical cores: 36 AIC + 72 AIV = 108
 // Reserved protocol capacity:
 //   the metadata table has 16 stage slots.
@@ -33,7 +33,7 @@ constexpr uint64_t PROFILE_CORE_TYPE_AIV = 2ULL;
 constexpr uint32_t PROFILE_AIC_COUNT_CAPACITY = 36U;
 constexpr uint32_t PROFILE_AIV_COUNT_CAPACITY = 72U;
 constexpr uint32_t PROFILE_LOGICAL_CORE_COUNT_CAPACITY = PROFILE_AIC_COUNT_CAPACITY + PROFILE_AIV_COUNT_CAPACITY;
-constexpr uint32_t PROFILE_ACTIVE_STAGE_CAPACITY = 8U;
+constexpr uint32_t PROFILE_ACTIVE_STAGE_CAPACITY = 16U;
 constexpr uint32_t PROFILE_RESERVED_STAGE_CAPACITY = 16U;
 constexpr uint32_t PROFILE_MAX_GROUP_COUNT_CAPACITY = 64U;
 

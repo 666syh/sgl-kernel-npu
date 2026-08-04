@@ -51,6 +51,8 @@ const char *GetStageName(uint64_t stageId)
             return "swiglu";
         case ProfileStage::Quant:
             return "quant";
+        case ProfileStage::StageBarrier:
+            return "stage_barrier";
         case ProfileStage::Gmm2:
             return "gmm2";
         case ProfileStage::Combine:
@@ -97,6 +99,8 @@ Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
         "invalid swiglu occurrence capacity.");
     EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Quant), 1U),
                      "invalid quant occurrence capacity.");
+    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::StageBarrier), 1U),
+                     "invalid stage barrier occurrence capacity.");
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Gmm2), groupCountCapacity),
         "invalid gmm2 occurrence capacity.");

@@ -450,6 +450,10 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         gmShareWeight1Scale_, gmShareMm1SwapSpace, gmShareSwigluOut, gmShareX2, gmShareX2Scale, gmX_, gmexpertIds_,
         xActiveMask_, gmSmoothScales_, gmShareSmoothScales_, gmExpandIdx, gmEpSendCount, gmExpertTokenNums_,
         tilingData_->fusedDeepMoeInfo, &profileWriter);
+    uint64_t stageBarrierStart = 0U;
+    if (profileWriter.enabled) {
+        stageBarrierStart = profileWriter.Now();
+    }
     AscendC::PipeBarrier<PIPE_ALL>();
     Arch::CrossCoreFlag gmm1AivFinished{0};
     if constexpr (g_coreType == AscendC::AIV) {
@@ -457,6 +461,9 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(gmm1AivFinished);
     } else {
         Arch::CrossCoreWaitFlag(gmm1AivFinished);
+    }
+    if (profileWriter.enabled) {
+        profileWriter.Record(FusedDeepMoeProfileStage::StageBarrier, 0U, stageBarrierStart, profileWriter.Now());
     }
     MoeDistributeCombineImpl::CamMoeDistributeCombine<TemplateMC2TypeFunc> combiner;
     if (g_coreType == AscendC::AIV) {
