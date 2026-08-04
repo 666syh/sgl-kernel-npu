@@ -30,65 +30,6 @@ static void FusedDeepMoeProfileDebugPrint(const std::string &msg)
 {
     profiling::fused_deep_moe_a5::DebugPrint(msg);
 }
-
-template <typename... Args>
-static at::Tensor ExecuteAclnnFusedDeepMoeKeepWorkspace(const std::string &apiName, void *getWorkspaceSizeAddr,
-                                                        void *opApiAddr, Args &&...args)
-{
-    auto initMemAddr = GetOpApiFuncAddr("InitHugeMemThreadLocal");
-    auto unInitMemAddr = GetOpApiFuncAddr("UnInitHugeMemThreadLocal");
-    auto releaseMemAddr = GetOpApiFuncAddr("ReleaseHugeMem");
-    TORCH_CHECK(getWorkspaceSizeAddr != nullptr && opApiAddr != nullptr, apiName, " or ", apiName, "GetWorkspaceSize",
-                " not in ", GetOpApiLibName(), ", or ", GetOpApiLibName(), " not found.");
-    auto acl_stream = c10_npu::getCurrentNPUStream().stream(false);
-    uint64_t workspace_size = 0;
-    uint64_t *workspace_size_addr = &workspace_size;
-    aclOpExecutor *executor = nullptr;
-    aclOpExecutor **executor_addr = &executor;
-
-    InitHugeMemThreadLocal initMemFunc = reinterpret_cast<InitHugeMemThreadLocal>(initMemAddr);
-    UnInitHugeMemThreadLocal unInitMemFunc = reinterpret_cast<UnInitHugeMemThreadLocal>(unInitMemAddr);
-    if (initMemFunc) {
-        initMemFunc(nullptr, false);
-    }
-
-    auto converted_params = ConvertTypes(std::forward<Args>(args)..., workspace_size_addr, executor_addr);
-    static auto getWorkspaceSizeFunc = ConvertToOpApiFunc(converted_params, getWorkspaceSizeAddr);
-    auto workspace_status = call(getWorkspaceSizeFunc, converted_params);
-    TORCH_CHECK(workspace_status == 0, "call ", apiName, "GetWorkspaceSize failed, detail:", aclGetRecentErrMsg());
-
-    at::Tensor workspace_tensor;
-    void *workspace_addr = nullptr;
-    if (workspace_size != 0) {
-        at::TensorOptions options = at::TensorOptions(torch_npu::utils::get_npu_device_type());
-        workspace_tensor = at::empty({static_cast<int64_t>(workspace_size)}, options.dtype(c10::kByte));
-        workspace_addr = const_cast<void *>(workspace_tensor.storage().data());
-    }
-
-    auto acl_call = [converted_params, workspace_addr, workspace_size, acl_stream, executor, opApiAddr,
-                     releaseMemAddr]() mutable -> int {
-        using OpApiFunc = int (*)(void *, uint64_t, aclOpExecutor *, const aclrtStream);
-        OpApiFunc opApiFunc = reinterpret_cast<OpApiFunc>(opApiAddr);
-        auto api_ret = opApiFunc(workspace_addr, workspace_size, executor, acl_stream);
-        TORCH_CHECK(api_ret == 0, "call fused_deep_moe failed, detail:", aclGetRecentErrMsg());
-        ReleaseConvertTypes(converted_params);
-        using ReleaseHugeMem = void (*)(void *, bool);
-        ReleaseHugeMem releaseMemFunc = reinterpret_cast<ReleaseHugeMem>(releaseMemAddr);
-        if (releaseMemFunc) {
-            releaseMemFunc(nullptr, false);
-        }
-        return api_ret;
-    };
-
-    at_npu::native::OpCommand cmd;
-    cmd.Name(apiName.c_str());
-    cmd.SetCustomHandler(acl_call);
-    cmd.Run();
-    if (unInitMemFunc) {
-        unInitMemFunc(nullptr, false);
-    }
-    return workspace_tensor;
-}
 }  // namespace
 
 constexpr int PADDING_SIZE = 1;
@@ -1174,31 +1115,17 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
 
     if (use_profile) {
         TORCH_CHECK(profile_buffer_ptr != nullptr, "FusedDeepMoe profiling requires a valid profile buffer.");
-        auto invoke_profiled_op = [&](const at::Tensor &profile_buffer_tensor) {
-            return ExecuteAclnnFusedDeepMoeKeepWorkspace(
-                "aclnnFusedDeepMoe", GetOpApiFuncAddr("aclnnFusedDeepMoeGetWorkspaceSize"),
-                GetOpApiFuncAddr("aclnnFusedDeepMoe"), x, expert_ids, gmm1_weight_list, gmm1_scale_list,
-                gmm2_weight_list, gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
-                static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                profile_buffer_tensor, hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs,
-                profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output, share_output,
-                expert_token_nums);
-        };
-
-        auto workspace_tensor = invoke_profiled_op(*profile_buffer_ptr);
-        (void)workspace_tensor;
+    }
+    EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list, gmm2_scale_list,
+                 expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
+                 static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                 static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                 static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                 use_profile ? *profile_buffer_ptr : static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name,
+                 num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64,
+                 profile_launch_id_i64, output, share_output, expert_token_nums);
+    if (use_profile) {
         profiling::fused_deep_moe_a5::CompleteLaunch(profile_ctx, rank);
-    } else {
-        EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
-                     gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank, num_experts,
-                     quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output,
-                     share_output, expert_token_nums);
     }
 
     return {output, expert_token_nums.to(expert_ids.scalar_type())};
