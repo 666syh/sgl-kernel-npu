@@ -47,6 +47,7 @@ constexpr int32_t SUB_AIV_NUM = 2;
 constexpr int32_t ODD_EVEN_BASE = 2;
 constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t GATHER_SECOND_NUM = 2;
+constexpr uint8_t DISPATCH_SEND_PRIVATE_FORMAT_V1 = 1;
 #define OPT_RANK_OFFSET 512
 
 #define CEIL_UP(x) ((x + UB_ALIGN - 1) / UB_ALIGN * UB_ALIGN)
@@ -670,7 +671,7 @@ public:
     }
 
     CATLASS_DEVICE
-    void SendToMoeExprt(GM_ADDR gmX, GM_ADDR gmExpandIdx, GM_ADDR gmMoeSmoothScales)
+    uint32_t SendToMoeExprt(GM_ADDR gmX, GM_ADDR gmExpandIdx, GM_ADDR gmMoeSmoothScales)
     {
         uint32_t sendTokenNum = expertIdsCnt / sendToMoeAivNum;
         uint32_t remainderTokenNum = expertIdsCnt % sendToMoeAivNum;
@@ -683,7 +684,7 @@ public:
         }
         uint32_t endTokenId = startTokenId + sendTokenNum;
         if (startTokenId >= expertIdsCnt) {
-            return;
+            return 0U;
         }
         AscendC::Duplicate(expertCountTensor, (int32_t)0, expertIdsCnt);
         AscendC::SetFlag<AscendC::HardEvent::V_S>(1);
@@ -761,6 +762,7 @@ public:
         AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
         AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
         AscendC::DataCopyPad(expandIdxGMTensor, expertCountTensor, expertIdsCntParams);
+        return sendValidTokenIndex;
     }
 
     CATLASS_DEVICE void SendCoreFunc(GM_ADDR gmX, GM_ADDR gmExpertIds, GM_ADDR gmMoeSmoothScales, GM_ADDR gmExpandIdx,
@@ -826,10 +828,12 @@ public:
         CalAndSendTokenCount();
         AscendC::PipeBarrier<PIPE_ALL>();
         sendToMoeAivNum = sendCoreNum;
-        SendToMoeExprt(gmX, gmExpandIdx, gmMoeSmoothScales);
+        uint32_t sendValidTokenCount = SendToMoeExprt(gmX, gmExpandIdx, gmMoeSmoothScales);
         AscendC::PipeBarrier<PIPE_ALL>();
         if (profile != nullptr) {
-            profile->Record(FusedDeepMoeProfileStage::DispatchSend, 0U, profDispatchSendStart, profile->Now());
+            profile->Record(FusedDeepMoeProfileStage::DispatchSend, 0U, profDispatchSendStart, profile->Now(),
+                            Cam::PackProfilePrivate0(Cam::PROFILE_PRIVATE_DATA_VALID, DISPATCH_SEND_PRIVATE_FORMAT_V1),
+                            static_cast<uint64_t>(sendValidTokenCount), static_cast<uint64_t>(hCommuSize));
         }
     }
 

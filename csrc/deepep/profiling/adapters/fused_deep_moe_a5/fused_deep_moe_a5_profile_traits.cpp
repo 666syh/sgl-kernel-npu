@@ -10,6 +10,10 @@
 
 namespace deep_ep::profiling::fused_deep_moe_a5 {
 
+namespace {
+constexpr uint8_t kDispatchSendPrivateFormatV1 = 1U;
+}
+
 const ProfileSchema &GetProfileSchema()
 {
     static const ProfileSchema schema{
@@ -19,6 +23,7 @@ const ProfileSchema &GetProfileSchema()
         {Cam::PROFILE_AIC_COUNT_CAPACITY, Cam::PROFILE_AIV_COUNT_CAPACITY, Cam::PROFILE_LOGICAL_CORE_COUNT_CAPACITY},
         &GetStageName,
         &GetStageDisplayName,
+        &GetPrivateDataJson,
     };
     return schema;
 }
@@ -76,6 +81,28 @@ std::string GetStageDisplayName(uint64_t stageId, uint64_t occurrenceId, const C
     } else if (stageOccurrenceCount > 1U || occurrenceId != 0U) {
         oss << "[occ=" << occurrenceId << "]";
     }
+    return oss.str();
+}
+
+std::string GetPrivateDataJson(uint64_t stageId, uint64_t occurrenceId, const Cam::ProfileRecord &record,
+                               const Cam::ProfileStageLayout &stageLayout)
+{
+    (void)occurrenceId;
+    (void)stageLayout;
+    if (Cam::GetProfilePrivateValidTag(record.private0) == Cam::PROFILE_PRIVATE_DATA_INVALID) {
+        return {};
+    }
+    auto stage = static_cast<ProfileStage>(stageId);
+    if (stage != ProfileStage::DispatchSend) {
+        return {};
+    }
+    if (Cam::GetProfilePrivateFormatId(record.private0) != kDispatchSendPrivateFormatV1) {
+        return {};
+    }
+    std::ostringstream oss;
+    oss << "{";
+    oss << "\"actual_send_bytes\":" << (record.private1 * record.private2);
+    oss << "}";
     return oss.str();
 }
 

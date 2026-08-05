@@ -22,6 +22,8 @@ const ProfileOpRegistration &GetProfileRegistration();
 const char *GetLaunchEventName();
 const char *GetStageName(uint64_t stageId);
 std::string GetStageDisplayName(uint64_t stageId, uint64_t occurrenceId, const Cam::ProfileStageLayout &stageLayout);
+std::string GetPrivateDataJson(uint64_t stageId, uint64_t occurrenceId, const Cam::ProfileRecord &record,
+                               const Cam::ProfileStageLayout &stageLayout);
 Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity);
 uint32_t GetGroupCountCapacity(int64_t numExperts, int64_t numRanks);
 

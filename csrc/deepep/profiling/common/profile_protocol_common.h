@@ -21,11 +21,16 @@ namespace Cam {
 //   logical cores: 36 AIC + 72 AIV = 108
 // Reserved protocol capacity:
 //   the metadata table has 16 stage slots.
-//   Adding stages 9..16 only requires extending schema/export names;
-//   record ABI and slot calculation remain unchanged.
-//   If stage count exceeds 16, enlarge the metadata table and bump the protocol version.
+//   Adding stages within 1..16 only requires extending schema/export names.
+// Record ABI:
+//   PROFILE_VERSION == 4 extends ProfileRecord with three private u64 payload slots.
+//   private0[7:0]   : valid tag
+//   private0[15:8]  : payload format / version
+//   private0[63:16] : stage-defined
+//   private1/private2: stage-defined
+//   If the record ABI changes again, bump PROFILE_VERSION.
 constexpr uint64_t PROFILE_MAGIC = 0x46444D5035413031ULL;  // FDMP5A01
-constexpr uint64_t PROFILE_VERSION = 3;
+constexpr uint64_t PROFILE_VERSION = 4;
 constexpr uint64_t PROFILE_CYCLE_TO_US = 1000;
 constexpr uint64_t PROFILE_FLAG_SESSION_BUFFER = 0x1ULL;
 constexpr uint64_t PROFILE_CORE_TYPE_AIC = 1ULL;
@@ -36,6 +41,8 @@ constexpr uint32_t PROFILE_LOGICAL_CORE_COUNT_CAPACITY = PROFILE_AIC_COUNT_CAPAC
 constexpr uint32_t PROFILE_ACTIVE_STAGE_CAPACITY = 16U;
 constexpr uint32_t PROFILE_RESERVED_STAGE_CAPACITY = 16U;
 constexpr uint32_t PROFILE_MAX_GROUP_COUNT_CAPACITY = 64U;
+constexpr uint8_t PROFILE_PRIVATE_DATA_INVALID = 0U;
+constexpr uint8_t PROFILE_PRIVATE_DATA_VALID = 1U;
 
 static_assert(PROFILE_ACTIVE_STAGE_CAPACITY <= PROFILE_RESERVED_STAGE_CAPACITY,
               "active stage capacity must fit in the reserved metadata table");
@@ -190,6 +197,21 @@ DEEPEP_PROFILE_INLINE constexpr uint32_t GetProfileLogicalCoreLinear(uint64_t co
     return UINT32_MAX;
 }
 
+DEEPEP_PROFILE_INLINE constexpr uint64_t PackProfilePrivate0(uint8_t validTag, uint8_t formatId)
+{
+    return static_cast<uint64_t>(validTag) | (static_cast<uint64_t>(formatId) << 8);
+}
+
+DEEPEP_PROFILE_INLINE constexpr uint8_t GetProfilePrivateValidTag(uint64_t private0)
+{
+    return static_cast<uint8_t>(private0 & 0xFFULL);
+}
+
+DEEPEP_PROFILE_INLINE constexpr uint8_t GetProfilePrivateFormatId(uint64_t private0)
+{
+    return static_cast<uint8_t>((private0 >> 8) & 0xFFULL);
+}
+
 struct ProfileHeader {
     uint64_t magic;
     uint64_t version;
@@ -216,12 +238,18 @@ struct ProfileRecord {
     uint64_t launchId;
     uint64_t startCycle;
     uint64_t endCycle;
-    uint64_t reserved0;
+    // Common private payload contract:
+    //   private0[7:0]   : valid tag
+    //   private0[15:8]  : payload format / version
+    //   remaining bits   : stage-defined payload
+    uint64_t private0;
+    uint64_t private1;
+    uint64_t private2;
 };
 
 static_assert(sizeof(ProfileHeader) == 64, "Unexpected profile header size");
 static_assert(sizeof(ProfileStageLayout) == 64, "Unexpected profile stage layout size");
-static_assert(sizeof(ProfileRecord) == 64, "Unexpected profile record size");
+static_assert(sizeof(ProfileRecord) == 80, "Unexpected profile record size");
 
 }  // namespace Cam
 

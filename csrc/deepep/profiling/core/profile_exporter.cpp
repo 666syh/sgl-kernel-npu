@@ -34,11 +34,16 @@ struct TraceEventRow {
     uint64_t occurrenceId{0};
     uint64_t startCycle{0};
     uint64_t endCycle{0};
+    uint64_t private0{0};
+    uint64_t private1{0};
+    uint64_t private2{0};
 };
 
 struct LaunchTraceBundle {
     std::string opName;
     std::string launchEventName;
+    const ProfileSchema *schema{nullptr};
+    Cam::ProfileStageLayout stageLayout{};
     int64_t launchId{0};
     bool isWarmup{false};
     uint64_t minStartCycle{0};
@@ -163,6 +168,8 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
         LaunchTraceBundle bundle;
         bundle.opName = opName;
         bundle.launchEventName = launchName;
+        bundle.schema = &schema;
+        bundle.stageLayout = *stageLayout;
         bundle.launchId = static_cast<int64_t>(launchId);
         bundle.isWarmup = static_cast<int64_t>(launchId) < numProfileSkipLaunches;
         bool haveRange = false;
@@ -189,6 +196,9 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
             row.occurrenceId = record.occurrenceId;
             row.startCycle = record.startCycle;
             row.endCycle = record.endCycle;
+            row.private0 = record.private0;
+            row.private1 = record.private1;
+            row.private2 = record.private2;
             bundle.rows.push_back(std::move(row));
             if (!haveRange) {
                 bundle.minStartCycle = record.startCycle;
@@ -430,6 +440,24 @@ static bool WriteTraceFile(const std::vector<LaunchTraceBundle> &launches, int64
             args << "\"is_warmup\":" << (row.isWarmup ? "true" : "false") << ",";
             args << "\"start_cycle\":" << row.startCycle << ",";
             args << "\"end_cycle\":" << row.endCycle;
+            if (bundle.schema != nullptr && bundle.schema->privateDataJson != nullptr) {
+                Cam::ProfileRecord record{};
+                record.coreType = row.coreType;
+                record.coreIdx = row.coreIdx;
+                record.stageId = row.stageId;
+                record.occurrenceId = row.occurrenceId;
+                record.launchId = static_cast<uint64_t>(std::max<int64_t>(0, row.launchId));
+                record.startCycle = row.startCycle;
+                record.endCycle = row.endCycle;
+                record.private0 = row.private0;
+                record.private1 = row.private1;
+                record.private2 = row.private2;
+                std::string privateDataJson =
+                    bundle.schema->privateDataJson(row.stageId, row.occurrenceId, record, bundle.stageLayout);
+                if (!privateDataJson.empty()) {
+                    args << ",\"private_data\":" << privateDataJson;
+                }
+            }
             args << "}";
             emitEvent(row.stageLabel, row.opName, "X", static_cast<uint64_t>(rank), tid,
                       GetLaunchRebasedTsUs(GetAlignedTsUs(row.ts_us, calibration), calibration), row.dur_us,
