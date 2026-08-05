@@ -100,9 +100,7 @@ std::string GetPrivateDataJson(uint64_t stageId, uint64_t occurrenceId, const Ca
         return {};
     }
     std::ostringstream oss;
-    oss << "{";
-    oss << "\"actual_send_bytes\":" << (record.private1 * record.private2);
-    oss << "}";
+    oss << ",\"dispatch_send_actual_send_bytes\":" << (record.private1 * record.private2);
     return oss.str();
 }
 

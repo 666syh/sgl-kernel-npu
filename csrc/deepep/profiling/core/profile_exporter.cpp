@@ -455,7 +455,7 @@ static bool WriteTraceFile(const std::vector<LaunchTraceBundle> &launches, int64
                 std::string privateDataJson =
                     bundle.schema->privateDataJson(row.stageId, row.occurrenceId, record, bundle.stageLayout);
                 if (!privateDataJson.empty()) {
-                    args << ",\"private_data\":" << privateDataJson;
+                    args << privateDataJson;
                 }
             }
             args << "}";

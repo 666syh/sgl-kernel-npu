@@ -25,7 +25,9 @@ struct ProfileSchema {
     const char *(*stageName)(uint64_t stageId){nullptr};
     std::string (*stageDisplayName)(uint64_t stageId, uint64_t occurrenceId,
                                     const Cam::ProfileStageLayout &layout){nullptr};
-    // Returns a JSON object body for this record's private payload, or empty when absent.
+    // Returns flattened JSON fields that can be appended directly into args,
+    // for example: ,"dispatch_send_actual_send_bytes":123 .
+    // Return empty string when no private payload should be shown.
     std::string (*privateDataJson)(uint64_t stageId, uint64_t occurrenceId, const Cam::ProfileRecord &record,
                                    const Cam::ProfileStageLayout &layout){nullptr};
 };
