@@ -613,6 +613,8 @@ def print_fused_counts_table(gathered_fused_counts: List[torch.Tensor]):
 def summarize_output_diff(
     reference: torch.Tensor, actual: torch.Tensor
 ) -> Tuple[float, float, float]:
+    if reference.numel() == 0:
+        return 0.0, 0.0, 0.0
     reference_f = reference.float()
     actual_f = actual.float()
     eps = 1e-8
@@ -625,6 +627,8 @@ def summarize_output_diff(
 
 
 def summarize_tensor_stats(tensor: torch.Tensor) -> Tuple[float, float]:
+    if tensor.numel() == 0:
+        return 0.0, 0.0
     tensor_f = tensor.float()
     return tensor_f.abs().max().item(), tensor_f.mean().item()
 
@@ -669,14 +673,18 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             buffer.runtime.is_a5_build()
         ), "The installed DeepEP wheel is not an A5 build"
 
-        if args.num_token_jitter > 0:
-            token_jitter_rng = random.Random(args.num_token_jitter_seed + rank)
-            token_delta = token_jitter_rng.randint(
-                -args.num_token_jitter, args.num_token_jitter
-            )
-        else:
+        if args.single_active_rank is not None:
             token_delta = 0
-        local_num_tokens = max(1, min(256, args.num_tokens + token_delta))
+            local_num_tokens = 1 if rank == args.single_active_rank else 0
+        else:
+            if args.num_token_jitter > 0:
+                token_jitter_rng = random.Random(args.num_token_jitter_seed + rank)
+                token_delta = token_jitter_rng.randint(
+                    -args.num_token_jitter, args.num_token_jitter
+                )
+            else:
+                token_delta = 0
+            local_num_tokens = max(1, min(256, args.num_tokens + token_delta))
         local_num_tokens_tensor = torch.tensor(
             [local_num_tokens], dtype=torch.int64, device="npu"
         )
@@ -689,6 +697,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         padded_num_tokens = max(all_num_tokens)
         small_op_global_bs = padded_num_tokens * world_size
         token_prefix_before_rank = sum(all_num_tokens[:rank])
+        has_valid_tokens = local_num_tokens > 0
 
         inputs = make_umdk_static_inputs(
             rank,
@@ -718,6 +727,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 "Config: "
                 f"num_processes={num_processes}, "
                 f"base_num_tokens={args.num_tokens}, "
+                f"single_active_rank={args.single_active_rank}, "
                 f"num_token_jitter={args.num_token_jitter}, "
                 f"num_token_jitter_seed={args.num_token_jitter_seed}, "
                 f"per_rank_num_tokens={all_num_tokens}, "
@@ -735,6 +745,17 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 f"small_first_warmup_gmm_burn_in_repeats={SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS}",
                 flush=True,
             )
+            if args.single_active_rank is not None:
+                inactive_ranks = [
+                    idx for idx in range(world_size) if idx != args.single_active_rank
+                ]
+                print(
+                    "Special case: "
+                    f"single_active_rank={args.single_active_rank}, "
+                    f"active_rank={args.single_active_rank}, "
+                    f"inactive_ranks={inactive_ranks}",
+                    flush=True,
+                )
             if expected_counts is None:
                 print(
                     "Warning: num_tokens * num_processes * num_topk is not divisible by num_experts. "
@@ -790,6 +811,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 small_mean,
                 fused_absmax,
                 fused_mean,
+                float(has_valid_tokens),
             ],
             dtype=torch.float32,
             device="npu",
@@ -801,15 +823,21 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         ]
         dist.all_gather(gathered_fused_counts, fused_counts)
         dist.barrier()
-        torch.testing.assert_close(
-            small_output[:valid_token_num].float(),
-            fused_output[:valid_token_num].float(),
-            atol=ACCURACY_ATOL,
-            rtol=ACCURACY_RTOL,
-        )
+        if has_valid_tokens:
+            torch.testing.assert_close(
+                small_output[:valid_token_num].float(),
+                fused_output[:valid_token_num].float(),
+                atol=ACCURACY_ATOL,
+                rtol=ACCURACY_RTOL,
+            )
         if rank == 0:
             print_fused_counts_table(gathered_fused_counts)
             gathered_diag_cpu = torch.stack(gathered_diag).cpu()
+            skipped_accuracy_ranks = [
+                idx
+                for idx in range(world_size)
+                if gathered_diag_cpu[idx, 7].item() == 0.0
+            ]
             print(
                 "Accuracy check passed. "
                 f"avg_diff={gathered_diag_cpu[:, 0].max().item():.6f}, "
@@ -817,6 +845,13 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 f"calc_diff={gathered_diag_cpu[:, 2].max().item():.6f}",
                 flush=True,
             )
+            if skipped_accuracy_ranks:
+                print(
+                    "Skipped per-token accuracy comparison for zero-token ranks: "
+                    f"active_rank={args.single_active_rank}, "
+                    f"skipped_ranks={skipped_accuracy_ranks}",
+                    flush=True,
+                )
 
         dist.barrier()
         small_stats = None
@@ -1034,6 +1069,33 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     total_fused_stats,
                     mean_breakdown_stats,
                 )
+            if args.single_active_rank is not None:
+                active_rank = args.single_active_rank
+                if gathered_small is not None:
+                    active_small_stats = tuple(
+                        float(v) for v in gathered_small[active_rank].cpu().tolist()
+                    )
+                    active_small_breakdown = [
+                        tuple(float(v) for v in stats_values)
+                        for stats_values in gathered_small_breakdown[active_rank]
+                        .cpu()
+                        .tolist()
+                    ]
+                    print_stats_table(
+                        f"small-op breakdown (active rank {active_rank}):",
+                        build_small_rows(
+                            active_small_stats,
+                            active_small_breakdown,
+                        ),
+                    )
+                if gathered_fused is not None:
+                    active_fused_stats = tuple(
+                        float(v) for v in gathered_fused[active_rank].cpu().tolist()
+                    )
+                    print_stats_table(
+                        f"fused buffer path (active rank {active_rank}):",
+                        [("fused", active_fused_stats, 100.0)],
+                    )
             if args.print_per_rank_profile:
                 print_per_rank_profile_tables(
                     gathered_small,
@@ -1077,6 +1139,11 @@ def main():
         type=int,
         default=2026,
         help="Base seed used to derive deterministic per-rank token jitter.",
+    )
+    parser.add_argument(
+        "--single-active-rank",
+        type=int,
+        help="Optional special-case mode: only this rank uses 1 real token and every other rank uses 0 tokens.",
     )
     parser.add_argument(
         "--hidden",
@@ -1152,12 +1219,18 @@ def main():
         parser.error("--num-processes must be positive")
     if args.num_experts % args.num_processes != 0:
         parser.error("--num-experts must be divisible by --num-processes")
+    if args.single_active_rank is not None and not (
+        0 <= args.single_active_rank < args.num_processes
+    ):
+        parser.error("--single-active-rank must be in [0, --num-processes - 1]")
     if not 1 <= args.num_topk <= min(args.num_experts, 12):
         parser.error("--num-topk must be in [1, min(--num-experts, 12)]")
     if not 1 <= args.num_tokens <= 256:
         parser.error("--num-tokens must be in [1, 256]")
     if args.num_token_jitter < 0:
         parser.error("--num-token-jitter must be non-negative")
+    if args.single_active_rank is not None and args.num_token_jitter > 0:
+        parser.error("--single-active-rank cannot be combined with --num-token-jitter")
     if not 512 <= args.hidden <= 7168:
         parser.error("--hidden must be in [512, 7168]")
     if not 1024 <= gmm1_hidden <= 6144 or gmm1_hidden % 1024 != 0:
