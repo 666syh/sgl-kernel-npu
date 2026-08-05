@@ -3,6 +3,7 @@
 import argparse
 import os
 import random
+import traceback
 from typing import Dict, List, Tuple
 
 import deep_ep
@@ -97,13 +98,15 @@ def make_umdk_static_inputs(
 
     x = torch.rand((local_num_tokens, args.hidden)).bfloat16().npu() * 2 - 1
     if args.single_active_rank is not None and local_num_tokens > 0:
-        topk_gen = torch.Generator(device="cpu")
-        topk_gen.manual_seed(args.single_active_topk_seed + rank)
+        topk_rng = random.Random(args.single_active_topk_seed + rank)
         sampled_rows = [
-            torch.randperm(args.num_experts, generator=topk_gen)[: args.num_topk]
+            torch.tensor(
+                topk_rng.sample(range(args.num_experts), args.num_topk),
+                dtype=torch.int32,
+            )
             for _ in range(local_num_tokens)
         ]
-        expert_ids = torch.stack(sampled_rows, dim=0).to(torch.int32).npu()
+        expert_ids = torch.stack(sampled_rows, dim=0).npu()
     else:
         expert_ids = torch.arange(
             token_prefix_before_rank * args.num_topk,
@@ -671,6 +674,8 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
     group = None
     group_small = None
     group_fused = None
+    pending_exc = None
+    pending_tb = None
     try:
         rank, world_size, group = init_dist(local_rank, num_processes)
         torch.manual_seed(2026 + rank)
@@ -1143,7 +1148,16 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     gathered_small_breakdown,
                     gathered_fused,
                 )
+    except Exception as exc:
+        pending_exc = exc
+        pending_tb = traceback.format_exc()
     finally:
+        if pending_tb is not None:
+            rank_text = rank if "rank" in locals() else f"local_rank={local_rank}"
+            print(
+                f"[{rank_text}] exception captured before finalize:\n{pending_tb}",
+                flush=True,
+            )
         if dist.is_initialized():
             dist.barrier()
             if group_small is not None:
@@ -1151,6 +1165,8 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             if group_fused is not None:
                 dist.destroy_process_group(group_fused)
             dist.destroy_process_group()
+    if pending_exc is not None:
+        raise pending_exc.with_traceback(pending_exc.__traceback__)
 
 
 def main():
