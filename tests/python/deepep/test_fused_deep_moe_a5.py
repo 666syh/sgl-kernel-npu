@@ -96,12 +96,21 @@ def make_umdk_static_inputs(
     local_experts = args.num_experts // world_size
 
     x = torch.rand((local_num_tokens, args.hidden)).bfloat16().npu() * 2 - 1
-    expert_ids = torch.arange(
-        token_prefix_before_rank * args.num_topk,
-        (token_prefix_before_rank + local_num_tokens) * args.num_topk,
-        dtype=torch.int32,
-    ).view(local_num_tokens, args.num_topk)
-    expert_ids = expert_ids.remainder(args.num_experts).npu()
+    if args.single_active_rank is not None and local_num_tokens > 0:
+        topk_gen = torch.Generator(device="cpu")
+        topk_gen.manual_seed(args.single_active_topk_seed + rank)
+        sampled_rows = [
+            torch.randperm(args.num_experts, generator=topk_gen)[: args.num_topk]
+            for _ in range(local_num_tokens)
+        ]
+        expert_ids = torch.stack(sampled_rows, dim=0).to(torch.int32).npu()
+    else:
+        expert_ids = torch.arange(
+            token_prefix_before_rank * args.num_topk,
+            (token_prefix_before_rank + local_num_tokens) * args.num_topk,
+            dtype=torch.int32,
+        ).view(local_num_tokens, args.num_topk)
+        expert_ids = expert_ids.remainder(args.num_experts).npu()
     expert_scales = torch.rand(
         (local_num_tokens, args.num_topk), dtype=torch.float32
     ).npu()
@@ -716,12 +725,25 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             torch.device("npu")
         ).get_hccl_comm_name(rank)
         local_experts = args.num_experts // world_size
-        expected_counts, total_assignments = get_uniform_expected_counts(
-            real_global_bs,
-            args.num_topk,
-            args.num_experts,
-            local_experts,
+        if args.single_active_rank is not None:
+            expected_counts, total_assignments = None, real_global_bs * args.num_topk
+        else:
+            expected_counts, total_assignments = get_uniform_expected_counts(
+                real_global_bs,
+                args.num_topk,
+                args.num_experts,
+                local_experts,
+            )
+        local_topk_tensor = torch.full(
+            (args.num_topk,),
+            -1,
+            dtype=torch.int32,
+            device="npu",
         )
+        if args.single_active_rank is not None and has_valid_tokens:
+            local_topk_tensor.copy_(inputs["expert_ids"][0])
+        gathered_topk = [torch.empty_like(local_topk_tensor) for _ in range(world_size)]
+        dist.all_gather(gathered_topk, local_topk_tensor)
         if rank == 0:
             print(
                 "Config: "
@@ -756,7 +778,26 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     f"inactive_ranks={inactive_ranks}",
                     flush=True,
                 )
-            if expected_counts is None:
+                active_topk_experts = [
+                    int(v)
+                    for v in gathered_topk[args.single_active_rank].cpu().tolist()
+                ]
+                active_topk_ranks = [
+                    expert_id // local_experts for expert_id in active_topk_experts
+                ]
+                print(
+                    "Randomized single-active topk: "
+                    f"seed={args.single_active_topk_seed}, "
+                    f"active_token_topk_experts={active_topk_experts}, "
+                    f"active_token_topk_ranks={active_topk_ranks}",
+                    flush=True,
+                )
+                print(
+                    "Strict expected-counts check is skipped in single_active_rank mode "
+                    "because topk experts are randomized across the global expert space.",
+                    flush=True,
+                )
+            elif expected_counts is None:
                 print(
                     "Warning: num_tokens * num_processes * num_topk is not divisible by num_experts. "
                     "This synthetic expert_ids construction will produce non-uniform expert token counts, "
@@ -1144,6 +1185,12 @@ def main():
         "--single-active-rank",
         type=int,
         help="Optional special-case mode: only this rank uses 1 real token and every other rank uses 0 tokens.",
+    )
+    parser.add_argument(
+        "--single-active-topk-seed",
+        type=int,
+        default=2026,
+        help="Base seed used to generate randomized global topk experts in --single-active-rank mode.",
     )
     parser.add_argument(
         "--hidden",
