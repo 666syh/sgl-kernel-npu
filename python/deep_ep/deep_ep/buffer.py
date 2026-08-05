@@ -820,8 +820,10 @@ class Buffer:
             gmm2_weight: weight tensor for the second stage (e.g., projection or FFN output).
             gmm2_weight_scale: quantization scale tensor corresponding to `gmm2Weight`.
 
-            num_max_dispatch_tokens_per_rank: the maximum number of tokens to dispatch, when fuse_mode is DISPATCH_FFN_COMBINE,
-                it indicates the maximum number of tokens received in dispatch. All the ranks must hold the same value.
+            num_max_dispatch_tokens_per_rank: the uniform per-rank token capacity used by the low-latency path.
+                All ranks must pass the same value. In fused A5 mode, if `x.shape[0]` is smaller than this capacity,
+                the runtime pads `x`, `topk_idx`, and `topk_weights` internally and uses a 1D active mask so only the
+                real tokens participate in dispatch/combine. The returned output is trimmed back to the real token count.
             num_experts: the number of experts.
             quant_mode: int type, optional number, displays the quantization model. Supported values: 1 means int8 (default)
             fuse_mode: Fuse mode enum (default: FuseMode.FUSED_DEEP_MOE).

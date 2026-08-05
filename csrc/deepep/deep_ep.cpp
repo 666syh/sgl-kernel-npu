@@ -1053,8 +1053,11 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
                                                int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
                                                int quant_mode, bool profile_enable)
 {
+    EP_HOST_ASSERT(x.dim() == 2);
     EP_HOST_ASSERT(expert_ids.dim() == 2);
     EP_HOST_ASSERT(expert_scales_optional.dim() == 2);
+    EP_HOST_ASSERT(x.size(0) == expert_ids.size(0));
+    EP_HOST_ASSERT(expert_ids.sizes() == expert_scales_optional.sizes());
 
     char hcom_ep_name[128];
     if (!moe_all_to_all_group_name.empty()) {
@@ -1063,15 +1066,36 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
         HCCL_CHECK(HcclGetCommName(ep_comm, hcom_ep_name));
     }
 
-    int64_t global_bs = std::max(expert_ids.size(0), num_max_dispatch_tokens_per_rank) * num_ranks;
-
     auto x_shape = x.sizes();
-    int h = x_shape[1];
-    int bs = expert_ids.size(0);
-
-    at::Tensor output = at::empty({bs, h}, x.options());
+    int64_t h = x_shape[1];
+    int64_t bs = expert_ids.size(0);
 
 #if defined(__DAV_C310__)
+    const int64_t capacity = num_max_dispatch_tokens_per_rank;
+    TORCH_CHECK(capacity >= bs,
+                "num_max_dispatch_tokens_per_rank must be greater than or equal to the local token count, got ",
+                capacity, " < ", bs);
+    const int64_t global_bs = capacity * num_ranks;
+
+    at::Tensor x_padded = x;
+    at::Tensor expert_ids_padded = expert_ids;
+    at::Tensor expert_scales_padded = expert_scales_optional;
+    const bool use_x_active_mask = capacity > bs;
+    at::Tensor x_active_mask;
+    if (use_x_active_mask) {
+        x_padded = at::zeros({capacity, h}, x.options());
+        x_padded.narrow(0, 0, bs).copy_(x);
+
+        expert_ids_padded = at::zeros({capacity, expert_ids.size(1)}, expert_ids.options());
+        expert_ids_padded.narrow(0, 0, bs).copy_(expert_ids);
+
+        expert_scales_padded = at::zeros({capacity, expert_scales_optional.size(1)}, expert_scales_optional.options());
+        expert_scales_padded.narrow(0, 0, bs).copy_(expert_scales_optional);
+
+        x_active_mask = at::zeros({capacity}, x.options().dtype(at::kBool));
+        x_active_mask.narrow(0, 0, bs).fill_(true);
+    }
+
     std::vector<at::Tensor> gmm1_weight_storage{gmm1_permuted_weight};
     std::vector<at::Tensor> gmm1_scale_storage{gmm1_permuted_weight_scale};
     std::vector<at::Tensor> gmm2_weight_storage{gmm2_weight};
@@ -1080,7 +1104,8 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
     at::TensorList gmm1_scale_list(gmm1_scale_storage);
     at::TensorList gmm2_weight_list(gmm2_weight_storage);
     at::TensorList gmm2_scale_list(gmm2_scale_storage);
-    at::Tensor share_output = at::empty({bs, h}, x.options());
+    at::Tensor output = at::empty({capacity, h}, x.options());
+    at::Tensor share_output = at::empty({capacity, h}, x.options());
     int64_t num_local_experts = num_experts / num_ranks;
     at::Tensor expert_token_nums = at::empty({num_local_experts}, x.options().dtype(at::kLong));
     auto profile_ctx = profiling::fused_deep_moe_a5::PrepareLaunch(num_experts, num_ranks, profile_enable);
@@ -1092,28 +1117,56 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
 
     if (use_profile) {
         TORCH_CHECK(profile_buffer_ptr != nullptr, "FusedDeepMoe profiling requires a valid profile buffer.");
-        EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
-                     gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     *profile_buffer_ptr, hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs,
-                     profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output, share_output,
-                     expert_token_nums);
+        if (use_x_active_mask) {
+            EXEC_NPU_CMD(aclnnFusedDeepMoe, x_padded, expert_ids_padded, gmm1_weight_list, gmm1_scale_list,
+                         gmm2_weight_list, gmm2_scale_list, expert_scales_padded,
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         x_active_mask, *profile_buffer_ptr, hcom_ep_name, num_ranks, rank, num_experts, quant_mode,
+                         global_bs, profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output,
+                         share_output, expert_token_nums);
+        } else {
+            EXEC_NPU_CMD(aclnnFusedDeepMoe, x_padded, expert_ids_padded, gmm1_weight_list, gmm1_scale_list,
+                         gmm2_weight_list, gmm2_scale_list, expert_scales_padded,
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), *profile_buffer_ptr, hcom_ep_name, num_ranks,
+                         rank, num_experts, quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64,
+                         profile_launch_id_i64, output, share_output, expert_token_nums);
+        }
         profiling::fused_deep_moe_a5::CompleteLaunch(profile_ctx, rank);
     } else {
-        EXEC_NPU_CMD(aclnnFusedDeepMoe, x, expert_ids, gmm1_weight_list, gmm1_scale_list, gmm2_weight_list,
-                     gmm2_scale_list, expert_scales_optional, static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
-                     static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank, num_experts,
-                     quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, output,
-                     share_output, expert_token_nums);
+        if (use_x_active_mask) {
+            EXEC_NPU_CMD(aclnnFusedDeepMoe, x_padded, expert_ids_padded, gmm1_weight_list, gmm1_scale_list,
+                         gmm2_weight_list, gmm2_scale_list, expert_scales_padded,
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         x_active_mask, static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank,
+                         num_experts, quant_mode, global_bs, profile_enable_i64, profile_buffer_bytes_i64,
+                         profile_launch_id_i64, output, share_output, expert_token_nums);
+        } else {
+            EXEC_NPU_CMD(aclnnFusedDeepMoe, x_padded, expert_ids_padded, gmm1_weight_list, gmm1_scale_list,
+                         gmm2_weight_list, gmm2_scale_list, expert_scales_padded,
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         static_cast<const std::nullptr_t &>(nullptr), static_cast<const std::nullptr_t &>(nullptr),
+                         hcom_ep_name, num_ranks, rank, num_experts, quant_mode, global_bs, profile_enable_i64,
+                         profile_buffer_bytes_i64, profile_launch_id_i64, output, share_output, expert_token_nums);
+        }
+    }
+
+    if (use_x_active_mask) {
+        output = output.narrow(0, 0, bs);
     }
 
     return {output, expert_token_nums.to(expert_ids.scalar_type())};
 #else
+    int64_t global_bs = std::max(expert_ids.size(0), num_max_dispatch_tokens_per_rank) * num_ranks;
+    at::Tensor output = at::empty({bs, h}, x.options());
 
     bool is_shared_expert = (rank < shared_expert_rank_num);
     int64_t num_local_experts = is_shared_expert ? 1 : num_experts / (num_ranks - shared_expert_rank_num);

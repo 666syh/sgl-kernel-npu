@@ -326,7 +326,7 @@ def run_small_op_baseline(
 def run_buffer_fused(
     buffer: deep_ep.Buffer,
     inputs: Dict[str, torch.Tensor],
-    local_num_tokens: int,
+    num_max_dispatch_tokens_per_rank: int,
     args: argparse.Namespace,
     kernel_trace_dir: str = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -338,7 +338,7 @@ def run_buffer_fused(
         inputs["gmm1_weight_scale"],
         inputs["gmm2_weight_q"],
         inputs["gmm2_weight_scale"],
-        local_num_tokens,
+        num_max_dispatch_tokens_per_rank,
         args.num_experts,
         FUSED_COMPAT_QUANT_MODE,
         profile_enable=kernel_trace_dir is not None,
@@ -349,7 +349,7 @@ def run_buffer_fused(
 def run_buffer_fused_with_burn_in(
     buffer: deep_ep.Buffer,
     inputs: Dict[str, torch.Tensor],
-    local_num_tokens: int,
+    num_max_dispatch_tokens_per_rank: int,
     args: argparse.Namespace,
     fused_burn_in_repeats: int = 1,
     warmup_burn_in_buffers: Tuple[torch.Tensor, torch.Tensor] = None,
@@ -365,7 +365,11 @@ def run_buffer_fused_with_burn_in(
             _ = torch.matmul(burn_in_lhs, burn_in_rhs)
 
     return run_buffer_fused(
-        buffer, inputs, local_num_tokens, args, kernel_trace_dir=kernel_trace_dir
+        buffer,
+        inputs,
+        num_max_dispatch_tokens_per_rank,
+        args,
+        kernel_trace_dir=kernel_trace_dir,
     )
 
 
@@ -749,7 +753,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             args,
         )
         fused_output, fused_counts = run_buffer_fused(
-            buffer, inputs, local_num_tokens, args
+            buffer, inputs, padded_num_tokens, args
         )
         torch.npu.synchronize()
 
@@ -915,7 +919,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 return run_buffer_fused(
                     buffer,
                     inputs,
-                    local_num_tokens,
+                    padded_num_tokens,
                     args,
                     kernel_trace_dir=args.kernel_trace_dir,
                 )
