@@ -5,6 +5,7 @@
 #include "profiling/core/profile_session.hpp"
 
 #include <cstring>
+#include <filesystem>
 
 #include "exception.hpp"
 #include "profiling/core/profile_exporter.hpp"
@@ -79,6 +80,19 @@ OpProfileSession &GetExistingOpSession(const char *opKey)
 
 }  // namespace
 
+void ProfileTimeCalibration::Reset()
+{
+    valid = false;
+    beginDeviceUs = 0.0;
+    beginHostUs = 0.0;
+    endDeviceUs = 0.0;
+    endHostUs = 0.0;
+    firstLaunchAlignedTsUs = 0.0;
+    sharedLaunchReferenceUs = 0.0;
+    launchRebaseUs = 0.0;
+    mode = ProfileTimeAlignmentMode::None;
+}
+
 void OpProfileSession::Reset()
 {
     registration = nullptr;
@@ -99,8 +113,10 @@ void ManagerSessionState::Reset()
     numProfileSkipLaunches = 0;
     numProfileActiveLaunches = 0;
     expectedLaunches = 0;
+    numRanks = 0;
     profileTraceDir.clear();
     opSessions.clear();
+    rankCalibrations.clear();
 }
 
 bool IsActive()
@@ -126,6 +142,16 @@ int64_t GetNumProfileSkipLaunches()
 int64_t GetNumProfileActiveLaunches()
 {
     return GetManagerSession().numProfileActiveLaunches;
+}
+
+const ProfileTimeCalibration *GetTimeCalibration(int64_t rank)
+{
+    auto &manager = GetManagerSession();
+    auto it = manager.rankCalibrations.find(rank);
+    if (it == manager.rankCalibrations.end()) {
+        return nullptr;
+    }
+    return &it->second;
 }
 
 uint32_t GetRecordsPerLaunch(const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema)
@@ -155,10 +181,12 @@ at::Tensor AllocateBuffer(uint64_t totalBytes, uint32_t launchCountCapacity, uin
     return profileBuffer;
 }
 
-void Begin(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir)
+void Begin(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir,
+           int64_t numRanks)
 {
     TORCH_CHECK(numProfileSkipLaunches >= 0, "num_profile_skip_launches must be non-negative");
     TORCH_CHECK(numProfileActiveLaunches >= 0, "num_profile_active_launches must be non-negative");
+    TORCH_CHECK(numRanks > 0, "num_ranks must be positive for profile session.");
     TORCH_CHECK(!GetManagerSession().active, "profile session is already active.");
     int64_t expectedLaunches = numProfileSkipLaunches + numProfileActiveLaunches;
     TORCH_CHECK(expectedLaunches > 0, "profile session needs at least one launch.");
@@ -170,7 +198,17 @@ void Begin(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, con
     manager.numProfileSkipLaunches = numProfileSkipLaunches;
     manager.numProfileActiveLaunches = numProfileActiveLaunches;
     manager.expectedLaunches = expectedLaunches;
+    manager.numRanks = numRanks;
     manager.profileTraceDir = profileTraceDir;
+
+    if (!profileTraceDir.empty()) {
+        for (int64_t rank = 0; rank < numRanks; ++rank) {
+            std::filesystem::path anchorPath =
+                std::filesystem::path(profileTraceDir) / ("rank" + std::to_string(rank)) / "launch_anchor.txt";
+            std::error_code ec;
+            std::filesystem::remove(anchorPath, ec);
+        }
+    }
 }
 
 OpProfileSession &EnsureOpSession(const ProfileOpRegistration &registration, const ProfileLaunchConfig &launchConfig)
@@ -252,6 +290,27 @@ const at::Tensor &GetProfileBuffer(const char *opKey)
     return GetExistingOpSession(opKey).profileBuffer;
 }
 
+void UpdateBeginCalibration(int64_t rank, double deviceUs, double hostUs)
+{
+    auto &calibration = GetManagerSession().rankCalibrations[rank];
+    calibration.beginDeviceUs = deviceUs;
+    calibration.beginHostUs = hostUs;
+    calibration.endDeviceUs = 0.0;
+    calibration.endHostUs = 0.0;
+    calibration.mode = ProfileTimeAlignmentMode::OffsetOnly;
+    calibration.valid = true;
+}
+
+void UpdateEndCalibration(int64_t rank, double deviceUs, double hostUs)
+{
+    auto &calibration = GetManagerSession().rankCalibrations[rank];
+    calibration.endDeviceUs = deviceUs;
+    calibration.endHostUs = hostUs;
+    if (calibration.valid) {
+        calibration.mode = ProfileTimeAlignmentMode::OffsetOnly;
+    }
+}
+
 void ExportAndReset(int64_t rank)
 {
     auto &manager = GetManagerSession();
@@ -283,7 +342,8 @@ void ExportAndReset(int64_t rank)
         manager.Reset();
         return;
     }
-    exporter::ExportAggregatedTrace(sources, rank, manager.profileTraceDir);
+    const auto *calibration = GetTimeCalibration(rank);
+    exporter::ExportAggregatedTrace(sources, rank, manager.profileTraceDir, calibration, manager.numRanks);
     manager.Reset();
 }
 

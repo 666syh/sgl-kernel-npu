@@ -4,9 +4,82 @@
 
 #include "profiling/core/profile_runtime.hpp"
 
+#include <chrono>
+
+#include <acl/acl_rt.h>
+#include <torch_npu/csrc/core/npu/NPUStream.h>
+
 #include "profiling/core/profile_session.hpp"
 
 namespace deep_ep::profiling::runtime {
+namespace {
+
+struct ProfileTimeAnchor {
+    uint64_t deviceSyscnt{0};
+    double deviceUs{0.0};
+    double hostBeforeUs{0.0};
+    double hostAfterUs{0.0};
+    double hostUs{0.0};
+    bool valid{false};
+};
+
+double CaptureHostMonotonicUs()
+{
+    using Clock = std::chrono::steady_clock;
+    const auto now = Clock::now();
+    return static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count());
+}
+
+ProfileTimeAnchor CaptureCurrentStreamAnchor()
+{
+    ProfileTimeAnchor anchor{};
+    aclrtEvent event = nullptr;
+    const auto createStatus = aclrtCreateEventWithFlag(&event, ACL_EVENT_TIME_LINE);
+    if (createStatus != ACL_SUCCESS || event == nullptr) {
+        TORCH_WARN("Failed to create ACL timeline event for profiling time alignment, status=", createStatus);
+        return anchor;
+    }
+
+    const auto stream = c10_npu::getCurrentNPUStream().stream(false);
+    const double hostBeforeUs = CaptureHostMonotonicUs();
+    anchor.hostBeforeUs = hostBeforeUs;
+    const auto recordStatus = aclrtRecordEvent(event, stream);
+    if (recordStatus != ACL_SUCCESS) {
+        TORCH_WARN("Failed to record ACL timeline event for profiling time alignment, status=", recordStatus);
+        (void)aclrtDestroyEvent(event);
+        return anchor;
+    }
+
+    const auto syncStatus = aclrtSynchronizeEvent(event);
+    const double hostAfterUs = CaptureHostMonotonicUs();
+    anchor.hostAfterUs = hostAfterUs;
+    if (syncStatus != ACL_SUCCESS) {
+        TORCH_WARN("Failed to synchronize ACL timeline event for profiling time alignment, status=", syncStatus);
+        (void)aclrtDestroyEvent(event);
+        return anchor;
+    }
+
+    uint64_t deviceSyscnt = 0;
+    const auto tsStatus = aclrtEventGetTimestamp(event, &deviceSyscnt);
+    (void)aclrtDestroyEvent(event);
+    if (tsStatus != ACL_SUCCESS) {
+        TORCH_WARN("Failed to query ACL timeline event timestamp for profiling time alignment, status=", tsStatus);
+        return anchor;
+    }
+
+    anchor.deviceSyscnt = deviceSyscnt;
+    // aclrtEventGetTimestamp() and exported kernel trace timestamps are expected
+    // to be on the same device-side time axis here. The runtime event timestamp
+    // must therefore stay in its raw device-time unit instead of being divided
+    // by PROFILE_CYCLE_TO_US again, otherwise the alignment offset becomes 1000x
+    // larger than expected in multi-rank exports.
+    anchor.deviceUs = static_cast<double>(deviceSyscnt);
+    anchor.hostUs = (hostBeforeUs + hostAfterUs) * 0.5;
+    anchor.valid = true;
+    return anchor;
+}
+
+}  // namespace
 
 bool IsSessionActive()
 {
@@ -33,14 +106,39 @@ int64_t GetExpectedLaunches()
     return session::GetExpectedLaunches();
 }
 
-void BeginSession(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir)
+void BeginSession(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir,
+                  int64_t numRanks)
 {
-    session::Begin(numProfileSkipLaunches, numProfileActiveLaunches, profileTraceDir);
+    session::Begin(numProfileSkipLaunches, numProfileActiveLaunches, profileTraceDir, numRanks);
 }
 
 void EndSession(int64_t rank)
 {
     session::ExportAndReset(rank);
+}
+
+void CaptureSessionBeginAnchor(int64_t rank)
+{
+    if (!session::IsActive()) {
+        return;
+    }
+    const auto anchor = CaptureCurrentStreamAnchor();
+    if (!anchor.valid) {
+        return;
+    }
+    session::UpdateBeginCalibration(rank, anchor.deviceUs, anchor.hostUs);
+}
+
+void CaptureSessionEndAnchor(int64_t rank)
+{
+    if (!session::IsActive()) {
+        return;
+    }
+    const auto anchor = CaptureCurrentStreamAnchor();
+    if (!anchor.valid) {
+        return;
+    }
+    session::UpdateEndCalibration(rank, anchor.deviceUs, anchor.hostUs);
 }
 
 ProfileLaunchContext PrepareLaunch(const ProfileOpRegistration &registration, const ProfileLaunchConfig &launchConfig,

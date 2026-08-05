@@ -1189,7 +1189,9 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Te
 void Buffer::begin_profile(int64_t num_profile_skip_launches, int64_t num_profile_active_launches,
                            const std::string &profile_trace_dir)
 {
-    profiling::runtime::BeginSession(num_profile_skip_launches, num_profile_active_launches, profile_trace_dir);
+    profiling::runtime::BeginSession(num_profile_skip_launches, num_profile_active_launches, profile_trace_dir,
+                                     num_ranks);
+    profiling::runtime::CaptureSessionBeginAnchor(rank);
 }
 
 void Buffer::end_profile()
@@ -1197,6 +1199,7 @@ void Buffer::end_profile()
     if (!profiling::runtime::IsSessionActive()) {
         return;
     }
+    profiling::runtime::CaptureSessionEndAnchor(rank);
     profiling::runtime::EndSession(rank);
 }
 

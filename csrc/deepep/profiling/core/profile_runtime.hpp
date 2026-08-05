@@ -30,8 +30,11 @@ int64_t GetNumProfileSkipLaunches();
 int64_t GetNumProfileActiveLaunches();
 int64_t GetExpectedLaunches();
 
-void BeginSession(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir);
+void BeginSession(int64_t numProfileSkipLaunches, int64_t numProfileActiveLaunches, const std::string &profileTraceDir,
+                  int64_t numRanks);
 void EndSession(int64_t rank);
+void CaptureSessionBeginAnchor(int64_t rank);
+void CaptureSessionEndAnchor(int64_t rank);
 
 ProfileLaunchContext PrepareLaunch(const ProfileOpRegistration &registration, const ProfileLaunchConfig &launchConfig,
                                    bool profileEnable);
