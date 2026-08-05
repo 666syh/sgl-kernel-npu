@@ -23,14 +23,15 @@ namespace Cam {
 //   the metadata table has 16 stage slots.
 //   Adding stages within 1..16 only requires extending schema/export names.
 // Record ABI:
-//   PROFILE_VERSION == 4 extends ProfileRecord with three private u64 payload slots.
+//   PROFILE_VERSION == 5 extends ProfileRecord with three private u64 payload slots
+//   and pads the storage stride to 128B to avoid adjacent records sharing a cache line.
 //   private0[7:0]   : valid tag
 //   private0[15:8]  : payload format / version
 //   private0[63:16] : stage-defined
 //   private1/private2: stage-defined
 //   If the record ABI changes again, bump PROFILE_VERSION.
 constexpr uint64_t PROFILE_MAGIC = 0x46444D5035413031ULL;  // FDMP5A01
-constexpr uint64_t PROFILE_VERSION = 4;
+constexpr uint64_t PROFILE_VERSION = 5;
 constexpr uint64_t PROFILE_CYCLE_TO_US = 1000;
 constexpr uint64_t PROFILE_FLAG_SESSION_BUFFER = 0x1ULL;
 constexpr uint64_t PROFILE_CORE_TYPE_AIC = 1ULL;
@@ -230,7 +231,7 @@ DEEPEP_PROFILE_INLINE constexpr uint32_t GetProfileDataOffset()
     return (raw + 63U) / 64U * 64U;
 }
 
-struct ProfileRecord {
+struct alignas(64) ProfileRecord {
     uint64_t coreType;
     uint64_t coreIdx;
     uint64_t stageId;
@@ -245,11 +246,17 @@ struct ProfileRecord {
     uint64_t private0;
     uint64_t private1;
     uint64_t private2;
+    uint64_t reserved0;
+    uint64_t reserved1;
+    uint64_t reserved2;
+    uint64_t reserved3;
+    uint64_t reserved4;
+    uint64_t reserved5;
 };
 
 static_assert(sizeof(ProfileHeader) == 64, "Unexpected profile header size");
 static_assert(sizeof(ProfileStageLayout) == 64, "Unexpected profile stage layout size");
-static_assert(sizeof(ProfileRecord) == 80, "Unexpected profile record size");
+static_assert(sizeof(ProfileRecord) == 128, "Unexpected profile record size");
 
 }  // namespace Cam
 
