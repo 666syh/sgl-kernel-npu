@@ -44,12 +44,41 @@ struct LaunchTraceBundle {
     std::string launchEventName;
     const ProfileSchema *schema{nullptr};
     Cam::ProfileStageLayout stageLayout{};
+    uint64_t cycleToUs{Cam::PROFILE_CYCLE_TO_US};
     int64_t launchId{0};
     bool isWarmup{false};
     uint64_t minStartCycle{0};
     uint64_t maxEndCycle{0};
     std::vector<TraceEventRow> rows;
 };
+
+static bool IsValidProfileRecord(const Cam::ProfileRecord &record, uint64_t expectedLaunchId,
+                                 const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema)
+{
+    if (record.endCycle <= record.startCycle) {
+        return false;
+    }
+    if (record.launchId != expectedLaunchId) {
+        return false;
+    }
+    if (Cam::GetProfileLogicalCoreLinear(record.coreType, record.coreIdx) == UINT32_MAX) {
+        return false;
+    }
+    if (record.stageId >= static_cast<uint64_t>(stageLayout.stageCount)) {
+        return false;
+    }
+    if (record.occurrenceId >=
+        Cam::GetProfileStageOccurrenceCount(stageLayout, static_cast<uint32_t>(record.stageId))) {
+        return false;
+    }
+    if (schema.stageName != nullptr) {
+        const char *stageName = schema.stageName(record.stageId);
+        if (stageName == nullptr || stageName[0] == '\0') {
+            return false;
+        }
+    }
+    return true;
+}
 
 static std::string JsonEscape(const std::string &value)
 {
@@ -160,6 +189,7 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
                                  : DefaultLaunchEventName(schema);
 
     launches.reserve(launches.size() + static_cast<size_t>(captured));
+    uint64_t invalidRecordCount = 0;
     for (uint64_t launchId = 0; launchId < captured; ++launchId) {
         auto *launchBase =
             base + Cam::GetProfileLaunchOffset(Cam::GetProfileDataOffset(), recordsPerLaunch,
@@ -170,12 +200,16 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
         bundle.launchEventName = launchName;
         bundle.schema = &schema;
         bundle.stageLayout = *stageLayout;
+        bundle.cycleToUs = header->cycleToUs;
         bundle.launchId = static_cast<int64_t>(launchId);
         bundle.isWarmup = static_cast<int64_t>(launchId) < numProfileSkipLaunches;
         bool haveRange = false;
         for (uint64_t i = 0; i < recordsPerLaunch; ++i) {
             const auto &record = records[i];
-            if (record.endCycle <= record.startCycle) {
+            if (!IsValidProfileRecord(record, launchId, *stageLayout, schema)) {
+                if (record.endCycle > record.startCycle) {
+                    ++invalidRecordCount;
+                }
                 continue;
             }
             TraceEventRow row;
@@ -227,6 +261,12 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
             });
             launches.push_back(std::move(bundle));
         }
+    }
+
+    if (invalidRecordCount > 0) {
+        TORCH_WARN("Skipped ", invalidRecordCount,
+                   " invalid profiling records for op=", schema.opName ? schema.opName : "profile",
+                   " during trace export.");
     }
 
     return !launches.empty();
@@ -396,16 +436,17 @@ static bool WriteTraceFile(const std::vector<LaunchTraceBundle> &launches, int64
         const auto &bundle = launches[sourceIdx];
         uint64_t launchTid = 1000000ULL + static_cast<uint64_t>(sourceIdx) * 100000ULL +
                              static_cast<uint64_t>(std::max<int64_t>(0, bundle.launchId));
-        emitEvent(bundle.launchEventName, bundle.opName, "X", static_cast<uint64_t>(rank), launchTid,
-                  GetLaunchRebasedTsUs(
-                      GetAlignedTsUs(static_cast<double>(bundle.minStartCycle) / Cam::PROFILE_CYCLE_TO_US, calibration),
-                      calibration),
-                  static_cast<double>(bundle.maxEndCycle - bundle.minStartCycle) /
-                      static_cast<double>(Cam::PROFILE_CYCLE_TO_US),
-                  std::string("{\"rank\":") + std::to_string(rank) + ",\"op_name\":" + JsonEscape(bundle.opName) +
-                      ",\"launch_id\":" + std::to_string(bundle.launchId) +
-                      ",\"iteration_id\":" + std::to_string(bundle.launchId) +
-                      ",\"is_warmup\":" + (bundle.isWarmup ? std::string("true") : std::string("false")) + "}");
+        emitEvent(
+            bundle.launchEventName, bundle.opName, "X", static_cast<uint64_t>(rank), launchTid,
+            GetLaunchRebasedTsUs(
+                GetAlignedTsUs(static_cast<double>(bundle.minStartCycle) / static_cast<double>(bundle.cycleToUs),
+                               calibration),
+                calibration),
+            static_cast<double>(bundle.maxEndCycle - bundle.minStartCycle) / static_cast<double>(bundle.cycleToUs),
+            std::string("{\"rank\":") + std::to_string(rank) + ",\"op_name\":" + JsonEscape(bundle.opName) +
+                ",\"launch_id\":" + std::to_string(bundle.launchId) +
+                ",\"iteration_id\":" + std::to_string(bundle.launchId) +
+                ",\"is_warmup\":" + (bundle.isWarmup ? std::string("true") : std::string("false")) + "}");
 
         for (const auto &row : bundle.rows) {
             uint64_t tid = Cam::GetProfileLogicalCoreLinear(row.coreType, row.coreIdx);
@@ -505,7 +546,7 @@ void ExportBufferToTrace(const at::Tensor &profileBuffer, int64_t rank, const st
     if (!launches.empty() && effectiveCalibration.valid && numRanks > 1) {
         const auto *anchorLaunch = SelectLaunchRebaseAnchor(launches);
         const double firstRawLaunchTsUs =
-            static_cast<double>(anchorLaunch->minStartCycle) / static_cast<double>(Cam::PROFILE_CYCLE_TO_US);
+            static_cast<double>(anchorLaunch->minStartCycle) / static_cast<double>(anchorLaunch->cycleToUs);
         effectiveCalibration.firstLaunchAlignedTsUs = GetAlignedTsUs(firstRawLaunchTsUs, &effectiveCalibration);
         effectiveCalibration.sharedLaunchReferenceUs = ResolveSharedLaunchReferenceUs(
             profileTraceDir, numRanks, effectiveCalibration.firstLaunchAlignedTsUs, rank);
@@ -555,7 +596,7 @@ void ExportAggregatedTrace(const std::vector<ProfileTraceSource> &sources, int64
     if (!launches.empty() && effectiveCalibration.valid && numRanks > 1) {
         const auto *anchorLaunch = SelectLaunchRebaseAnchor(launches);
         const double firstRawLaunchTsUs =
-            static_cast<double>(anchorLaunch->minStartCycle) / static_cast<double>(Cam::PROFILE_CYCLE_TO_US);
+            static_cast<double>(anchorLaunch->minStartCycle) / static_cast<double>(anchorLaunch->cycleToUs);
         effectiveCalibration.firstLaunchAlignedTsUs = GetAlignedTsUs(firstRawLaunchTsUs, &effectiveCalibration);
         effectiveCalibration.sharedLaunchReferenceUs = ResolveSharedLaunchReferenceUs(
             profileTraceDir, numRanks, effectiveCalibration.firstLaunchAlignedTsUs, rank);
