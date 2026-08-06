@@ -288,11 +288,6 @@ DEEPEP_PROFILE_INLINE constexpr ProfilePrivatePayloadRaw GetProfileRecordPayload
     return record.payload;
 }
 
-DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
-{
-    record.payload = payload;
-}
-
 static_assert(sizeof(ProfileHeader) == 64, "Unexpected profile header size");
 static_assert(sizeof(ProfileStageLayout) == 64, "Unexpected profile stage layout size");
 static_assert(sizeof(ProfileRecord) == 128, "Unexpected profile record size");

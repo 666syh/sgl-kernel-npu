@@ -139,7 +139,9 @@ struct ProfileWriter {
         records[slot].launchId = launchId;
         records[slot].startCycle = startCycle;
         records[slot].endCycle = endCycle;
-        SetProfileRecordPayload(records[slot], payload);
+        records[slot].private0 = payload.private0;
+        records[slot].private1 = payload.private1;
+        records[slot].private2 = payload.private2;
     }
 };
 
