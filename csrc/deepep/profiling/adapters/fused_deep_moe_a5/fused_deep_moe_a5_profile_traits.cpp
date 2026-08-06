@@ -12,7 +12,8 @@ namespace deep_ep::profiling::fused_deep_moe_a5 {
 
 namespace {
 constexpr uint8_t kDispatchSendPrivateFormatV1 = 1U;
-}
+constexpr uint8_t kDispatchRecvPrivateFormatV1 = 1U;
+}  // namespace
 
 const ProfileSchema &GetProfileSchema()
 {
@@ -89,21 +90,33 @@ std::string GetPrivateDataJson(uint64_t stageId, uint64_t occurrenceId, const Ca
 {
     (void)occurrenceId;
     (void)stageLayout;
-    const auto payload = Cam::AsDispatchSendPrivatePayloadV1(record);
-    if (Cam::GetProfilePrivateValidTag(payload.header) == Cam::PROFILE_PRIVATE_DATA_INVALID) {
-        return {};
-    }
     auto stage = static_cast<ProfileStage>(stageId);
-    if (stage != ProfileStage::DispatchSend) {
-        return {};
+    if (stage == ProfileStage::DispatchSend) {
+        const auto payload = Cam::AsDispatchSendPrivatePayloadV1(record);
+        if (Cam::GetProfilePrivateValidTag(payload.header) == Cam::PROFILE_PRIVATE_DATA_INVALID) {
+            return {};
+        }
+        if (Cam::GetProfilePrivateFormatId(payload.header) != kDispatchSendPrivateFormatV1) {
+            return {};
+        }
+        std::ostringstream oss;
+        oss << ",\"dispatch_send_valid_token_count\":" << payload.validTokenCount;
+        oss << ",\"dispatch_send_per_token_bytes\":" << payload.perTokenCommBytes;
+        return oss.str();
     }
-    if (Cam::GetProfilePrivateFormatId(payload.header) != kDispatchSendPrivateFormatV1) {
-        return {};
+    if (stage == ProfileStage::DispatchRecv) {
+        const auto payload = Cam::AsDispatchRecvPrivatePayloadV1(record);
+        if (Cam::GetProfilePrivateValidTag(payload.header) == Cam::PROFILE_PRIVATE_DATA_INVALID) {
+            return {};
+        }
+        if (Cam::GetProfilePrivateFormatId(payload.header) != kDispatchRecvPrivateFormatV1) {
+            return {};
+        }
+        std::ostringstream oss;
+        oss << ",\"dispatch_recv_aiv_token_count\":" << payload.aivTokenCount;
+        return oss.str();
     }
-    std::ostringstream oss;
-    oss << ",\"dispatch_send_valid_token_count\":" << payload.validTokenCount;
-    oss << ",\"dispatch_send_per_token_comm_bytes\":" << payload.perTokenCommBytes;
-    return oss.str();
+    return {};
 }
 
 Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)

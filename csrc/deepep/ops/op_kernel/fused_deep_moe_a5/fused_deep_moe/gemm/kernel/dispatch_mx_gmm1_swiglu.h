@@ -48,6 +48,7 @@ constexpr int32_t ODD_EVEN_BASE = 2;
 constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t GATHER_SECOND_NUM = 2;
 constexpr uint8_t DISPATCH_SEND_PRIVATE_FORMAT_V1 = 1;
+constexpr uint8_t DISPATCH_RECV_PRIVATE_FORMAT_V1 = 1;
 #define OPT_RANK_OFFSET 512
 
 #define CEIL_UP(x) ((x + UB_ALIGN - 1) / UB_ALIGN * UB_ALIGN)
@@ -1155,7 +1156,11 @@ public:
             startCoreIdx = (startCoreIdx + currentM) % recvCoreNum;
             preExpertToken += currentM;
             if (profile != nullptr) {
-                profile->Record(FusedDeepMoeProfileStage::DispatchRecv, groupId, profDispatchRecvStart, profile->Now());
+                auto dispatchRecvPayload = Cam::ToProfilePrivatePayloadRaw(Cam::MakeDispatchRecvPrivatePayloadV1(
+                    Cam::PROFILE_PRIVATE_DATA_VALID, DISPATCH_RECV_PRIVATE_FORMAT_V1,
+                    static_cast<uint64_t>(coreTokenCount)));
+                profile->Record(FusedDeepMoeProfileStage::DispatchRecv, groupId, profDispatchRecvStart, profile->Now(),
+                                dispatchRecvPayload);
             }
         }
 

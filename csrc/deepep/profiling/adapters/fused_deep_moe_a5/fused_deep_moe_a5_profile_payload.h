@@ -15,20 +15,15 @@ struct DispatchSendPrivatePayloadV1 {
     uint64_t perTokenCommBytes;
 };
 
+struct DispatchRecvPrivatePayloadV1 {
+    uint64_t header;
+    uint64_t aivTokenCount;
+};
+
 static_assert(sizeof(DispatchSendPrivatePayloadV1) <= sizeof(ProfilePrivatePayloadRaw),
               "DispatchSend payload must fit into raw payload slots");
-
-inline constexpr DispatchSendPrivatePayloadV1 MakeDispatchSendPrivatePayloadV1(uint8_t validTag, uint8_t formatId,
-                                                                               uint64_t validTokenCount,
-                                                                               uint64_t perTokenCommBytes)
-{
-    return DispatchSendPrivatePayloadV1{PackProfilePrivate0(validTag, formatId), validTokenCount, perTokenCommBytes};
-}
-
-inline constexpr ProfilePrivatePayloadRaw ToProfilePrivatePayloadRaw(const DispatchSendPrivatePayloadV1 &payload)
-{
-    return MakeProfilePrivatePayloadRaw(payload.header, payload.validTokenCount, payload.perTokenCommBytes);
-}
+static_assert(sizeof(DispatchRecvPrivatePayloadV1) <= sizeof(ProfilePrivatePayloadRaw),
+              "DispatchRecv payload must fit into raw payload slots");
 
 inline constexpr DispatchSendPrivatePayloadV1 AsDispatchSendPrivatePayloadV1(const ProfilePrivatePayloadRaw &payload)
 {
@@ -38,6 +33,11 @@ inline constexpr DispatchSendPrivatePayloadV1 AsDispatchSendPrivatePayloadV1(con
 inline constexpr DispatchSendPrivatePayloadV1 AsDispatchSendPrivatePayloadV1(const ProfileRecord &record)
 {
     return AsDispatchSendPrivatePayloadV1(record.payload);
+}
+
+inline constexpr DispatchRecvPrivatePayloadV1 AsDispatchRecvPrivatePayloadV1(const ProfileRecord &record)
+{
+    return DispatchRecvPrivatePayloadV1{record.payload.private0, record.payload.private1};
 }
 
 }  // namespace Cam

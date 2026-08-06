@@ -16,7 +16,6 @@
 #include "exception.hpp"
 #include "deep_ep.hpp"
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.hpp"
-#include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_compat.h"
 #include "pytorch_npu_helper.hpp"
 
 namespace deep_ep {
