@@ -1,246 +1,234 @@
-[W805 18:55:44.644149430 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W805 18:55:53.081366910 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W805 18:55:54.480846030 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W805 18:55:54.767064740 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-[W805 18:55:54.976682000 OptionRegister.cpp:95] Warning: Current device only support allow_internal_format=False, the requested value True is invalid and has been reverted to False. (function operator())
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
-  return func(*args, **kwargs)
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
-  return func(*args, **kwargs)
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
-  return func(*args, **kwargs)
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/utils/_device.py:109: UserWarning: Cannot create tensor with interal format while allow_internel_format=False, tensor will be created with base format. (Triggered internally at ../torch_npu/csrc/aten/common/TensorFactories.cpp:348.)
-  return func(*args, **kwargs)
-Config: num_processes=4, base_num_tokens=32, single_active_rank=None, num_token_jitter=0, num_token_jitter_seed=2026, per_rank_num_tokens=[32, 32, 32, 32], padded_num_tokens=32, real_global_bs=128, small_op_global_bs=128, hidden=4096, moe_intermediate_size=1536, num_experts=24, num_topk=8, quant=fp8_e4m3, kernel_trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, num_warmups=3, num_tests=10, small_first_warmup_gmm_burn_in_repeats=100
-Warning: num_tokens * num_processes * num_topk is not divisible by num_experts. This synthetic expert_ids construction will produce non-uniform expert token counts, so strict per-expert expected_counts checks are skipped; only small_counts == fused_counts is enforced.
-[rank2]:[W805 18:56:14.642862840 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank0]:[W805 18:56:14.647115310 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank3]:[W805 18:56:14.647622710 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-[rank1]:[W805 18:56:14.651139860 ToKernelNpu.cpp:40] Warning: Device do not support double dtype now, dtype cast replace with float. (function operator())
-/usr/local/python3.11.10/lib/python3.11/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
-  return func(*args, **kwargs)
-fused counts (per rank):
-| Rank | Local Experts | Fused Counts         | Sum |
-|-----:|--------------:|----------------------|----:|
-|    0 |             6 | [43, 43, 43, 43, 43, 43] | 258 |
-|    1 |             6 | [43, 43, 43, 43, 43, 43] | 258 |
-|    2 |             6 | [43, 43, 43, 43, 42, 42] | 256 |
-|    3 |             6 | [42, 42, 42, 42, 42, 42] | 252 |
-Accuracy check passed. avg_diff=0.000000, max_diff=0.000000, calc_diff=0.000000
-[2026-08-05 18:56:15] [INFO] [521110] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519845_20260805185614396_ascend_pt
-|[2026-08-05 18:56:15] [INFO] [521120] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519847_20260805185614396_ascend_pt
-[2026-08-05 18:56:15] [INFO] [521125] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519848_20260805185614396_ascend_pt
-[2026-08-05 18:56:15] [INFO] [521146] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519846_20260805185614396_ascend_pt
-|||////----[2026-08-05 18:56:17] [INFO] [521124] profiler.py: CANN profiling data parsed in a total time of 0:00:02.077846
-[2026-08-05 18:56:18] [INFO] [521110] profiler.py: All profiling data parsed in a total time of 0:00:02.828870
-[2026-08-05 18:56:17] [INFO] [521163] profiler.py: CANN profiling data parsed in a total time of 0:00:02.038598
-[2026-08-05 18:56:18] [INFO] [521120] profiler.py: All profiling data parsed in a total time of 0:00:02.846886
-[2026-08-05 18:56:17] [INFO] [521166] profiler.py: CANN profiling data parsed in a total time of 0:00:02.053295
-[2026-08-05 18:56:18] [INFO] [521125] profiler.py: All profiling data parsed in a total time of 0:00:02.841831
-[2026-08-05 18:56:17] [INFO] [521184] profiler.py: CANN profiling data parsed in a total time of 0:00:02.058834
-[2026-08-05 18:56:18] [INFO] [521146] profiler.py: All profiling data parsed in a total time of 0:00:02.834991
-[rank3] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=3, tests=10
-[rank0] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=3, tests=10
-[rank2] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=3, tests=10
-[rank1] begin fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir, warmups=3, tests=10
-[2026-08-05 18:56:19] [INFO] [522318] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519847_20260805185618668_ascend_pt
-[2026-08-05 18:56:19] [INFO] [522328] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519848_20260805185618668_ascend_pt
-[2026-08-05 18:56:19] [INFO] [522329] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519846_20260805185618668_ascend_pt
-[2026-08-05 18:56:19] [INFO] [522330] profiler.py: Start parsing profiling data in sync mode at: /home/syh/sgl-kernel-npu/export_only_prof_dir/syh_deepep_test_519845_20260805185618668_ascend_pt
-||||////----[2026-08-05 18:56:21] [INFO] [522351] profiler.py: CANN profiling data parsed in a total time of 0:00:02.164655
-[2026-08-05 18:56:22] [INFO] [522318] profiler.py: All profiling data parsed in a total time of 0:00:03.018035
-[2026-08-05 18:56:22] [INFO] [522372] profiler.py: CANN profiling data parsed in a total time of 0:00:02.150549
-[2026-08-05 18:56:22] [INFO] [522328] profiler.py: All profiling data parsed in a total time of 0:00:02.977087
-[2026-08-05 18:56:22] [INFO] [522376] profiler.py: CANN profiling data parsed in a total time of 0:00:02.173866
-[2026-08-05 18:56:22] [INFO] [522329] profiler.py: All profiling data parsed in a total time of 0:00:03.001368
-[2026-08-05 18:56:22] [INFO] [522370] profiler.py: CANN profiling data parsed in a total time of 0:00:02.179422
-[2026-08-05 18:56:22] [INFO] [522330] profiler.py: All profiling data parsed in a total time of 0:00:02.998207
-[rank2] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
-[rank2]:[W805 18:56:22.158443090 profile_exporter.cpp:365] Warning: Profile export diagnostics for op=fused_deep_moe: recordsPerLaunch=3672, sizeof(ProfileRecord)=80, perLaunchBytes=293760, alignedPerLaunchBytes=293760, perLaunchAlreadyAligned=true, launchCountCapacity=13, capturedLaunches=13 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158492790 profile_exporter.cpp:372] Warning: Skipped invalid profiling records for op=fused_deep_moe: invalid_total=32300, invalid_end_cycle_le_start_cycle=31501, invalid_launch_id_mismatch=555, invalid_invalid_core_linear=244, invalid_stage_id_oob=0, invalid_occurrence_id_oob=0, invalid_empty_stage_name=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158500590 profile_exporter.cpp:383] Warning: Invalid profiling record sample[0] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158503830 profile_exporter.cpp:383] Warning: Invalid profiling record sample[1] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158506740 profile_exporter.cpp:383] Warning: Invalid profiling record sample[2] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158509600 profile_exporter.cpp:383] Warning: Invalid profiling record sample[3] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158512460 profile_exporter.cpp:383] Warning: Invalid profiling record sample[4] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158515270 profile_exporter.cpp:383] Warning: Invalid profiling record sample[5] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158518070 profile_exporter.cpp:383] Warning: Invalid profiling record sample[6] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158520810 profile_exporter.cpp:383] Warning: Invalid profiling record sample[7] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158523530 profile_exporter.cpp:383] Warning: Invalid profiling record sample[8] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158526300 profile_exporter.cpp:383] Warning: Invalid profiling record sample[9] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158529050 profile_exporter.cpp:383] Warning: Invalid profiling record sample[10] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158531820 profile_exporter.cpp:383] Warning: Invalid profiling record sample[11] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158542820 profile_exporter.cpp:383] Warning: Invalid profiling record sample[12] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158545700 profile_exporter.cpp:383] Warning: Invalid profiling record sample[13] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158548490 profile_exporter.cpp:383] Warning: Invalid profiling record sample[14] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158551250 profile_exporter.cpp:383] Warning: Invalid profiling record sample[15] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158554630 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=0, validRecordCount=1182, invalidRecordCount=2490 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158557250 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=1, validRecordCount=1196, invalidRecordCount=2476 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158559690 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=2, validRecordCount=1182, invalidRecordCount=2490 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158562160 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=3, validRecordCount=1178, invalidRecordCount=2494 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158564620 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=4, validRecordCount=1177, invalidRecordCount=2495 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158567070 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=5, validRecordCount=1194, invalidRecordCount=2478 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158569550 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=6, validRecordCount=1212, invalidRecordCount=2460 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158571980 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=7, validRecordCount=1185, invalidRecordCount=2487 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158574480 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=8, validRecordCount=1178, invalidRecordCount=2494 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158576930 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=9, validRecordCount=1192, invalidRecordCount=2480 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158579420 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=10, validRecordCount=1176, invalidRecordCount=2496 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158581940 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=11, validRecordCount=1176, invalidRecordCount=2496 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158584400 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=12, validRecordCount=1208, invalidRecordCount=2464 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158587190 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=0, stageName=dispatch_send, validRecordCount=416, invalidRecordCount=31648 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158591560 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=1, stageName=dispatch_recv, validRecordCount=2496, invalidRecordCount=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158594150 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=2, stageName=gmm1, validRecordCount=1301, invalidRecordCount=303 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158596710 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=3, stageName=swiglu, validRecordCount=3726, invalidRecordCount=15 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158599220 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=4, stageName=quant, validRecordCount=621, invalidRecordCount=1 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158601710 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=5, stageName=stage_barrier, validRecordCount=839, invalidRecordCount=53 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158604180 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=6, stageName=gmm2, validRecordCount=1461, invalidRecordCount=280 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158606660 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=7, stageName=combine, validRecordCount=3744, invalidRecordCount=0 (function CollectLaunches)
-[rank2]:[W805 18:56:22.158609150 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=8, stageName=weight_sum, validRecordCount=832, invalidRecordCount=0 (function CollectLaunches)
-[rank0] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
-[rank1] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
-[rank3] end fused kernel profiling: trace_dir=/home/syh/sgl-kernel-npu/kernel_trace_dir
-[rank0]:[W805 18:56:22.207929220 profile_exporter.cpp:365] Warning: Profile export diagnostics for op=fused_deep_moe: recordsPerLaunch=3672, sizeof(ProfileRecord)=80, perLaunchBytes=293760, alignedPerLaunchBytes=293760, perLaunchAlreadyAligned=true, launchCountCapacity=13, capturedLaunches=13 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207964340 profile_exporter.cpp:372] Warning: Skipped invalid profiling records for op=fused_deep_moe: invalid_total=32344, invalid_end_cycle_le_start_cycle=31513, invalid_launch_id_mismatch=611, invalid_invalid_core_linear=220, invalid_stage_id_oob=0, invalid_occurrence_id_oob=0, invalid_empty_stage_name=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207969700 profile_exporter.cpp:383] Warning: Invalid profiling record sample[0] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207973270 profile_exporter.cpp:383] Warning: Invalid profiling record sample[1] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207976300 profile_exporter.cpp:383] Warning: Invalid profiling record sample[2] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207979140 profile_exporter.cpp:383] Warning: Invalid profiling record sample[3] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207982030 profile_exporter.cpp:383] Warning: Invalid profiling record sample[4] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207993620 profile_exporter.cpp:383] Warning: Invalid profiling record sample[5] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207996590 profile_exporter.cpp:383] Warning: Invalid profiling record sample[6] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.207999410 profile_exporter.cpp:383] Warning: Invalid profiling record sample[7] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208022870 profile_exporter.cpp:383] Warning: Invalid profiling record sample[8] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208025780 profile_exporter.cpp:383] Warning: Invalid profiling record sample[9] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208028560 profile_exporter.cpp:383] Warning: Invalid profiling record sample[10] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208031350 profile_exporter.cpp:383] Warning: Invalid profiling record sample[11] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208034100 profile_exporter.cpp:383] Warning: Invalid profiling record sample[12] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208036860 profile_exporter.cpp:383] Warning: Invalid profiling record sample[13] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208039640 profile_exporter.cpp:383] Warning: Invalid profiling record sample[14] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208042400 profile_exporter.cpp:383] Warning: Invalid profiling record sample[15] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208045390 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=0, validRecordCount=1205, invalidRecordCount=2467 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208048220 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=1, validRecordCount=1203, invalidRecordCount=2469 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208050710 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=2, validRecordCount=1181, invalidRecordCount=2491 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208053180 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=3, validRecordCount=1216, invalidRecordCount=2456 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208055660 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=4, validRecordCount=1191, invalidRecordCount=2481 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208060250 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=5, validRecordCount=1179, invalidRecordCount=2493 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208062800 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=6, validRecordCount=1177, invalidRecordCount=2495 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208065260 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=7, validRecordCount=1168, invalidRecordCount=2504 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208067760 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=8, validRecordCount=1177, invalidRecordCount=2495 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208070230 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=9, validRecordCount=1174, invalidRecordCount=2498 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208072730 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=10, validRecordCount=1178, invalidRecordCount=2494 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208075170 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=11, validRecordCount=1164, invalidRecordCount=2508 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208077630 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=12, validRecordCount=1179, invalidRecordCount=2493 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208080240 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=0, stageName=dispatch_send, validRecordCount=416, invalidRecordCount=31690 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208082810 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=1, stageName=dispatch_recv, validRecordCount=2496, invalidRecordCount=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208085300 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=2, stageName=gmm1, validRecordCount=1292, invalidRecordCount=295 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208087840 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=3, stageName=swiglu, validRecordCount=3727, invalidRecordCount=22 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208090340 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=4, stageName=quant, validRecordCount=622, invalidRecordCount=2 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208092860 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=5, stageName=stage_barrier, validRecordCount=837, invalidRecordCount=49 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208095340 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=6, stageName=gmm2, validRecordCount=1426, invalidRecordCount=286 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208097810 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=7, stageName=combine, validRecordCount=3744, invalidRecordCount=0 (function CollectLaunches)
-[rank0]:[W805 18:56:22.208100330 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=8, stageName=weight_sum, validRecordCount=832, invalidRecordCount=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213257260 profile_exporter.cpp:365] Warning: Profile export diagnostics for op=fused_deep_moe: recordsPerLaunch=3672, sizeof(ProfileRecord)=80, perLaunchBytes=293760, alignedPerLaunchBytes=293760, perLaunchAlreadyAligned=true, launchCountCapacity=13, capturedLaunches=13 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213303260 profile_exporter.cpp:372] Warning: Skipped invalid profiling records for op=fused_deep_moe: invalid_total=32358, invalid_end_cycle_le_start_cycle=31633, invalid_launch_id_mismatch=556, invalid_invalid_core_linear=169, invalid_stage_id_oob=0, invalid_occurrence_id_oob=0, invalid_empty_stage_name=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213319520 profile_exporter.cpp:383] Warning: Invalid profiling record sample[0] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213322820 profile_exporter.cpp:383] Warning: Invalid profiling record sample[1] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213325790 profile_exporter.cpp:383] Warning: Invalid profiling record sample[2] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213328670 profile_exporter.cpp:383] Warning: Invalid profiling record sample[3] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213331500 profile_exporter.cpp:383] Warning: Invalid profiling record sample[4] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213334250 profile_exporter.cpp:383] Warning: Invalid profiling record sample[5] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213336970 profile_exporter.cpp:383] Warning: Invalid profiling record sample[6] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213339710 profile_exporter.cpp:383] Warning: Invalid profiling record sample[7] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213342450 profile_exporter.cpp:383] Warning: Invalid profiling record sample[8] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213345250 profile_exporter.cpp:383] Warning: Invalid profiling record sample[9] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213347990 profile_exporter.cpp:383] Warning: Invalid profiling record sample[10] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213350730 profile_exporter.cpp:383] Warning: Invalid profiling record sample[11] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213353460 profile_exporter.cpp:383] Warning: Invalid profiling record sample[12] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213356250 profile_exporter.cpp:383] Warning: Invalid profiling record sample[13] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213360900 profile_exporter.cpp:383] Warning: Invalid profiling record sample[14] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213363690 profile_exporter.cpp:383] Warning: Invalid profiling record sample[15] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213366710 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=0, validRecordCount=1179, invalidRecordCount=2493 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213369310 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=1, validRecordCount=1178, invalidRecordCount=2494 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213371740 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=2, validRecordCount=1179, invalidRecordCount=2493 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213374220 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=3, validRecordCount=1182, invalidRecordCount=2490 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213376680 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=4, validRecordCount=1186, invalidRecordCount=2486 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213379120 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=5, validRecordCount=1177, invalidRecordCount=2495 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213381570 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=6, validRecordCount=1181, invalidRecordCount=2491 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213383970 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=7, validRecordCount=1189, invalidRecordCount=2483 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213386370 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=8, validRecordCount=1177, invalidRecordCount=2495 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213388770 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=9, validRecordCount=1180, invalidRecordCount=2492 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213391180 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=10, validRecordCount=1200, invalidRecordCount=2472 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213393620 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=11, validRecordCount=1191, invalidRecordCount=2481 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213396050 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=12, validRecordCount=1179, invalidRecordCount=2493 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213398820 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=0, stageName=dispatch_send, validRecordCount=416, invalidRecordCount=31671 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213401370 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=1, stageName=dispatch_recv, validRecordCount=2496, invalidRecordCount=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213403870 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=2, stageName=gmm1, validRecordCount=1284, invalidRecordCount=318 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213406330 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=3, stageName=swiglu, validRecordCount=3727, invalidRecordCount=17 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213410300 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=4, stageName=quant, validRecordCount=619, invalidRecordCount=3 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213412860 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=5, stageName=stage_barrier, validRecordCount=834, invalidRecordCount=51 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213415350 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=6, stageName=gmm2, validRecordCount=1427, invalidRecordCount=298 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213417860 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=7, stageName=combine, validRecordCount=3743, invalidRecordCount=0 (function CollectLaunches)
-[rank1]:[W805 18:56:22.213420320 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=8, stageName=weight_sum, validRecordCount=832, invalidRecordCount=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220190530 profile_exporter.cpp:365] Warning: Profile export diagnostics for op=fused_deep_moe: recordsPerLaunch=3672, sizeof(ProfileRecord)=80, perLaunchBytes=293760, alignedPerLaunchBytes=293760, perLaunchAlreadyAligned=true, launchCountCapacity=13, capturedLaunches=13 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220275390 profile_exporter.cpp:372] Warning: Skipped invalid profiling records for op=fused_deep_moe: invalid_total=32309, invalid_end_cycle_le_start_cycle=31652, invalid_launch_id_mismatch=510, invalid_invalid_core_linear=147, invalid_stage_id_oob=0, invalid_occurrence_id_oob=0, invalid_empty_stage_name=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220371560 profile_exporter.cpp:383] Warning: Invalid profiling record sample[0] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220375310 profile_exporter.cpp:383] Warning: Invalid profiling record sample[1] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220378610 profile_exporter.cpp:383] Warning: Invalid profiling record sample[2] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220381900 profile_exporter.cpp:383] Warning: Invalid profiling record sample[3] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220384970 profile_exporter.cpp:383] Warning: Invalid profiling record sample[4] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220387760 profile_exporter.cpp:383] Warning: Invalid profiling record sample[5] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220390450 profile_exporter.cpp:383] Warning: Invalid profiling record sample[6] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220393150 profile_exporter.cpp:383] Warning: Invalid profiling record sample[7] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220403960 profile_exporter.cpp:383] Warning: Invalid profiling record sample[8] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220406770 profile_exporter.cpp:383] Warning: Invalid profiling record sample[9] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220409510 profile_exporter.cpp:383] Warning: Invalid profiling record sample[10] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220412230 profile_exporter.cpp:383] Warning: Invalid profiling record sample[11] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220414950 profile_exporter.cpp:383] Warning: Invalid profiling record sample[12] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220417630 profile_exporter.cpp:383] Warning: Invalid profiling record sample[13] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220420330 profile_exporter.cpp:383] Warning: Invalid profiling record sample[14] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220423080 profile_exporter.cpp:383] Warning: Invalid profiling record sample[15] op=fused_deep_moe, reason=end_cycle_le_start_cycle, launchId(expected/raw)=0/0, coreType=0, coreIdx=0, stageId=0, occurrenceId=0, startCycle=0, endCycle=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220426160 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=0, validRecordCount=1193, invalidRecordCount=2479 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220428820 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=1, validRecordCount=1194, invalidRecordCount=2478 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220431230 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=2, validRecordCount=1201, invalidRecordCount=2471 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220433630 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=3, validRecordCount=1181, invalidRecordCount=2491 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220436070 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=4, validRecordCount=1199, invalidRecordCount=2473 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220438470 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=5, validRecordCount=1204, invalidRecordCount=2468 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220440860 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=6, validRecordCount=1178, invalidRecordCount=2494 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220443250 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=7, validRecordCount=1176, invalidRecordCount=2496 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220445650 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=8, validRecordCount=1184, invalidRecordCount=2488 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220449500 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=9, validRecordCount=1180, invalidRecordCount=2492 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220451970 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=10, validRecordCount=1184, invalidRecordCount=2488 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220454410 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=11, validRecordCount=1178, invalidRecordCount=2494 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220456840 profile_exporter.cpp:393] Warning: Profile export launch coverage op=fused_deep_moe, launchId=12, validRecordCount=1175, invalidRecordCount=2497 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220511290 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=0, stageName=dispatch_send, validRecordCount=416, invalidRecordCount=31606 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220513810 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=1, stageName=dispatch_recv, validRecordCount=2496, invalidRecordCount=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220516330 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=2, stageName=gmm1, validRecordCount=1305, invalidRecordCount=322 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220518800 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=3, stageName=swiglu, validRecordCount=3730, invalidRecordCount=15 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220521300 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=4, stageName=quant, validRecordCount=621, invalidRecordCount=1 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220523780 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=5, stageName=stage_barrier, validRecordCount=839, invalidRecordCount=56 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220526270 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=6, stageName=gmm2, validRecordCount=1444, invalidRecordCount=309 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220528770 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=7, stageName=combine, validRecordCount=3744, invalidRecordCount=0 (function CollectLaunches)
-[rank3]:[W805 18:56:22.220531250 profile_exporter.cpp:401] Warning: Profile export stage coverage op=fused_deep_moe, stageId=8, stageName=weight_sum, validRecordCount=832, invalidRecordCount=0 (function CollectLaunches)
-Profiled NPU op time:
-small-op breakdown (mean over ranks):
-| Stage        |    Avg (us) |    Min (us) |    Max (us) |  Share % |
-|--------------|-------------:|-------------:|-------------:|---------:|
-| dispatch     |        19.19 |        18.41 |        20.04 |   13.47% |
-| gmm1         |        59.85 |        59.01 |        60.59 |   42.03% |
-| swiglu       |         5.62 |         5.32 |         6.09 |    3.95% |
-| requant      |         4.44 |         4.05 |         4.82 |    3.12% |
-| gmm2         |        28.04 |        27.60 |        28.68 |   19.69% |
-| combine      |        25.27 |        24.37 |        26.13 |   17.74% |
-| total        |       142.40 |       141.00 |       143.66 |  100.00% |
-fused buffer path (mean over ranks):
-| Stage        |    Avg (us) |    Min (us) |    Max (us) |  Share % |
-|--------------|-------------:|-------------:|-------------:|---------:|
-| fused        |       121.08 |       118.51 |       128.77 |  100.00% |
-speedup=1.1761x, delta_pct=-14.97%
-rank skew summary:
-| Rank | Dispatch (us) | GMM1 (us) | SwiGLU (us) | Requant (us) | GMM2 (us) | Combine (us) | Small Total (us) | Fused (us) |
-|-----:|--------------:|----------:|------------:|-------------:|----------:|-------------:|-----------------:|-----------:|
-|    0 |         18.98 |     59.59 |        5.51 |         4.52 |     28.12 |        25.70 |           142.41 |     121.08 |
-|    1 |         19.70 |     60.03 |        5.68 |         4.43 |     27.97 |        24.51 |           142.33 |     121.21 |
-|    2 |         18.82 |     60.25 |        5.58 |         4.45 |     28.15 |        25.20 |           142.45 |     120.98 |
-|    3 |         19.25 |     59.52 |        5.70 |         4.37 |     27.93 |        25.66 |           142.42 |     121.06 |
-| mean |         19.19 |     59.85 |        5.62 |         4.44 |     28.04 |        25.27 |           142.40 |     121.08 |
-communication overlap rate: ((142.40 - 121.08) / (19.19 + 25.27)) = 0.4796
+rnel_meta/FusedDeepMoe_3bad25b498f6003caad581dc9d11ee28_1028967_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_0/kernel_meta_FusedDeepMoe_f8411184e29573d8a07f427bf60186ed/kernel_meta/FusedDeepMoe_f8411184e29573d8a07f427bf60186ed_1028900_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_4/kernel_meta_FusedDeepMoe_0cf17ba592d6c305c082569248c877bf/kernel_meta/FusedDeepMoe_0cf17ba592d6c305c082569248c877bf_1028982_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_8/kernel_meta_FusedDeepMoe_305dff43999127bde04a074ebde5c58b/kernel_meta/FusedDeepMoe_305dff43999127bde04a074ebde5c58b_1028972_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_15/kernel_meta_FusedDeepMoe_e382843419429817e26fb4177dc9845b/kernel_meta/FusedDeepMoe_e382843419429817e26fb4177dc9845b_1028966_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_9/kernel_meta_FusedDeepMoe_f6c383ba92f9b2a955fb20a3d7bd4fa9/kernel_meta/FusedDeepMoe_f6c383ba92f9b2a955fb20a3d7bd4fa9_1028962_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload):
+
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h                           ^:
+5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_14/kernel_meta_FusedDeepMoe_9c3a61618bbbb128c0116941a05a9ae1/kernel_meta/FusedDeepMoe_9c3a61618bbbb128c0116941a05a9ae1_1028984_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_5/kernel_meta_FusedDeepMoe_93bd01014fad847998ae18b8e17316fb/kernel_meta/FusedDeepMoe_93bd01014fad847998ae18b8e17316fb_1028953_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_10/kernel_meta_FusedDeepMoe_04532ab9a2df6e79c1c894acd7910b3b/kernel_meta/FusedDeepMoe_04532ab9a2df6e79c1c894acd7910b3b_1028977_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_11/kernel_meta_FusedDeepMoe_90a7e36128671c91ced28019bd29bcd4/kernel_meta/FusedDeepMoe_90a7e36128671c91ced28019bd29bcd4_1028976_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_1/kernel_meta_FusedDeepMoe_2013875f4ded08ac0c5c0414b335b082/kernel_meta/FusedDeepMoe_2013875f4ded08ac0c5c0414b335b082_1028914_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+1 error generated.
+1 error generated.
+1 error generated.
+1 error generated.
+1 error generated.
+1 error generated.
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_0/kernel_meta_FusedDeepMoe_f8411184e29573d8a07f427bf60186ed/kernel_meta/FusedDeepMoe_f8411184e29573d8a07f427bf60186ed_tmp_aic_1028900.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_0/kernel_meta_FusedDeepMoe_f8411184e29573d8a07f427bf60186ed/kernel_meta/FusedDeepMoe_f8411184e29573d8a07f427bf60186ed_tmp_aic_1028900_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_9/kernel_meta_FusedDeepMoe_f6c383ba92f9b2a955fb20a3d7bd4fa9/kernel_meta/FusedDeepMoe_f6c383ba92f9b2a955fb20a3d7bd4fa9_tmp_aic_1028962.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_9/kernel_meta_FusedDeepMoe_f6c383ba92f9b2a955fb20a3d7bd4fa9/kernel_meta/FusedDeepMoe_f6c383ba92f9b2a955fb20a3d7bd4fa9_tmp_aic_1028962_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_8/kernel_meta_FusedDeepMoe_305dff43999127bde04a074ebde5c58b/kernel_meta/FusedDeepMoe_305dff43999127bde04a074ebde5c58b_tmp_aic_1028972.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_8/kernel_meta_FusedDeepMoe_305dff43999127bde04a074ebde5c58b/kernel_meta/FusedDeepMoe_305dff43999127bde04a074ebde5c58b_tmp_aic_1028972_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_4/kernel_meta_FusedDeepMoe_0cf17ba592d6c305c082569248c877bf/kernel_meta/FusedDeepMoe_0cf17ba592d6c305c082569248c877bf_tmp_aic_1028982.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_4/kernel_meta_FusedDeepMoe_0cf17ba592d6c305c082569248c877bf/kernel_meta/FusedDeepMoe_0cf17ba592d6c305c082569248c877bf_tmp_aic_1028982_0] Error 1
+1 error generated.
+1 error generated.
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_15/kernel_meta_FusedDeepMoe_e382843419429817e26fb4177dc9845b/kernel_meta/FusedDeepMoe_e382843419429817e26fb4177dc9845b_tmp_aic_1028966.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_15/kernel_meta_FusedDeepMoe_e382843419429817e26fb4177dc9845b/kernel_meta/FusedDeepMoe_e382843419429817e26fb4177dc9845b_tmp_aic_1028966_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_10/kernel_meta_FusedDeepMoe_04532ab9a2df6e79c1c894acd7910b3b/kernel_meta/FusedDeepMoe_04532ab9a2df6e79c1c894acd7910b3b_tmp_aic_1028977.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_10/kernel_meta_FusedDeepMoe_04532ab9a2df6e79c1c894acd7910b3b/kernel_meta/FusedDeepMoe_04532ab9a2df6e79c1c894acd7910b3b_tmp_aic_1028977_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_5/kernel_meta_FusedDeepMoe_93bd01014fad847998ae18b8e17316fb/kernel_meta/FusedDeepMoe_93bd01014fad847998ae18b8e17316fb_tmp_aic_1028953.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_5/kernel_meta_FusedDeepMoe_93bd01014fad847998ae18b8e17316fb/kernel_meta/FusedDeepMoe_93bd01014fad847998ae18b8e17316fb_tmp_aic_1028953_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_14/kernel_meta_FusedDeepMoe_9c3a61618bbbb128c0116941a05a9ae1/kernel_meta/FusedDeepMoe_9c3a61618bbbb128c0116941a05a9ae1_tmp_aic_1028984.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_14/kernel_meta_FusedDeepMoe_9c3a61618bbbb128c0116941a05a9ae1/kernel_meta/FusedDeepMoe_9c3a61618bbbb128c0116941a05a9ae1_tmp_aic_1028984_0] Error 1
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:19: fused_deep_moe8] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:23: fused_deep_moe10] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:31: fused_deep_moe14] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:21: fused_deep_moe9] Interrupt
+1 error generated.
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:11: fused_deep_moe4] Interrupt
+1 error generated.
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:13: fused_deep_moe5] Interrupt
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_11/kernel_meta_FusedDeepMoe_90a7e36128671c91ced28019bd29bcd4/kernel_meta/FusedDeepMoe_90a7e36128671c91ced28019bd29bcd4_tmp_aic_1028976.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_11/kernel_meta_FusedDeepMoe_90a7e36128671c91ced28019bd29bcd4/kernel_meta/FusedDeepMoe_90a7e36128671c91ced28019bd29bcd4_tmp_aic_1028976_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_7/kernel_meta_FusedDeepMoe_3bad25b498f6003caad581dc9d11ee28/kernel_meta/FusedDeepMoe_3bad25b498f6003caad581dc9d11ee28_tmp_aic_1028967.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_7/kernel_meta_FusedDeepMoe_3bad25b498f6003caad581dc9d11ee28/kernel_meta/FusedDeepMoe_3bad25b498f6003caad581dc9d11ee28_tmp_aic_1028967_0] Error 1
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:33: fused_deep_moe15] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:3: fused_deep_moe0] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:25: fused_deep_moe11] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:17: fused_deep_moe7] Interrupt
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_12/kernel_meta_FusedDeepMoe_38df91676839eaa6159af03e3af6058a/kernel_meta/FusedDeepMoe_38df91676839eaa6159af03e3af6058a_1028965_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_6/kernel_meta_FusedDeepMoe_27e2fcf5e85b94e1c79d893c41208bfa/kernel_meta/FusedDeepMoe_27e2fcf5e85b94e1c79d893c41208bfa_1028964_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_3/kernel_meta_FusedDeepMoe_11266d639a738c9f6a539464faef4888/kernel_meta/FusedDeepMoe_11266d639a738c9f6a539464faef4888_1028940_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_13/kernel_meta_FusedDeepMoe_47762bb26c0d5f456ed7adb03af0f5e8/kernel_meta/FusedDeepMoe_47762bb26c0d5f456ed7adb03af0f5e8_1028985_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_2/kernel_meta_FusedDeepMoe_b5f78d78301f61ad8d9c39d91296dada/kernel_meta/FusedDeepMoe_b5f78d78301f61ad8d9c39d91296dada_1028908_kernel.cpp:6:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp:12:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/entry.h:5:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5.h:16:
+In file included from /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/fused_deep_moe_a5_profile.h:8:
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/profile_writer_kernel.h:142:9: error: no matching function for call to 'SetProfileRecordPayload'
+        SetProfileRecordPayload(records[slot], payload);
+        ^~~~~~~~~~~~~~~~~~~~~~~
+/home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe_a5/../profiling/kernel/../common/profile_protocol_common.h:291:28: note: candidate function not viable: 1st argument ('__gm__ Cam::ProfileRecord') is in address space __gm__, but parameter must be in Local Memory
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+                           ^
+1 error generated.
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_1/kernel_meta_FusedDeepMoe_2013875f4ded08ac0c5c0414b335b082/kernel_meta/FusedDeepMoe_2013875f4ded08ac0c5c0414b335b082_tmp_aic_1028914.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_1/kernel_meta_FusedDeepMoe_2013875f4ded08ac0c5c0414b335b082/kernel_meta/FusedDeepMoe_2013875f4ded08ac0c5c0414b335b082_tmp_aic_1028914_0] Error 1
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:5: fused_deep_moe1] Interrupt
+1 error generated.
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_3/kernel_meta_FusedDeepMoe_11266d639a738c9f6a539464faef4888/kernel_meta/FusedDeepMoe_11266d639a738c9f6a539464faef4888_tmp_aic_1028940.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_3/kernel_meta_FusedDeepMoe_11266d639a738c9f6a539464faef4888/kernel_meta/FusedDeepMoe_11266d639a738c9f6a539464faef4888_tmp_aic_1028940_0] Error 1
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:9: fused_deep_moe3] Interrupt
+1 error generated.
+1 error generated.
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_6/kernel_meta_FusedDeepMoe_27e2fcf5e85b94e1c79d893c41208bfa/kernel_meta/FusedDeepMoe_27e2fcf5e85b94e1c79d893c41208bfa_tmp_aic_1028964.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_6/kernel_meta_FusedDeepMoe_27e2fcf5e85b94e1c79d893c41208bfa/kernel_meta/FusedDeepMoe_27e2fcf5e85b94e1c79d893c41208bfa_tmp_aic_1028964_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_12/kernel_meta_FusedDeepMoe_38df91676839eaa6159af03e3af6058a/kernel_meta/FusedDeepMoe_38df91676839eaa6159af03e3af6058a_tmp_aic_1028965.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_12/kernel_meta_FusedDeepMoe_38df91676839eaa6159af03e3af6058a/kernel_meta/FusedDeepMoe_38df91676839eaa6159af03e3af6058a_tmp_aic_1028965_0] Error 1
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:27: fused_deep_moe12] Interrupt
+1 error generated.
+1 error generated.
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:15: fused_deep_moe6] Interrupt
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_13/kernel_meta_FusedDeepMoe_47762bb26c0d5f456ed7adb03af0f5e8/kernel_meta/FusedDeepMoe_47762bb26c0d5f456ed7adb03af0f5e8_tmp_aic_1028985.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_13/kernel_meta_FusedDeepMoe_47762bb26c0d5f456ed7adb03af0f5e8/kernel_meta/FusedDeepMoe_47762bb26c0d5f456ed7adb03af0f5e8_tmp_aic_1028985_0] Error 1
+make[5]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_2/kernel_meta_FusedDeepMoe_b5f78d78301f61ad8d9c39d91296dada/kernel_meta/FusedDeepMoe_b5f78d78301f61ad8d9c39d91296dada_tmp_aic_1028908.mk:4: /home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/kernel_2/kernel_meta_FusedDeepMoe_b5f78d78301f61ad8d9c39d91296dada/kernel_meta/FusedDeepMoe_b5f78d78301f61ad8d9c39d91296dada_tmp_aic_1028908_0] Error 1
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:29: fused_deep_moe13] Interrupt
+make[4]: *** [/home/syh/sgl-kernel-npu/csrc/deepep/ops/build_out/op_kernel/FusedDeepMoe_ascend950/fused_deep_moe.make:7: fused_deep_moe2] Interrupt
+Traceback (most recent call last):
+  File "/usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/util/ascendc_compile_kernel.py", line 277, in <module>
+    kernel_builder.ascendc_build()
+  File "/usr/local/Ascend/cann-9.1.T560/compiler/tikcpp/ascendc_kernel_cmake/fwk_modules/util/ascendc_compile_kernel.py", line 214, in ascendc_build
+    raise RuntimeError('Kernel Compilation Error: OpType {} Kernel File {}!'.format(
+RuntimeError: Kernel Compilation Error: OpType FusedDeepMoe Kernel File /home/syh/sgl-kernel-npu/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp!
+gmake[3]: *** [op_kernel/CMakeFiles/FusedDeepMoe_ascend950.dir/build.make:70: op_kernel/CMakeFiles/FusedDeepMoe_ascend950] Error 1
+gmake[2]: *** [CMakeFiles/Makefile2:758: op_kernel/CMakeFiles/FusedDeepMoe_ascend950.dir/all] Interrupt
+gmake[1]: *** [CMakeFiles/Makefile2:798: op_kernel/CMakeFiles/binary.dir/rule] Interrupt
+gmake: *** [Makefile:436: binary] Interrupt
