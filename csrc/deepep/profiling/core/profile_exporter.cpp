@@ -34,9 +34,7 @@ struct TraceEventRow {
     uint64_t occurrenceId{0};
     uint64_t startCycle{0};
     uint64_t endCycle{0};
-    uint64_t private0{0};
-    uint64_t private1{0};
-    uint64_t private2{0};
+    Cam::ProfilePrivatePayloadRaw payload = Cam::MakeEmptyProfilePrivatePayloadRaw();
 };
 
 struct LaunchTraceBundle {
@@ -52,121 +50,32 @@ struct LaunchTraceBundle {
     std::vector<TraceEventRow> rows;
 };
 
-enum class InvalidProfileRecordReason : uint32_t {
-    None = 0,
-    EndCycleLeStartCycle,
-    LaunchIdMismatch,
-    InvalidCoreLinear,
-    StageIdOob,
-    OccurrenceIdOob,
-    EmptyStageName,
-};
-
-struct InvalidProfileRecordSample {
-    uint64_t expectedLaunchId{0};
-    uint64_t rawLaunchId{0};
-    uint64_t coreType{0};
-    uint64_t coreIdx{0};
-    uint64_t stageId{0};
-    uint64_t occurrenceId{0};
-    uint64_t startCycle{0};
-    uint64_t endCycle{0};
-    InvalidProfileRecordReason reason{InvalidProfileRecordReason::None};
-};
-
-struct InvalidProfileRecordStats {
-    uint64_t total{0};
-    uint64_t endCycleLeStartCycle{0};
-    uint64_t launchIdMismatch{0};
-    uint64_t invalidCoreLinear{0};
-    uint64_t stageIdOob{0};
-    uint64_t occurrenceIdOob{0};
-    uint64_t emptyStageName{0};
-    std::vector<InvalidProfileRecordSample> samples{};
-};
-
-static const char *InvalidProfileRecordReasonName(InvalidProfileRecordReason reason)
-{
-    switch (reason) {
-        case InvalidProfileRecordReason::EndCycleLeStartCycle:
-            return "end_cycle_le_start_cycle";
-        case InvalidProfileRecordReason::LaunchIdMismatch:
-            return "launch_id_mismatch";
-        case InvalidProfileRecordReason::InvalidCoreLinear:
-            return "invalid_core_linear";
-        case InvalidProfileRecordReason::StageIdOob:
-            return "stage_id_oob";
-        case InvalidProfileRecordReason::OccurrenceIdOob:
-            return "occurrence_id_oob";
-        case InvalidProfileRecordReason::EmptyStageName:
-            return "empty_stage_name";
-        default:
-            return "none";
-    }
-}
-
-static void AccumulateInvalidProfileRecord(InvalidProfileRecordStats &stats, const Cam::ProfileRecord &record,
-                                           uint64_t expectedLaunchId, InvalidProfileRecordReason reason)
-{
-    ++stats.total;
-    switch (reason) {
-        case InvalidProfileRecordReason::EndCycleLeStartCycle:
-            ++stats.endCycleLeStartCycle;
-            break;
-        case InvalidProfileRecordReason::LaunchIdMismatch:
-            ++stats.launchIdMismatch;
-            break;
-        case InvalidProfileRecordReason::InvalidCoreLinear:
-            ++stats.invalidCoreLinear;
-            break;
-        case InvalidProfileRecordReason::StageIdOob:
-            ++stats.stageIdOob;
-            break;
-        case InvalidProfileRecordReason::OccurrenceIdOob:
-            ++stats.occurrenceIdOob;
-            break;
-        case InvalidProfileRecordReason::EmptyStageName:
-            ++stats.emptyStageName;
-            break;
-        default:
-            break;
-    }
-    constexpr size_t kMaxInvalidSamples = 16;
-    if (stats.samples.size() < kMaxInvalidSamples) {
-        stats.samples.push_back(InvalidProfileRecordSample{expectedLaunchId, record.launchId, record.coreType,
-                                                           record.coreIdx, record.stageId, record.occurrenceId,
-                                                           record.startCycle, record.endCycle, reason});
-    }
-}
-
-static InvalidProfileRecordReason GetInvalidProfileRecordReason(const Cam::ProfileRecord &record,
-                                                                uint64_t expectedLaunchId,
-                                                                const Cam::ProfileStageLayout &stageLayout,
-                                                                const ProfileSchema &schema)
+static bool IsValidProfileRecord(const Cam::ProfileRecord &record, uint64_t expectedLaunchId,
+                                 const Cam::ProfileStageLayout &stageLayout, const ProfileSchema &schema)
 {
     if (record.endCycle <= record.startCycle) {
-        return InvalidProfileRecordReason::EndCycleLeStartCycle;
+        return false;
     }
     if (record.launchId != expectedLaunchId) {
-        return InvalidProfileRecordReason::LaunchIdMismatch;
+        return false;
     }
     if (Cam::GetProfileLogicalCoreLinear(record.coreType, record.coreIdx) == UINT32_MAX) {
-        return InvalidProfileRecordReason::InvalidCoreLinear;
+        return false;
     }
     if (record.stageId >= static_cast<uint64_t>(stageLayout.stageCount)) {
-        return InvalidProfileRecordReason::StageIdOob;
+        return false;
     }
     if (record.occurrenceId >=
         Cam::GetProfileStageOccurrenceCount(stageLayout, static_cast<uint32_t>(record.stageId))) {
-        return InvalidProfileRecordReason::OccurrenceIdOob;
+        return false;
     }
     if (schema.stageName != nullptr) {
         const char *stageName = schema.stageName(record.stageId);
         if (stageName == nullptr || stageName[0] == '\0') {
-            return InvalidProfileRecordReason::EmptyStageName;
+            return false;
         }
     }
-    return InvalidProfileRecordReason::None;
+    return true;
 }
 
 static std::string JsonEscape(const std::string &value)
@@ -278,11 +187,6 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
                                  : DefaultLaunchEventName(schema);
 
     launches.reserve(launches.size() + static_cast<size_t>(captured));
-    InvalidProfileRecordStats invalidStats{};
-    std::vector<uint64_t> validRecordCountByLaunch(static_cast<size_t>(captured), 0ULL);
-    std::vector<uint64_t> invalidRecordCountByLaunch(static_cast<size_t>(captured), 0ULL);
-    std::vector<uint64_t> validRecordCountByStage(static_cast<size_t>(stageLayout->stageCount), 0ULL);
-    std::vector<uint64_t> invalidRecordCountByStage(static_cast<size_t>(stageLayout->stageCount), 0ULL);
     for (uint64_t launchId = 0; launchId < captured; ++launchId) {
         auto *launchBase =
             base + Cam::GetProfileLaunchOffset(Cam::GetProfileDataOffset(), recordsPerLaunch,
@@ -299,14 +203,7 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
         bool haveRange = false;
         for (uint64_t i = 0; i < recordsPerLaunch; ++i) {
             const auto &record = records[i];
-            InvalidProfileRecordReason invalidReason =
-                GetInvalidProfileRecordReason(record, launchId, *stageLayout, schema);
-            if (invalidReason != InvalidProfileRecordReason::None) {
-                AccumulateInvalidProfileRecord(invalidStats, record, launchId, invalidReason);
-                ++invalidRecordCountByLaunch[static_cast<size_t>(launchId)];
-                if (record.stageId < invalidRecordCountByStage.size()) {
-                    ++invalidRecordCountByStage[static_cast<size_t>(record.stageId)];
-                }
+            if (!IsValidProfileRecord(record, launchId, *stageLayout, schema)) {
                 continue;
             }
             TraceEventRow row;
@@ -327,12 +224,8 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
             row.occurrenceId = record.occurrenceId;
             row.startCycle = record.startCycle;
             row.endCycle = record.endCycle;
-            row.private0 = record.private0;
-            row.private1 = record.private1;
-            row.private2 = record.private2;
+            row.payload = Cam::GetProfileRecordPayload(record);
             bundle.rows.push_back(std::move(row));
-            ++validRecordCountByLaunch[static_cast<size_t>(launchId)];
-            ++validRecordCountByStage[static_cast<size_t>(record.stageId)];
             if (!haveRange) {
                 bundle.minStartCycle = record.startCycle;
                 bundle.maxEndCycle = record.endCycle;
@@ -360,48 +253,6 @@ static bool CollectLaunches(const at::Tensor &profileBuffer, int64_t numProfileS
             });
             launches.push_back(std::move(bundle));
         }
-    }
-
-    TORCH_WARN("Profile export diagnostics for op=", schema.opName ? schema.opName : "profile",
-               ": recordsPerLaunch=", recordsPerLaunch, ", sizeof(ProfileRecord)=", sizeof(Cam::ProfileRecord),
-               ", perLaunchBytes=", perLaunchBytes, ", alignedPerLaunchBytes=", AlignUp(perLaunchBytes, 64ULL),
-               ", perLaunchAlreadyAligned=", (perLaunchBytes == AlignUp(perLaunchBytes, 64ULL) ? "true" : "false"),
-               ", launchCountCapacity=", launchCountCapacity, ", capturedLaunches=", captured);
-
-    if (invalidStats.total > 0) {
-        TORCH_WARN("Skipped invalid profiling records for op=", schema.opName ? schema.opName : "profile",
-                   ": invalid_total=", invalidStats.total,
-                   ", invalid_end_cycle_le_start_cycle=", invalidStats.endCycleLeStartCycle,
-                   ", invalid_launch_id_mismatch=", invalidStats.launchIdMismatch,
-                   ", invalid_invalid_core_linear=", invalidStats.invalidCoreLinear,
-                   ", invalid_stage_id_oob=", invalidStats.stageIdOob,
-                   ", invalid_occurrence_id_oob=", invalidStats.occurrenceIdOob,
-                   ", invalid_empty_stage_name=", invalidStats.emptyStageName);
-
-        for (size_t i = 0; i < invalidStats.samples.size(); ++i) {
-            const auto &sample = invalidStats.samples[i];
-            TORCH_WARN("Invalid profiling record sample[", i, "] op=", schema.opName ? schema.opName : "profile",
-                       ", reason=", InvalidProfileRecordReasonName(sample.reason),
-                       ", launchId(expected/raw)=", sample.expectedLaunchId, "/", sample.rawLaunchId,
-                       ", coreType=", sample.coreType, ", coreIdx=", sample.coreIdx, ", stageId=", sample.stageId,
-                       ", occurrenceId=", sample.occurrenceId, ", startCycle=", sample.startCycle,
-                       ", endCycle=", sample.endCycle);
-        }
-    }
-
-    for (uint64_t launchId = 0; launchId < captured; ++launchId) {
-        TORCH_WARN("Profile export launch coverage op=", schema.opName ? schema.opName : "profile",
-                   ", launchId=", launchId,
-                   ", validRecordCount=", validRecordCountByLaunch[static_cast<size_t>(launchId)],
-                   ", invalidRecordCount=", invalidRecordCountByLaunch[static_cast<size_t>(launchId)]);
-    }
-
-    for (uint32_t stageId = 0; stageId < stageLayout->stageCount; ++stageId) {
-        const char *stageName = schema.stageName ? schema.stageName(stageId) : "unknown";
-        TORCH_WARN("Profile export stage coverage op=", schema.opName ? schema.opName : "profile",
-                   ", stageId=", stageId, ", stageName=", (stageName != nullptr ? stageName : "unknown"),
-                   ", validRecordCount=", validRecordCountByStage[static_cast<size_t>(stageId)],
-                   ", invalidRecordCount=", invalidRecordCountByStage[static_cast<size_t>(stageId)]);
     }
 
     return !launches.empty();
@@ -625,9 +476,7 @@ static bool WriteTraceFile(const std::vector<LaunchTraceBundle> &launches, int64
                 record.launchId = static_cast<uint64_t>(std::max<int64_t>(0, row.launchId));
                 record.startCycle = row.startCycle;
                 record.endCycle = row.endCycle;
-                record.private0 = row.private0;
-                record.private1 = row.private1;
-                record.private2 = row.private2;
+                Cam::SetProfileRecordPayload(record, row.payload);
                 std::string privateDataJson =
                     bundle.schema->privateDataJson(row.stageId, row.occurrenceId, record, bundle.stageLayout);
                 if (!privateDataJson.empty()) {

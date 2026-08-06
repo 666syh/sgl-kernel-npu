@@ -97,22 +97,22 @@ struct ProfileWriter {
 
     __aicore__ inline void Record(uint32_t stageId, uint64_t startCycle, uint64_t endCycle) const
     {
-        Record(stageId, 0U, startCycle, endCycle, 0ULL, 0ULL, 0ULL);
+        Record(stageId, 0U, startCycle, endCycle, MakeEmptyProfilePrivatePayloadRaw());
     }
 
     __aicore__ inline void Record(uint32_t stageId, uint32_t occurrenceId, uint64_t startCycle, uint64_t endCycle) const
     {
-        Record(stageId, occurrenceId, startCycle, endCycle, 0ULL, 0ULL, 0ULL);
+        Record(stageId, occurrenceId, startCycle, endCycle, MakeEmptyProfilePrivatePayloadRaw());
     }
 
-    __aicore__ inline void Record(uint32_t stageId, uint64_t startCycle, uint64_t endCycle, uint64_t private0,
-                                  uint64_t private1, uint64_t private2) const
+    __aicore__ inline void Record(uint32_t stageId, uint64_t startCycle, uint64_t endCycle,
+                                  const ProfilePrivatePayloadRaw &payload) const
     {
-        Record(stageId, 0U, startCycle, endCycle, private0, private1, private2);
+        Record(stageId, 0U, startCycle, endCycle, payload);
     }
 
     __aicore__ inline void Record(uint32_t stageId, uint32_t occurrenceId, uint64_t startCycle, uint64_t endCycle,
-                                  uint64_t private0, uint64_t private1, uint64_t private2) const
+                                  const ProfilePrivatePayloadRaw &payload) const
     {
         if (!enabled || stageId >= stageCount) {
             return;
@@ -139,9 +139,7 @@ struct ProfileWriter {
         records[slot].launchId = launchId;
         records[slot].startCycle = startCycle;
         records[slot].endCycle = endCycle;
-        records[slot].private0 = private0;
-        records[slot].private1 = private1;
-        records[slot].private2 = private2;
+        SetProfileRecordPayload(records[slot], payload);
     }
 };
 

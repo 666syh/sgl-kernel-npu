@@ -831,9 +831,11 @@ public:
         uint32_t sendValidTokenCount = SendToMoeExprt(gmX, gmExpandIdx, gmMoeSmoothScales);
         AscendC::PipeBarrier<PIPE_ALL>();
         if (profile != nullptr) {
+            auto dispatchSendPayload = Cam::ToProfilePrivatePayloadRaw(Cam::MakeDispatchSendPrivatePayloadV1(
+                Cam::PROFILE_PRIVATE_DATA_VALID, DISPATCH_SEND_PRIVATE_FORMAT_V1,
+                static_cast<uint64_t>(sendValidTokenCount), static_cast<uint64_t>(hCommuSize)));
             profile->Record(FusedDeepMoeProfileStage::DispatchSend, 0U, profDispatchSendStart, profile->Now(),
-                            Cam::PackProfilePrivate0(Cam::PROFILE_PRIVATE_DATA_VALID, DISPATCH_SEND_PRIVATE_FORMAT_V1),
-                            static_cast<uint64_t>(sendValidTokenCount), static_cast<uint64_t>(hCommuSize));
+                            dispatchSendPayload);
         }
     }
 

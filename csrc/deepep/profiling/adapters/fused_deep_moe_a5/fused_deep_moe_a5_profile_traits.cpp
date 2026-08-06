@@ -89,18 +89,20 @@ std::string GetPrivateDataJson(uint64_t stageId, uint64_t occurrenceId, const Ca
 {
     (void)occurrenceId;
     (void)stageLayout;
-    if (Cam::GetProfilePrivateValidTag(record.private0) == Cam::PROFILE_PRIVATE_DATA_INVALID) {
+    const auto payload = Cam::AsDispatchSendPrivatePayloadV1(record);
+    if (Cam::GetProfilePrivateValidTag(payload.header) == Cam::PROFILE_PRIVATE_DATA_INVALID) {
         return {};
     }
     auto stage = static_cast<ProfileStage>(stageId);
     if (stage != ProfileStage::DispatchSend) {
         return {};
     }
-    if (Cam::GetProfilePrivateFormatId(record.private0) != kDispatchSendPrivateFormatV1) {
+    if (Cam::GetProfilePrivateFormatId(payload.header) != kDispatchSendPrivateFormatV1) {
         return {};
     }
     std::ostringstream oss;
-    oss << ",\"dispatch_send_actual_send_bytes\":" << (record.private1 * record.private2);
+    oss << ",\"dispatch_send_valid_token_count\":" << payload.validTokenCount;
+    oss << ",\"dispatch_send_per_token_comm_bytes\":" << payload.perTokenCommBytes;
     return oss.str();
 }
 

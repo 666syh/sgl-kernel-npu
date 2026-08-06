@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <string>
 
+#include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_payload.h"
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_stage.h"
 #include "profiling/common/profile_protocol_common.h"
 #include "profiling/core/profile_schema.hpp"

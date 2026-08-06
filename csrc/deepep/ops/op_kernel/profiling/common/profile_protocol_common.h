@@ -42,6 +42,7 @@ constexpr uint32_t PROFILE_LOGICAL_CORE_COUNT_CAPACITY = PROFILE_AIC_COUNT_CAPAC
 constexpr uint32_t PROFILE_ACTIVE_STAGE_CAPACITY = 16U;
 constexpr uint32_t PROFILE_RESERVED_STAGE_CAPACITY = 16U;
 constexpr uint32_t PROFILE_MAX_GROUP_COUNT_CAPACITY = 64U;
+constexpr uint32_t PROFILE_PRIVATE_PAYLOAD_WORD_COUNT = 3U;
 constexpr uint8_t PROFILE_PRIVATE_DATA_INVALID = 0U;
 constexpr uint8_t PROFILE_PRIVATE_DATA_VALID = 1U;
 
@@ -213,6 +214,29 @@ DEEPEP_PROFILE_INLINE constexpr uint8_t GetProfilePrivateFormatId(uint64_t priva
     return static_cast<uint8_t>((private0 >> 8) & 0xFFULL);
 }
 
+union ProfilePrivatePayloadRaw {
+    struct {
+        uint64_t private0;
+        uint64_t private1;
+        uint64_t private2;
+    };
+    uint64_t words[PROFILE_PRIVATE_PAYLOAD_WORD_COUNT];
+};
+
+static_assert(sizeof(ProfilePrivatePayloadRaw) == 24, "Unexpected private payload raw size");
+
+DEEPEP_PROFILE_INLINE constexpr ProfilePrivatePayloadRaw MakeProfilePrivatePayloadRaw(uint64_t private0,
+                                                                                      uint64_t private1,
+                                                                                      uint64_t private2)
+{
+    return ProfilePrivatePayloadRaw{{private0, private1, private2}};
+}
+
+DEEPEP_PROFILE_INLINE constexpr ProfilePrivatePayloadRaw MakeEmptyProfilePrivatePayloadRaw()
+{
+    return ProfilePrivatePayloadRaw{{0ULL, 0ULL, 0ULL}};
+}
+
 struct ProfileHeader {
     uint64_t magic;
     uint64_t version;
@@ -243,9 +267,14 @@ struct alignas(64) ProfileRecord {
     //   private0[7:0]   : valid tag
     //   private0[15:8]  : payload format / version
     //   remaining bits   : stage-defined payload
-    uint64_t private0;
-    uint64_t private1;
-    uint64_t private2;
+    union {
+        ProfilePrivatePayloadRaw payload;
+        struct {
+            uint64_t private0;
+            uint64_t private1;
+            uint64_t private2;
+        };
+    };
     uint64_t reserved0;
     uint64_t reserved1;
     uint64_t reserved2;
@@ -253,6 +282,16 @@ struct alignas(64) ProfileRecord {
     uint64_t reserved4;
     uint64_t reserved5;
 };
+
+DEEPEP_PROFILE_INLINE constexpr ProfilePrivatePayloadRaw GetProfileRecordPayload(const ProfileRecord &record)
+{
+    return record.payload;
+}
+
+DEEPEP_PROFILE_INLINE void SetProfileRecordPayload(ProfileRecord &record, const ProfilePrivatePayloadRaw &payload)
+{
+    record.payload = payload;
+}
 
 static_assert(sizeof(ProfileHeader) == 64, "Unexpected profile header size");
 static_assert(sizeof(ProfileStageLayout) == 64, "Unexpected profile stage layout size");
