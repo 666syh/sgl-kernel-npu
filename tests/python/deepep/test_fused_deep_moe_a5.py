@@ -104,6 +104,7 @@ def log_quant_tensor(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
 def get_npu_format_desc(tensor: torch.Tensor) -> str:
     format_code = torch_npu.get_npu_format(tensor)
     format_name_map = {
+        2: "ND",
         29: "FRACTAL_NZ",
     }
     format_name = format_name_map.get(format_code, f"UNKNOWN_{format_code}")
@@ -294,6 +295,7 @@ def run_small_op_baseline(
         log_quant_tensor(rank, True, "dispatch.dynamic_scales_raw", dynamic_scales)
         log_quant_tensor(rank, True, "gmm1_weight_q", inputs["gmm1_weight_q"])
         log_quant_tensor(rank, True, "gmm1_weight_scale", inputs["gmm1_weight_scale"])
+        log_tensor_meta(rank, True, "small_op.gmm1_weight_q", inputs["gmm1_weight_q"])
 
     if gmm_burn_in_repeats > 1 and warmup_burn_in_buffers is not None:
         # This burn-in only runs on the first profiler warmup iteration.
@@ -333,6 +335,11 @@ def run_small_op_baseline(
     x2_scale = x2_scale.view(torch.float8_e8m0fnu)
     log_quant_tensor(rank, args.log_quant_dtypes, "requant.x2", x2)
     log_quant_tensor(rank, args.log_quant_dtypes, "requant.x2_scale", x2_scale)
+    if args.log_quant_dtypes and not getattr(
+        args, "_small_gmm2_weight_meta_logged", False
+    ):
+        log_tensor_meta(rank, True, "small_op.gmm2_weight_q", inputs["gmm2_weight_q"])
+        args._small_gmm2_weight_meta_logged = True
     y2_fp = torch_npu.npu_grouped_matmul(
         x=[x2],
         weight=[inputs["gmm2_weight_q"]],
