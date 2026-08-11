@@ -81,7 +81,7 @@ def maybe_cast_weight_to_nz(
     args: argparse.Namespace, weight: torch.Tensor
 ) -> torch.Tensor:
     """Convert supported quantized weights to A5 FRACTAL_NZ storage."""
-    if args.weight_format != "nz":
+    if args.weight_format != "NZ":
         return weight
     if args.quant == "fp4_e2m1":
         raise ValueError("FP4 + NZ is not supported yet")
@@ -1347,9 +1347,9 @@ def main():
         parser.error("--num-warmups must be non-negative")
     if args.num_tests <= 0:
         parser.error("--num-tests must be positive")
-    if args.quant == "fp4_e2m1" and args.weight_format == "nz":
+    if args.quant == "fp4_e2m1" and args.weight_format == "NZ":
         parser.error(
-            "--weight-format nz is currently supported for FP8 quantization only"
+            "--weight-format NZ is currently supported for FP8 quantization only"
         )
     if args.quant == "fp4_e2m1" and args.hidden % 2 != 0:
         parser.error("--hidden must be even when --quant is fp4_e2m1")
