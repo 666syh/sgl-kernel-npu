@@ -291,6 +291,19 @@ static double GetLaunchRebasedTsUs(double alignedTsUs, const session::ProfileTim
     return alignedTsUs + calibration->launchRebaseUs;
 }
 
+static const LaunchTraceBundle *SelectLaunchRebaseAnchor(const std::vector<LaunchTraceBundle> &launches)
+{
+    if (launches.empty()) {
+        return nullptr;
+    }
+    for (const auto &launch : launches) {
+        if (!launch.isWarmup) {
+            return &launch;
+        }
+    }
+    return &launches.front();
+}
+
 static void ApplyLaunchRelativeCalibration(std::vector<LaunchTraceBundle> &launches,
                                            session::ProfileTimeCalibration &effectiveCalibration)
 {
@@ -322,19 +335,6 @@ static std::string TimeAlignmentModeName(session::ProfileTimeAlignmentMode mode)
         default:
             return "none";
     }
-}
-
-static const LaunchTraceBundle *SelectLaunchRebaseAnchor(const std::vector<LaunchTraceBundle> &launches)
-{
-    if (launches.empty()) {
-        return nullptr;
-    }
-    for (const auto &launch : launches) {
-        if (!launch.isWarmup) {
-            return &launch;
-        }
-    }
-    return &launches.front();
 }
 
 static std::filesystem::path ResolveLaunchAnchorPath(const std::string &profileTraceDir, int64_t rank)
