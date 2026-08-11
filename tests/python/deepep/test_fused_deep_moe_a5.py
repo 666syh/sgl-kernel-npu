@@ -85,6 +85,24 @@ def log_quant_tensor(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
         )
 
 
+def get_npu_format_desc(tensor: torch.Tensor) -> str:
+    format_code = torch_npu.get_npu_format(tensor)
+    format_name_map = {
+        29: "FRACTAL_NZ",
+    }
+    format_name = format_name_map.get(format_code, f"UNKNOWN_{format_code}")
+    return f"{format_name}({format_code})"
+
+
+def log_tensor_meta(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
+    if enabled and rank == 0:
+        print(
+            f"[tensor-meta] {name}: dtype={tensor.dtype}, shape={tuple(tensor.shape)}, "
+            f"format={get_npu_format_desc(tensor)}",
+            flush=True,
+        )
+
+
 def make_umdk_static_inputs(
     rank: int,
     world_size: int,
@@ -342,6 +360,10 @@ def run_buffer_fused(
     args: argparse.Namespace,
     kernel_trace_dir: str = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
+    rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
+    log_tensor_meta(rank, True, "gmm1_weight_q", inputs["gmm1_weight_q"])
+    log_tensor_meta(rank, True, "gmm2_weight_q", inputs["gmm2_weight_q"])
+
     output, ep_recv_count = buffer.fused_deep_moe(
         inputs["x"],
         inputs["expert_ids"],
