@@ -77,6 +77,22 @@ def get_mx_quant_config(args: argparse.Namespace) -> Dict[str, object]:
     return MX_QUANT_CONFIGS[args.quant]
 
 
+def maybe_cast_weight_to_nz(
+    args: argparse.Namespace, weight: torch.Tensor
+) -> torch.Tensor:
+    """Convert supported quantized weights to A5 FRACTAL_NZ storage."""
+    if args.weight_format != "nz":
+        return weight
+    if args.quant == "fp4_e2m1":
+        raise ValueError("FP4 + NZ is not supported yet")
+
+    # Prefer the public enum when available; keep numeric 29 as a compatibility
+    # fallback for torch_npu versions that do not expose Format.FRACTAL_NZ.
+    npu_format = getattr(torch_npu, "Format", None)
+    fractal_nz = getattr(npu_format, "FRACTAL_NZ", 29)
+    return torch_npu.npu_format_cast(weight, fractal_nz)
+
+
 def log_quant_tensor(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
     if enabled and rank == 0:
         print(
@@ -147,6 +163,7 @@ def make_umdk_static_inputs(
         gmm1_fp, dst_type=quant_cfg["quant_dst_type"], axis=1
     )
     gmm1_weight = gmm1_weight.view(quant_cfg["origin_dtype"])
+    gmm1_weight = maybe_cast_weight_to_nz(args, gmm1_weight)
     gmm1_scale = gmm1_scale_raw.view(torch.float8_e8m0fnu)
 
     gmm2_fp = (
@@ -160,6 +177,7 @@ def make_umdk_static_inputs(
         gmm2_fp, dst_type=quant_cfg["quant_dst_type"], axis=1
     )
     gmm2_weight = gmm2_weight.view(quant_cfg["origin_dtype"])
+    gmm2_weight = maybe_cast_weight_to_nz(args, gmm2_weight)
     gmm2_scale = gmm2_scale_raw.view(torch.float8_e8m0fnu)
 
     return {
@@ -1270,6 +1288,12 @@ def main():
         help="Unified MX quant dtype for the small-op chain and fused GMM weights.",
     )
     parser.add_argument(
+        "--weight-format",
+        choices=("ND", "NZ"),
+        default="ND",
+        help="Storage format for quantized GMM weights; NZ is supported for FP8 only.",
+    )
+    parser.add_argument(
         "--trace-dir",
         help="Optional directory to export profiler chrome traces.",
     )
@@ -1323,6 +1347,10 @@ def main():
         parser.error("--num-warmups must be non-negative")
     if args.num_tests <= 0:
         parser.error("--num-tests must be positive")
+    if args.quant == "fp4_e2m1" and args.weight_format == "nz":
+        parser.error(
+            "--weight-format nz is currently supported for FP8 quantization only"
+        )
     if args.quant == "fp4_e2m1" and args.hidden % 2 != 0:
         parser.error("--hidden must be even when --quant is fp4_e2m1")
 
