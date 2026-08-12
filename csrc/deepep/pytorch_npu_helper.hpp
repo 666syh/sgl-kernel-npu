@@ -18,6 +18,7 @@
 
 #include "torch_npu/csrc/aten/NPUNativeFunctions.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
+#include "torch_npu/csrc/core/npu/NPUFormat.h"
 #include "torch_npu/csrc/framework/OpCommand.h"
 #include "torch_npu/csrc/framework/interface/EnvVariables.h"
 #include "torch_npu/csrc/framework/utils/CalcuOpUtil.h"
