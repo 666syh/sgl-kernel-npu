@@ -7,8 +7,6 @@
 #include <c10/util/Exception.h>
 #include <torch/extension.h>
 #include <dlfcn.h>
-#include <cstdlib>
-#include <sstream>
 #include <torch_npu/csrc/framework/utils/CalcuOpUtil.h>
 #include <torch_npu/csrc/framework/utils/OpAdapter.h>
 #include <iostream>
@@ -215,27 +213,6 @@ inline at::Tensor CopyScalarToDevice(const c10::Scalar &cpu_scalar, at::ScalarTy
     return CopyTensorHostToDevice(scalar_to_tensor(cpu_scalar).to(scalar_data_type));
 }
 
-inline bool IsConvertTypeDebugEnabled()
-{
-    const char *env = std::getenv("DEEPEP_DEBUG_CONVERT_TYPE");
-    return env != nullptr && env[0] != '\0' && env[0] != '0';
-}
-
-template <typename Container>
-inline std::string DebugJoinIntContainer(const Container &values)
-{
-    std::ostringstream oss;
-    oss << "[";
-    for (size_t i = 0; i < values.size(); ++i) {
-        if (i > 0) {
-            oss << ", ";
-        }
-        oss << values[i];
-    }
-    oss << "]";
-    return oss.str();
-}
-
 static inline bool IsOpInputBaseFormat(const at::Tensor &at_tensor)
 {
     if (!torch_npu::utils::is_npu(at_tensor)) {
@@ -296,18 +273,6 @@ inline aclTensor *ConvertType(const at::Tensor &at_tensor)
             default:
                 format = ACL_FORMAT_ND;
         }
-    }
-
-    if (IsConvertTypeDebugEnabled()) {
-        const int64_t realNpuFormat =
-            torch_npu::utils::is_npu(at_tensor) ? at_npu::native::get_npu_format(at_tensor) : -1;
-        std::cout << "[deepep][ConvertType] "
-                  << "dtype=" << c10::toString(scalar_data_type)
-                  << ", sizes=" << DebugJoinIntContainer(at_tensor.sizes())
-                  << ", strides=" << DebugJoinIntContainer(at_tensor.strides())
-                  << ", is_base_format=" << (isBaseFormat ? "true" : "false") << ", npu_format=" << realNpuFormat
-                  << ", acl_format=" << static_cast<int>(format)
-                  << ", storage_dims=" << DebugJoinIntContainer(storageDims) << std::endl;
     }
 
     if (at_tensor.unsafeGetTensorImpl()->is_wrapped_number()) {

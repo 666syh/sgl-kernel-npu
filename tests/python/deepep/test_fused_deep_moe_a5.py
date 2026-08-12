@@ -386,8 +386,12 @@ def run_buffer_fused(
     kernel_trace_dir: str = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     rank = dist.get_rank() if dist.is_available() and dist.is_initialized() else 0
-    log_tensor_meta(rank, True, "gmm1_weight_q", inputs["gmm1_weight_q"])
-    log_tensor_meta(rank, True, "gmm2_weight_q", inputs["gmm2_weight_q"])
+    log_tensor_meta(
+        rank, args.log_quant_dtypes, "gmm1_weight_q", inputs["gmm1_weight_q"]
+    )
+    log_tensor_meta(
+        rank, args.log_quant_dtypes, "gmm2_weight_q", inputs["gmm2_weight_q"]
+    )
 
     output, ep_recv_count = buffer.fused_deep_moe(
         inputs["x"],
