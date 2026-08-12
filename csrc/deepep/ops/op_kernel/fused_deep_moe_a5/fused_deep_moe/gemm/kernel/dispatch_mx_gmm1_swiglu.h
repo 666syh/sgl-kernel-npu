@@ -1258,23 +1258,52 @@ public:
             }
         }
 
-        if (isRecvCore && recvCoreIdx == (recvCoreNum - 1)) {
-            // record token count for each local expert
+        if (aivNum > 0) {
+            uint32_t expertPerCore = localExpertNum / aivNum;
+            uint32_t remainExpert = localExpertNum % aivNum;
+            uint32_t expertStart = expertPerCore * aivIdx + ((aivIdx < remainExpert) ? aivIdx : remainExpert);
+            uint32_t expertCount = expertPerCore + ((aivIdx < remainExpert) ? 1 : 0);
+            if (expertCount == 0) {
+                return;
+            }
+
             AscendC::GlobalTensor<int64_t> expertTokenNumsOutGMTensor_;
             expertTokenNumsOutGMTensor_.SetGlobalBuffer((__gm__ int64_t *)(ptrGroupList));
             AscendC::GlobalTensor<int32_t> sendCountsGlobal;
             sendCountsGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(gmEpSendCount));
             AscendC::GlobalTensor<int64_t> nonCumSumExpertTokenNumsTensor;
             nonCumSumExpertTokenNumsTensor.SetGlobalBuffer((__gm__ int64_t *)gmExpertTokenNums);
-            uint32_t tmpTokenNum = 0;
-            for (uint32_t localMoeIndex = 0; localMoeIndex < localExpertNum; ++localMoeIndex) {
+
+            constexpr int64_t GROUP_LIST_LOCAL_OFFSET = 2048;
+            uint32_t groupListLocalBytes =
+                static_cast<uint32_t>(CEIL_UP(expertCount * static_cast<uint32_t>(sizeof(int64_t))));
+            AscendC::LocalTensor<int64_t> groupListLocalTensor =
+                resource.ubBuf.template GetBufferByByte<int64_t>(GROUP_LIST_LOCAL_OFFSET);
+            AscendC::LocalTensor<int64_t> expertTokenNumsLocalTensor =
+                resource.ubBuf.template GetBufferByByte<int64_t>(GROUP_LIST_LOCAL_OFFSET + groupListLocalBytes);
+
+            uint32_t prevTokenNum = 0;
+            if (expertStart > 0) {
+                prevTokenNum =
+                    FlushAndGetValue<int32_t>(sendCountsGlobal, (expertStart - 1) * epRankSize + epRankSize - 1);
+            }
+
+            for (uint32_t expertOffset = 0; expertOffset < expertCount; ++expertOffset) {
+                uint32_t localMoeIndex = expertStart + expertOffset;
                 uint32_t tokenNum =
                     FlushAndGetValue<int32_t>(sendCountsGlobal, localMoeIndex * epRankSize + epRankSize - 1);
-                SetValueAndFlush<int64_t>(expertTokenNumsOutGMTensor_, localMoeIndex, tokenNum);
-                uint32_t nonCumSumTokenNum = tokenNum - tmpTokenNum;
-                SetValueAndFlush<int64_t>(nonCumSumExpertTokenNumsTensor, localMoeIndex, nonCumSumTokenNum);
-                tmpTokenNum = tokenNum;
+                groupListLocalTensor.SetValue(expertOffset, static_cast<int64_t>(tokenNum));
+                expertTokenNumsLocalTensor.SetValue(expertOffset, static_cast<int64_t>(tokenNum - prevTokenNum));
+                prevTokenNum = tokenNum;
             }
+
+            AscendC::DataCopyExtParams copyOutParams = {1U, static_cast<uint32_t>(expertCount * sizeof(int64_t)), 0U,
+                                                        0U, 0U};
+            AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
+            AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
+            AscendC::DataCopyPad(expertTokenNumsOutGMTensor_[expertStart], groupListLocalTensor, copyOutParams);
+            AscendC::DataCopyPad(nonCumSumExpertTokenNumsTensor[expertStart], expertTokenNumsLocalTensor,
+                                 copyOutParams);
         }
     }
 
