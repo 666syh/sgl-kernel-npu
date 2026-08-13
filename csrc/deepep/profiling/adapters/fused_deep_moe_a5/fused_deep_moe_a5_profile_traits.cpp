@@ -59,8 +59,12 @@ const char *GetStageName(uint64_t stageId)
             return "gmm2";
         case ProfileStage::Combine:
             return "combine";
-        case ProfileStage::WeightSum:
-            return "weight_sum";
+        case ProfileStage::WeightSumAllToAllSend:
+            return "weight_sum_all_to_all_send";
+        case ProfileStage::WeightSumReducePermute:
+            return "weight_sum_reduce_permute";
+        case ProfileStage::WeightSumClean:
+            return "weight_sum_clean";
         default:
             return "unknown";
     }
@@ -143,8 +147,15 @@ Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Combine), groupCountCapacity),
         "invalid combine occurrence capacity.");
-    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::WeightSum), 1U),
-                     "invalid weight sum occurrence capacity.");
+    EP_HOST_ASSERT_S(
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::WeightSumAllToAllSend), 1U),
+        "invalid weight sum all-to-all send occurrence capacity.");
+    EP_HOST_ASSERT_S(
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::WeightSumReducePermute), 1U),
+        "invalid weight sum reduce permute occurrence capacity.");
+    EP_HOST_ASSERT_S(
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::WeightSumClean), 1U),
+        "invalid weight sum clean occurrence capacity.");
     return layout;
 }
 

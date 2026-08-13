@@ -352,8 +352,6 @@ public:
         AscendC::GlobalTensor<ElementD> gmD;
         gmD.SetGlobalBuffer(params.ptrD);
 
-        uint64_t profWeightSumStart = 0;
-
         do {
             if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                 if (AscendC::GetSubBlockIdx() == 0) {
@@ -465,9 +463,6 @@ public:
             }
         } while (false);
 
-        if (params.profile != nullptr) {
-            profWeightSumStart = params.profile->Now();
-        }
         icache_preload(4);
         if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
             if (AscendC::GetSubBlockIdx() == 1) {
@@ -479,17 +474,33 @@ public:
             }
         } else if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
             if (AscendC::GetSubBlockIdx() == 0) {
+                uint64_t profWeightSumAllToAllSendStart = 0;
+                if (params.profile != nullptr) {
+                    profWeightSumAllToAllSendStart = params.profile->Now();
+                }
                 resource.pipe.Init();
                 combiner->TPipeSet(&resource.pipe);
                 combiner->AllToAllSend();
                 combiner->TPipeSet(nullptr);
                 resource.pipe.Destroy();
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::WeightSumAllToAllSend,
+                                           profWeightSumAllToAllSendStart, params.profile->Now());
+                }
             } else {
+                uint64_t profWeightSumReducePermuteStart = 0;
+                if (params.profile != nullptr) {
+                    profWeightSumReducePermuteStart = params.profile->Now();
+                }
                 resource.pipe.Init();
                 combiner->TPipeSet(&resource.pipe);
                 combiner->ReducePermute();
                 combiner->TPipeSet(nullptr);
                 resource.pipe.Destroy();
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::WeightSumReducePermute,
+                                           profWeightSumReducePermuteStart, params.profile->Now());
+                }
             }
         } else {
             resource.pipe.Init();
@@ -499,6 +510,12 @@ public:
             resource.pipe.Destroy();
         }
         if (AscendC::GetSubBlockIdx() == 0) {
+            uint64_t profWeightSumCleanStart = 0;
+            if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                if (params.profile != nullptr) {
+                    profWeightSumCleanStart = params.profile->Now();
+                }
+            }
             AscendC::GlobalTensor<int32_t> softSyncTensor;
             softSyncTensor.SetGlobalBuffer((__gm__ int32_t *)(syncGmAddr + GMM2::SOFT_SYNC_OFFSET));
             AscendC::LocalTensor<int32_t> tmpZeroLocalTensor = resource.ubBuf.template GetBufferByByte<int32_t>(0);
@@ -507,9 +524,12 @@ public:
             AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
             AscendC::DataCopy(softSyncTensor[coreIdx * CVSoftSync::SOFT_SYNC_SPACE_SIZE / sizeof(int32_t)],
                               tmpZeroLocalTensor, GMM2::INT32_COUNT_PER_BLOCK);
-        }
-        if (params.profile != nullptr) {
-            params.profile->Record(FusedDeepMoeProfileStage::WeightSum, profWeightSumStart, params.profile->Now());
+            if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                if (params.profile != nullptr) {
+                    params.profile->Record(FusedDeepMoeProfileStage::WeightSumClean, profWeightSumCleanStart,
+                                           params.profile->Now());
+                }
+            }
         }
     }
 
