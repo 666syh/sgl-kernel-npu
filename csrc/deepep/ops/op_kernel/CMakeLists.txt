@@ -6,6 +6,8 @@ endif()
 message(STATUS "ASCEND include path: ${ASCEND_CANN_PACKAGE_PATH}/opp/built-in/op_impl/ai_core/tbe/impl/ascendc/moe_distribute_dispatch")
 
 set(_DISPATCH_FFN_INC_OPTS)
+set(_DEEPEP_OPS_PUBLIC_INC_OPTS
+    -I${CMAKE_CURRENT_SOURCE_DIR}/..)
 if (EXISTS ${CMAKE_SOURCE_DIR}/third_party/catlass/include)
     list(APPEND _DISPATCH_FFN_INC_OPTS -I${CMAKE_SOURCE_DIR}/third_party/catlass/include)
 else()
@@ -57,5 +59,6 @@ npu_op_package_add(${package_name}
 npu_op_kernel_options("" ALL OPTIONS
     -DASCENDC_DUMP=0
     --cce-auto-sync=off
+    ${_DEEPEP_OPS_PUBLIC_INC_OPTS}
     ${_DISPATCH_FFN_INC_OPTS}
     ${_A5_FUSED_DEEP_MOE_INC_OPTS})
