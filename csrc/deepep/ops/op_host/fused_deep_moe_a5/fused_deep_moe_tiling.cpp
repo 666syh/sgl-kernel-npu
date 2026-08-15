@@ -608,17 +608,19 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     maxTokenNum = globalBs * std::min(topK, moeExpertNumPerRank);
     bool isMxFp4 = tilingData.fusedDeepMoeInfo.mxActStorageFp4 == MX_FP4_QUANT_MODE;
 
-    size_t x1TokenSize = MxActStorageBytes(shareExpertTokenNum * h + maxTokenNum * h, isMxFp4);
-    size_t x2TokenSize = MxActStorageBytes(shareExpertTokenNum * shareGmm2HLen + maxTokenNum * gmm2HLen, isMxFp4);
-    size_t maxTokenSize = CeilUp(x1TokenSize < x2TokenSize ? x2TokenSize : x1TokenSize, GM_ALIGN_SIZE);
-    // size_t tokenScaleSize = CeilUp((shareExpertTokenNum + maxTokenNum) * sizeof(float), GM_ALIGN_SIZE);
-    size_t x1MxScaleSize = (shareExpertTokenNum * shareX1MxScaleNum + maxTokenNum * x1MxScaleNum) * sizeof(fp8_e8m0_t);
-    size_t x2MxScaleSize = (shareExpertTokenNum * shareX2MxScaleNum + maxTokenNum * x2MxScaleNum) * sizeof(fp8_e8m0_t);
-    size_t maxMxScaleSize = CeilUp(x1MxScaleSize < x2MxScaleSize ? x2MxScaleSize : x1MxScaleSize, GM_ALIGN_SIZE);
+    size_t shareX1TokenSize = MxActStorageBytes(shareExpertTokenNum * h, isMxFp4);
+    size_t routedX1TokenSize = MxActStorageBytes(maxTokenNum * h, isMxFp4);
+    size_t shareX2TokenSize = MxActStorageBytes(shareExpertTokenNum * shareGmm2HLen, isMxFp4);
+    size_t routedX2TokenSize = MxActStorageBytes(maxTokenNum * gmm2HLen, isMxFp4);
+    size_t sharedTokenReuseSize = std::max(shareX1TokenSize, shareX2TokenSize);
+    size_t shareX1MxScaleSize = shareExpertTokenNum * shareX1MxScaleNum * sizeof(fp8_e8m0_t);
+    size_t routedX1MxScaleSize = maxTokenNum * x1MxScaleNum * sizeof(fp8_e8m0_t);
+    size_t shareX2MxScaleSize = shareExpertTokenNum * shareX2MxScaleNum * sizeof(fp8_e8m0_t);
+    size_t routedX2MxScaleSize = maxTokenNum * x2MxScaleNum * sizeof(fp8_e8m0_t);
+    size_t sharedMxScaleReuseSize = std::max(shareX1MxScaleSize, shareX2MxScaleSize);
     size_t gmm1SwapSize = (maxTokenNum * gmm1HLen + shareExpertTokenNum * shareGmm1HLen) * sizeof(float);
     size_t shareSwigluOutSize = shareExpertTokenNum * shareGmm1HLen * sizeof(float);
     size_t swigluOutFullSize = maxTokenNum * gmm1HLen * sizeof(float);
-    size_t swigluMulOutSize = maxTokenNum * gmm2HLen * sizeof(float);
     size_t gmm2SwapSize = (maxTokenNum * h + shareExpertTokenNum * h) * sizeof(float);
     size_t maxSwapSwigluSize = CeilUp(gmm1SwapSize < gmm2SwapSize ? gmm2SwapSize : gmm1SwapSize, GM_ALIGN_SIZE);
     size_t gmm2DepOutSize =
@@ -629,16 +631,22 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     size_t reservedSize = CeilUp(RESERVED_WORKSPACE_SIZE, GM_ALIGN_SIZE);
     size_t offset = 0;
 #ifdef ENABLE_REUSE_MEMORY
+    // Shared quant runs after GMM1, but routed quant now overlaps GMM1 and must not overwrite routed X1.
     tilingData.workSpaceOffset.shareX1TokenOffset = offset;
     tilingData.workSpaceOffset.shareX2TokenOffset = offset;
-    tilingData.workSpaceOffset.x1TokenOffset = offset + MxActStorageBytes(shareExpertTokenNum * h, isMxFp4);
-    tilingData.workSpaceOffset.x2TokenOffset = offset + MxActStorageBytes(shareExpertTokenNum * shareGmm2HLen, isMxFp4);
-    offset += maxTokenSize;
+    offset += CeilUp(sharedTokenReuseSize, GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.x1TokenOffset = offset;
+    offset += CeilUp(routedX1TokenSize, GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.x2TokenOffset = offset;
+    offset += CeilUp(routedX2TokenSize, GM_ALIGN_SIZE);
+    // The same lifetime constraint applies to routed MX scales.
     tilingData.workSpaceOffset.shareX1ScaleOffset = offset;
     tilingData.workSpaceOffset.shareX2ScaleOffset = offset;
-    tilingData.workSpaceOffset.x1ScaleOffset = offset + shareExpertTokenNum * shareX1MxScaleNum * sizeof(fp8_e8m0_t);
-    tilingData.workSpaceOffset.x2ScaleOffset = offset + shareExpertTokenNum * shareX2MxScaleNum * sizeof(fp8_e8m0_t);
-    offset += maxMxScaleSize;
+    offset += CeilUp(sharedMxScaleReuseSize, GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.x1ScaleOffset = offset;
+    offset += CeilUp(routedX1MxScaleSize, GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.x2ScaleOffset = offset;
+    offset += CeilUp(routedX2MxScaleSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareMm1SwapSpaceOffset = offset;
     tilingData.workSpaceOffset.gmm1SwapSpaceOffset = offset + shareExpertTokenNum * shareGmm1HLen * sizeof(float);
     tilingData.workSpaceOffset.shareSwigluOffset = offset;
@@ -646,26 +654,24 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     tilingData.workSpaceOffset.shareMm2SwapSpaceOffset = offset;
     tilingData.workSpaceOffset.gmm2SwapSpaceOffset = offset + shareExpertTokenNum * h * sizeof(float);
     offset += maxSwapSwigluSize;
-    tilingData.workSpaceOffset.swigluMulOutOffset = offset;
-    offset += CeilUp(swigluMulOutSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.y2TokenOffset = offset;
 #else
     tilingData.workSpaceOffset.shareX1TokenOffset = offset;
-    offset += CeilUp(MxActStorageBytes(shareExpertTokenNum * h, isMxFp4), GM_ALIGN_SIZE);
+    offset += CeilUp(shareX1TokenSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareX2TokenOffset = offset;
-    offset += CeilUp(MxActStorageBytes(shareExpertTokenNum * shareGmm2HLen, isMxFp4), GM_ALIGN_SIZE);
+    offset += CeilUp(shareX2TokenSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.x1TokenOffset = offset;
-    offset += CeilUp(MxActStorageBytes(maxTokenNum * h, isMxFp4), GM_ALIGN_SIZE);
+    offset += CeilUp(routedX1TokenSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.x2TokenOffset = offset;
-    offset += CeilUp(MxActStorageBytes(maxTokenNum * gmm2HLen, isMxFp4), GM_ALIGN_SIZE);
+    offset += CeilUp(routedX2TokenSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareX1ScaleOffset = offset;
-    offset += CeilUp(shareExpertTokenNum * x1MxScaleNum * sizeof(fp8_e8m0_t), GM_ALIGN_SIZE);
+    offset += CeilUp(shareX1MxScaleSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareX2ScaleOffset = offset;
-    offset += CeilUp(shareExpertTokenNum * x2MxScaleNum * sizeof(fp8_e8m0_t), GM_ALIGN_SIZE);
+    offset += CeilUp(shareX2MxScaleSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.x1ScaleOffset = offset;
-    offset += CeilUp(maxTokenNum * x1MxScaleNum * sizeof(fp8_e8m0_t), GM_ALIGN_SIZE);
+    offset += CeilUp(routedX1MxScaleSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.x2ScaleOffset = offset;
-    offset += CeilUp(maxTokenNum * x2MxScaleNum * sizeof(fp8_e8m0_t), GM_ALIGN_SIZE);
+    offset += CeilUp(routedX2MxScaleSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareMm1SwapSpaceOffset = offset;
     offset += CeilUp(shareExpertTokenNum * shareGmm1HLen * sizeof(float), GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.gmm1SwapSpaceOffset = offset;
@@ -674,8 +680,6 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     offset += CeilUp(shareSwigluOutSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.swigluOffset = offset;
     offset += CeilUp(swigluOutFullSize, GM_ALIGN_SIZE);
-    tilingData.workSpaceOffset.swigluMulOutOffset = offset;
-    offset += CeilUp(swigluMulOutSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareMm2SwapSpaceOffset = offset;
     offset += CeilUp(shareExpertTokenNum * h * sizeof(float), GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.gmm2SwapSpaceOffset = offset;

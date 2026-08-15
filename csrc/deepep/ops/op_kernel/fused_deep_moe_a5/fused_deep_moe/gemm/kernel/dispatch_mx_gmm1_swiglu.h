@@ -127,7 +127,6 @@ public:
         LayoutC layoutC, layoutShareC;
 
         __gm__ ElementC *gmSwigluOut;
-        __gm__ ElementC *gmSwigluMulOut;
         __gm__ ElementC *gmShareSwigluOut;
         __gm__ ElementA *ptrX2, *ptrShareX2;
         __gm__ ElementMxScaleA *gmX2Scale, *gmShareX2Scale;
@@ -160,8 +159,8 @@ public:
         Params(GemmCoord const &problemShape_, uint32_t problemCount_, GM_ADDR ptrGroupList_, GM_ADDR ptrA_,
                LayoutA const &layoutA_, GM_ADDR ptrB_, LayoutB const &layoutB_, GM_ADDR ptrMxScaleA_,
                LayoutMxScaleA layoutMxScaleA_, GM_ADDR ptrMxScaleB_, LayoutMxScaleB layoutMxScaleB_, GM_ADDR ptrC_,
-               LayoutC const &layoutC_, GM_ADDR gmSwigluOut_, GM_ADDR gmSwigluMulOut_, GM_ADDR ptrX2_,
-               GM_ADDR gmX2Scale_, GemmCoord const &shareProblemShape_, GM_ADDR ptrShareA_, GM_ADDR ptrShareB_,
+               LayoutC const &layoutC_, GM_ADDR gmSwigluOut_, GM_ADDR ptrX2_, GM_ADDR gmX2Scale_,
+               GemmCoord const &shareProblemShape_, GM_ADDR ptrShareA_, GM_ADDR ptrShareB_,
                LayoutB const &layoutShareB_, GM_ADDR ptrShareMxScaleA_, GM_ADDR ptrShareMxScaleB_,
                LayoutMxScaleB layoutShareMxScaleB_, GM_ADDR ptrShareC_, LayoutC const &layoutShareC_,
                GM_ADDR gmShareSwigluOut_, GM_ADDR ptrShareX2_, GM_ADDR gmShareX2Scale_, GM_ADDR gmX_,
@@ -182,7 +181,6 @@ public:
               ptrC(reinterpret_cast<__gm__ ElementC *>(ptrC_)),
               layoutC(layoutC_),
               gmSwigluOut(reinterpret_cast<__gm__ ElementC *>(gmSwigluOut_)),
-              gmSwigluMulOut(reinterpret_cast<__gm__ ElementC *>(gmSwigluMulOut_)),
               ptrX2(reinterpret_cast<__gm__ ElementA *>(ptrX2_)),
               gmX2Scale(reinterpret_cast<__gm__ ElementMxScaleA *>(gmX2Scale_)),
               shareProblemShape(shareProblemShape_),
@@ -1385,18 +1383,34 @@ public:
     }
 
     CATLASS_DEVICE
-    void ProcessMulFromSwigluOut(__gm__ ElementC *swigluOutAddr, __gm__ ElementC *swigluMulOutAddr,
-                                 uint32_t maxTokenNum, uint32_t gmm1HLen, uint32_t gmm2HLen, uint32_t rowOffset,
-                                 uint32_t leftColOffset, uint32_t rightColOffset, GemmCoord const &leftActualBlockShape,
-                                 GemmCoord const &rightActualBlockShape)
+    void ProcessMulAndQuantFromSwigluOut(__gm__ ElementC *swigluOutAddr, __gm__ ElementA *x2Addr,
+                                         __gm__ ElementMxScaleA *x2ScaleAddr, uint32_t maxTokenNum, uint32_t gmm1HLen,
+                                         uint32_t gmm2HLen, uint32_t rowOffset, uint32_t leftColOffset,
+                                         uint32_t rightColOffset, GemmCoord const &leftActualBlockShape,
+                                         GemmCoord const &rightActualBlockShape)
     {
         constexpr uint32_t MUL_TILE_M = 8;
         constexpr uint32_t MUL_TILE_N = L1_TILE_N;
+        constexpr uint32_t MX_GROUP_SIZE = 32;
+        constexpr uint32_t MUL_TILE_ELEMENT_COUNT = MUL_TILE_M * MUL_TILE_N;
+        constexpr uint32_t MUL_TILE_SCALE_COUNT = MUL_TILE_ELEMENT_COUNT / MX_GROUP_SIZE;
         constexpr uint32_t EPILOGUE_UB_SIZE = BlockEpilogue::UB_STAGES * BlockEpilogue::TILE_COUNT *
                                               (sizeof(ElementC) + sizeof(XType) + sizeof(ElementC));
         constexpr uint32_t MUL_UB_SIZE = 2 * MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
+        constexpr uint32_t MUL_BUFFER_SIZE = MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
+        constexpr uint32_t QUANT_INPUT_SIZE = MUL_TILE_ELEMENT_COUNT * sizeof(XType);
+        constexpr uint32_t QUANT_OUTPUT_SIZE = MxCount2Byte<ElementA>(MUL_TILE_ELEMENT_COUNT);
+        constexpr uint32_t QUANT_SCALE_SIZE = CEIL_UP(MUL_TILE_SCALE_COUNT * sizeof(ElementMxScaleA));
+        constexpr uint32_t QUANT_SCRATCH_SIZE = CEIL_UP(MUL_TILE_SCALE_COUNT * 2 * sizeof(float));
+        constexpr uint32_t QUANT_WORKSPACE_SIZE =
+            QUANT_INPUT_SIZE + QUANT_OUTPUT_SIZE + QUANT_SCALE_SIZE + QUANT_SCRATCH_SIZE;
+        static_assert(L1_TILE_N % MX_GROUP_SIZE == 0, "Routed quant tile must contain complete MX groups");
+        static_assert((L1_TILE_N / MX_GROUP_SIZE) % 2 == 0,
+                      "Routed quant tile must contain an even number of MX groups per row");
         static_assert(EPILOGUE_UB_SIZE + MUL_UB_SIZE <= ArchTag::UB_SIZE,
                       "Swiglu epilogue and routed mul buffers exceed UB capacity");
+        static_assert(QUANT_WORKSPACE_SIZE <= MUL_BUFFER_SIZE,
+                      "Routed quant workspace does not fit in the reusable right mul buffer");
 
         uint32_t actualPairM = leftActualBlockShape.m();
         uint32_t actualPairN = (leftActualBlockShape.n() < rightActualBlockShape.n()) ? leftActualBlockShape.n()
@@ -1414,25 +1428,34 @@ public:
 
         uint32_t ubOffset = EPILOGUE_UB_SIZE;
         AscendC::LocalTensor<ElementC> leftLocalTensor = resource.ubBuf.template GetBufferByByte<ElementC>(ubOffset);
-        ubOffset += MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
+        ubOffset += MUL_BUFFER_SIZE;
         AscendC::LocalTensor<ElementC> rightLocalTensor = resource.ubBuf.template GetBufferByByte<ElementC>(ubOffset);
+        // Mul no longer needs the right operand, so quant reuses that 8 KiB region.
+        uint32_t quantUbOffset = ubOffset;
+        AscendC::LocalTensor<XType> quantInputLocalTensor =
+            resource.ubBuf.template GetBufferByByte<XType>(quantUbOffset);
+        quantUbOffset += QUANT_INPUT_SIZE;
+        AscendC::LocalTensor<ElementA> quantOutputLocalTensor =
+            resource.ubBuf.template GetBufferByByte<ElementA>(quantUbOffset);
+        quantUbOffset += QUANT_OUTPUT_SIZE + QUANT_SCALE_SIZE;
+        AscendC::LocalTensor<float> quantScratchLocalTensor =
+            resource.ubBuf.template GetBufferByByte<float>(quantUbOffset);
 
         AscendC::GlobalTensor<ElementC> gmSwigluOutTensor;
         gmSwigluOutTensor.SetGlobalBuffer(swigluOutAddr);
-        AscendC::GlobalTensor<ElementC> gmSwigluMulOutTensor;
-        gmSwigluMulOutTensor.SetGlobalBuffer(swigluMulOutAddr);
+        AscendC::GlobalTensor<ElementA> gmX2Tensor;
+        gmX2Tensor.SetGlobalBuffer(x2Addr);
+        AscendC::GlobalTensor<uint8_t> gmX2ScaleTensor;
+        gmX2ScaleTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t *>(x2ScaleAddr));
 
         auto fullLayout = tla::MakeLayout<ElementC, Catlass::layout::RowMajor>(maxTokenNum, gmm1HLen);
-        auto reducedLayout = tla::MakeLayout<ElementC, Catlass::layout::RowMajor>(maxTokenNum, gmm2HLen);
         auto fullTensor = tla::MakeTensor(gmSwigluOutTensor, fullLayout, Arch::PositionGM{});
-        auto reducedTensor = tla::MakeTensor(gmSwigluMulOutTensor, reducedLayout, Arch::PositionGM{});
 
         auto leftBlockTensor = GetTile(fullTensor, tla::MakeCoord(rowOffset, leftColOffset),
                                        tla::MakeShape(actualPairM, leftActualBlockShape.n()));
         auto rightBlockTensor = GetTile(fullTensor, tla::MakeCoord(rowOffset, rightColOffset),
                                         tla::MakeShape(actualPairM, rightActualBlockShape.n()));
-        auto reducedBlockTensor =
-            GetTile(reducedTensor, tla::MakeCoord(rowOffset, leftColOffset), tla::MakeShape(actualPairM, actualPairN));
+        uint32_t mxScaleNumPerToken = CeilDiv(CeilDiv(gmm2HLen, MX_GROUP_SIZE), 2) * 2;
 
         constexpr int32_t MUL_EVENT_ID = 0;
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
@@ -1454,9 +1477,6 @@ public:
                                              tla::MakeShape(actualMulM, actualMulN));
                 auto rightSubTensor = GetTile(rightBlockTensor, tla::MakeCoord(subTileRow, tileOffsetInBlockColumn),
                                               tla::MakeShape(actualMulM, actualMulN));
-                auto reducedSubTensor = GetTile(reducedBlockTensor, tla::MakeCoord(subTileRow, tileOffsetInBlockColumn),
-                                                tla::MakeShape(actualMulM, actualMulN));
-
                 auto layoutUb =
                     tla::MakeLayout(tla::MakeShape(actualMulM, actualMulN), tla::MakeStride(actualMulN, tla::Int<1>{}));
                 auto leftUbTensor = tla::MakeTensor(leftLocalTensor, layoutUb, Arch::PositionUB{});
@@ -1464,10 +1484,7 @@ public:
 
                 using CopyGmToUb = typename Catlass::Epilogue::Tile::CopyGm2UbTla<ArchTag, decltype(leftSubTensor),
                                                                                   decltype(leftUbTensor)>;
-                using CopyUbToGm = typename Catlass::Epilogue::Tile::CopyUb2GmTla<ArchTag, decltype(leftUbTensor),
-                                                                                  decltype(reducedSubTensor)>;
                 CopyGmToUb copyGmToUb;
-                CopyUbToGm copyUbToGm;
 
                 AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
                 copyGmToUb(leftUbTensor, leftSubTensor);
@@ -1476,9 +1493,31 @@ public:
                 AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(MUL_EVENT_ID);
                 AscendC::Mul(leftLocalTensor, leftLocalTensor, rightLocalTensor, count);
                 AscendC::PipeBarrier<PIPE_V>();
+                AscendC::Cast(quantInputLocalTensor, leftLocalTensor, AscendC::RoundMode::CAST_RINT, count);
+                AscendC::PipeBarrier<PIPE_V>();
+                uint32_t mxScaleNum = count / MX_GROUP_SIZE;
+                QuantDynamicMx(quantOutputLocalTensor, quantInputLocalTensor, quantScratchLocalTensor, count,
+                               mxScaleNum);
                 AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
                 AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
-                copyUbToGm(reducedSubTensor, leftUbTensor);
+
+                AscendC::LocalTensor<uint8_t> mxScaleLocalTensor =
+                    quantOutputLocalTensor[count].template ReinterpretCast<uint8_t>();
+                uint32_t mxScaleNumPerRow = actualMulN / MX_GROUP_SIZE;
+                AscendC::DataCopyExtParams mxScaleCopyParams = {
+                    static_cast<uint16_t>(actualMulM),
+                    static_cast<uint32_t>(mxScaleNumPerRow * sizeof(ElementMxScaleA)), 0U,
+                    static_cast<uint32_t>((mxScaleNumPerToken - mxScaleNumPerRow) * sizeof(ElementMxScaleA)), 0U};
+                uint32_t outputColOffset = leftColOffset + tileOffsetInBlockColumn;
+                uint32_t outputScaleColOffset = outputColOffset / MX_GROUP_SIZE;
+                for (uint32_t rowIdx = 0; rowIdx < actualMulM; ++rowIdx) {
+                    uint32_t outputRow = rowOffset + subTileRow + rowIdx;
+                    AscendC::DataCopy(gmX2Tensor[outputRow * gmm2HLen + outputColOffset],
+                                      quantOutputLocalTensor[rowIdx * actualMulN], actualMulN);
+                }
+                uint32_t outputStartRow = rowOffset + subTileRow;
+                AscendC::DataCopyPad(gmX2ScaleTensor[outputStartRow * mxScaleNumPerToken + outputScaleColOffset],
+                                     mxScaleLocalTensor, mxScaleCopyParams);
                 AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
             }
         }
@@ -1548,61 +1587,6 @@ public:
         startCoreIdx = (startCoreIdx + tokenNum) % aivNum;
     }
 
-    CATLASS_DEVICE
-    void PostSwigluDynamicQuantReduced(__gm__ ElementC *swigluMulOutAddr, __gm__ ElementA *x2Addr,
-                                       __gm__ ElementMxScaleA *x2ScaleAddr, uint32_t tokenNum, uint32_t reducedDim,
-                                       uint32_t &startCoreIdx)
-    {
-        uint32_t quantLength = reducedDim;
-        uint32_t quantTokenSize = MxCount2Byte<ElementA>(quantLength);
-        uint32_t mxScaleNumPerToken = CeilDiv(CeilDiv(quantLength, 32), 2) * 2;
-        AscendC::GlobalTensor<ElementC> gmSwigluMulOutTensor;
-        gmSwigluMulOutTensor.SetGlobalBuffer(swigluMulOutAddr);
-        AscendC::GlobalTensor<ElementA> gmX2;
-        gmX2.SetGlobalBuffer(x2Addr);
-        AscendC::GlobalTensor<uint8_t> gmX2MxScale;
-        gmX2MxScale.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t *>(x2ScaleAddr));
-
-        uint32_t startTokenIdx = (aivIdx < startCoreIdx) ? (aivIdx + aivNum - startCoreIdx) : (aivIdx - startCoreIdx);
-
-        uint32_t ubOffset = 0;
-        AscendC::LocalTensor<ElementC> fp32TokenLocalTensor =
-            resource.ubBuf.template GetBufferByByte<ElementC>(ubOffset);
-        ubOffset += reducedDim * sizeof(ElementC);
-        AscendC::LocalTensor<XType> bf16TokenLocalTensor = resource.ubBuf.template GetBufferByByte<XType>(ubOffset);
-        ubOffset += reducedDim * sizeof(XType);
-        AscendC::LocalTensor<ElementA> fp8TokenLocalTensor =
-            resource.ubBuf.template GetBufferByByte<ElementA>(ubOffset);
-        ubOffset += quantTokenSize + CEIL_UP(mxScaleNumPerToken * sizeof(ElementMxScaleB));
-        AscendC::LocalTensor<uint8_t> mxScaleLocalTensor =
-            fp8TokenLocalTensor[quantLength].template ReinterpretCast<uint8_t>();
-        AscendC::LocalTensor<ElementC> tokenF32LT = resource.ubBuf.template GetBufferByByte<ElementC>(ubOffset);
-        AscendC::DataCopyExtParams mnxScaleParams = {1U, static_cast<uint8_t>(mxScaleNumPerToken * sizeof(uint8_t)), 0U,
-                                                     0U, 0U};
-
-        AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(0);
-        AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(0);
-        for (uint32_t tokenIdx = startTokenIdx; tokenIdx < tokenNum; tokenIdx += aivNum) {
-            AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(0);
-            AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(0);
-            AscendC::DataCopy(fp32TokenLocalTensor, gmSwigluMulOutTensor[tokenIdx * reducedDim], reducedDim);
-            AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(0);
-            AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(0);
-            AscendC::Cast(bf16TokenLocalTensor, fp32TokenLocalTensor, AscendC::RoundMode::CAST_RINT, quantLength);
-            AscendC::PipeBarrier<PIPE_V>();
-            QuantDynamicMx(fp8TokenLocalTensor, bf16TokenLocalTensor, tokenF32LT, quantLength, mxScaleNumPerToken);
-            AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(0);
-            AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
-            AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
-            AscendC::DataCopy(gmX2[tokenIdx * quantLength], fp8TokenLocalTensor, quantLength);
-            AscendC::DataCopyPad(gmX2MxScale[tokenIdx * mxScaleNumPerToken], mxScaleLocalTensor, mnxScaleParams);
-            AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(0);
-        }
-        AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(0);
-        AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(0);
-        startCoreIdx = (startCoreIdx + tokenNum) % aivNum;
-    }
-
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
@@ -1628,8 +1612,6 @@ public:
             FinalizeGroupMetaAfterRecv(params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
             AivOnlySync();
         }
-
-        uint32_t totalTokenNum = 0;
 
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t coreNum = AscendC::GetBlockNum();
@@ -1726,7 +1708,6 @@ public:
                 if (params.profile != nullptr) {
                     profSwigluStart = params.profile->Now();
                 }
-                totalTokenNum += currentM;
                 GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
                 BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
                 uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
@@ -1783,10 +1764,10 @@ public:
                                   rightProducerCore, rightTarget);
                     blockEpilogue(tensorRightBlockC, tensorRightBlockD, rightActualBlockShape, false);
                     SyncSwigluOutBeforeMul();
-                    ProcessMulFromSwigluOut(params.gmSwigluOut, params.gmSwigluMulOut, params.problemShape.m(),
-                                            params.problemShape.n(), routedHalfN,
-                                            totalM + rightBlockCoord.m() * L1_TILE_M, leftColOffset, rightColOffset,
-                                            leftActualBlockShape, rightActualBlockShape);
+                    ProcessMulAndQuantFromSwigluOut(params.gmSwigluOut, params.ptrX2, params.gmX2Scale,
+                                                    params.problemShape.m(), params.problemShape.n(), routedHalfN,
+                                                    totalM + rightBlockCoord.m() * L1_TILE_M, leftColOffset,
+                                                    rightColOffset, leftActualBlockShape, rightActualBlockShape);
                 }
 
                 totalM += inGroupProblemShape.m();
@@ -1814,17 +1795,6 @@ public:
         if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
             PostSwigluDynamicQuant(params.gmShareSwigluOut, params.ptrShareX2, params.gmShareX2Scale, axisBS,
                                    params.shareProblemShape.n(), startCoreIdx);
-        }
-        {
-            uint64_t profQuantStart = 0;
-            if (params.profile != nullptr) {
-                profQuantStart = params.profile->Now();
-            }
-            PostSwigluDynamicQuantReduced(params.gmSwigluMulOut, params.ptrX2, params.gmX2Scale, totalTokenNum,
-                                          params.problemShape.n() / 2, startCoreIdx);
-            if (params.profile != nullptr) {
-                params.profile->Record(FusedDeepMoeProfileStage::Quant, profQuantStart, params.profile->Now());
-            }
         }
     }
 
