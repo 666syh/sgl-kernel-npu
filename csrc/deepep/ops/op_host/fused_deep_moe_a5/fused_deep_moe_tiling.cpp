@@ -616,7 +616,9 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     size_t x2MxScaleSize = (shareExpertTokenNum * shareX2MxScaleNum + maxTokenNum * x2MxScaleNum) * sizeof(fp8_e8m0_t);
     size_t maxMxScaleSize = CeilUp(x1MxScaleSize < x2MxScaleSize ? x2MxScaleSize : x1MxScaleSize, GM_ALIGN_SIZE);
     size_t gmm1SwapSize = (maxTokenNum * gmm1HLen + shareExpertTokenNum * shareGmm1HLen) * sizeof(float);
-    size_t swigluOutSize = (maxTokenNum * gmm1HLen + shareExpertTokenNum * shareGmm1HLen) * sizeof(float);
+    size_t shareSwigluOutSize = shareExpertTokenNum * shareGmm1HLen * sizeof(float);
+    size_t swigluOutFullSize = maxTokenNum * gmm1HLen * sizeof(float);
+    size_t swigluMulOutSize = maxTokenNum * gmm2HLen * sizeof(float);
     size_t gmm2SwapSize = (maxTokenNum * h + shareExpertTokenNum * h) * sizeof(float);
     size_t maxSwapSwigluSize = CeilUp(gmm1SwapSize < gmm2SwapSize ? gmm2SwapSize : gmm1SwapSize, GM_ALIGN_SIZE);
     size_t gmm2DepOutSize =
@@ -644,6 +646,8 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     tilingData.workSpaceOffset.shareMm2SwapSpaceOffset = offset;
     tilingData.workSpaceOffset.gmm2SwapSpaceOffset = offset + shareExpertTokenNum * h * sizeof(float);
     offset += maxSwapSwigluSize;
+    tilingData.workSpaceOffset.swigluMulOutOffset = offset;
+    offset += CeilUp(swigluMulOutSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.y2TokenOffset = offset;
 #else
     tilingData.workSpaceOffset.shareX1TokenOffset = offset;
@@ -667,9 +671,11 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     tilingData.workSpaceOffset.gmm1SwapSpaceOffset = offset;
     offset += CeilUp(maxTokenNum * gmm1HLen * sizeof(float), GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareSwigluOffset = offset;
-    offset += CeilUp(shareExpertTokenNum * shareGmm1HLen * sizeof(float), GM_ALIGN_SIZE);
+    offset += CeilUp(shareSwigluOutSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.swigluOffset = offset;
-    offset += CeilUp(swigluOutSize, GM_ALIGN_SIZE);
+    offset += CeilUp(swigluOutFullSize, GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.swigluMulOutOffset = offset;
+    offset += CeilUp(swigluMulOutSize, GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.shareMm2SwapSpaceOffset = offset;
     offset += CeilUp(shareExpertTokenNum * h * sizeof(float), GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.gmm2SwapSpaceOffset = offset;

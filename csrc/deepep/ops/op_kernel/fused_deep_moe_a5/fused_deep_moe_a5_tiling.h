@@ -19,6 +19,7 @@ struct WorkSpaceOffset {
     // MM1/GMM1-Swiglu output
     int64_t shareSwigluOffset;
     int64_t swigluOffset;
+    int64_t swigluMulOutOffset;
     // MM2/GMM2 input
     int64_t shareX2TokenOffset;
     int64_t x2TokenOffset;

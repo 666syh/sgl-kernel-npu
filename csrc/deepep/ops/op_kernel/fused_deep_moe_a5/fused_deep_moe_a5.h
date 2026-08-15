@@ -58,7 +58,8 @@ template <TemplateMC2TypeClass, class ElementA, class ElementB, class L1TileShap
 CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
     // routed expert, grouped matmul
     Catlass::GemmCoord routedProblemShape, uint32_t problemCount, GM_ADDR gmGroupList, GM_ADDR gmA, GM_ADDR gmB,
-    GM_ADDR gmAScale, GM_ADDR gmBScale, GM_ADDR gmSwapSpace, GM_ADDR gmSwigluOut, GM_ADDR gmD, GM_ADDR gmDScale,
+    GM_ADDR gmAScale, GM_ADDR gmBScale, GM_ADDR gmSwapSpace, GM_ADDR gmSwigluOut, GM_ADDR gmSwigluMulOut, GM_ADDR gmD,
+    GM_ADDR gmDScale,
     // shared expert, matmul
     Catlass::GemmCoord sharedProblemShape, GM_ADDR gmShareA, GM_ADDR gmShareB, GM_ADDR gmShareAScale,
     GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareSwigluOut, GM_ADDR gmShareD, GM_ADDR gmShareDScale,
@@ -128,6 +129,7 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
                                          gmSwapSpace /*ptrC*/,
                                          layoutC,
                                          gmSwigluOut,
+                                         gmSwigluMulOut,
                                          gmD,
                                          gmDScale,
                                          sharedProblemShape,
@@ -393,6 +395,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
     GM_ADDR gmX1Scale = workspaceGM_ + tilingData_->workSpaceOffset.x1ScaleOffset;
     GM_ADDR gmGmm1SwapSpace = workspaceGM_ + tilingData_->workSpaceOffset.gmm1SwapSpaceOffset;
     GM_ADDR gmSwigluOut = workspaceGM_ + tilingData_->workSpaceOffset.swigluOffset;
+    GM_ADDR gmSwigluMulOut = workspaceGM_ + tilingData_->workSpaceOffset.swigluMulOutOffset;
     GM_ADDR gmX2 = workspaceGM_ + tilingData_->workSpaceOffset.x2TokenOffset;
     GM_ADDR gmX2Scale = workspaceGM_ + tilingData_->workSpaceOffset.x2ScaleOffset;
     GM_ADDR gmGmm2SwapSpace = workspaceGM_ + tilingData_->workSpaceOffset.gmm2SwapSpaceOffset;
@@ -433,7 +436,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
     DispatchMxGmm1SwigluQuantFunc<TemplateMC2TypeFunc, ElementA, ElementB, Gmm1L1TileShape, Gmm1L0TileShape,
                                   Gmm1EpilogueTileShape, Gmm1BlockScheduler>(
         gmm1ProblemShape, groupCount_, gmGroupList, gmX1, gmWeight1_, gmX1Scale, gmScale1_, gmGmm1SwapSpace,
-        gmSwigluOut, gmX2, gmX2Scale, shareGmm1ProblemShape, gmShareX1, gmShareWeight1_, gmShareX1Scale,
+        gmSwigluOut, gmSwigluMulOut, gmX2, gmX2Scale, shareGmm1ProblemShape, gmShareX1, gmShareWeight1_, gmShareX1Scale,
         gmShareWeight1Scale_, gmShareMm1SwapSpace, gmShareSwigluOut, gmShareX2, gmShareX2Scale, gmX_, gmexpertIds_,
         xActiveMask_, gmSmoothScales_, gmShareSmoothScales_, gmExpandIdx, gmEpSendCount, gmExpertTokenNums_,
         tilingData_->fusedDeepMoeInfo, &profileWriter);
