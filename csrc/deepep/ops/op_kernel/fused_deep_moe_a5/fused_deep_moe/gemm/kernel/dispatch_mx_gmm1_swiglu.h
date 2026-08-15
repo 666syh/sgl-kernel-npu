@@ -1253,13 +1253,15 @@ public:
             AscendC::GlobalTensor<int64_t> nonCumSumExpertTokenNumsTensor;
             nonCumSumExpertTokenNumsTensor.SetGlobalBuffer((__gm__ int64_t *)gmExpertTokenNums);
 
-            constexpr int64_t GROUP_LIST_LOCAL_OFFSET = 2048;
+            int64_t metaUbOffset = 0;
             uint32_t groupListLocalBytes =
                 static_cast<uint32_t>(CEIL_UP(expertCount * static_cast<uint32_t>(sizeof(int64_t))));
             AscendC::LocalTensor<int64_t> groupListLocalTensor =
-                resource.ubBuf.template GetBufferByByte<int64_t>(GROUP_LIST_LOCAL_OFFSET);
+                resource.ubBuf.template GetBufferByByte<int64_t>(metaUbOffset);
+            metaUbOffset += groupListLocalBytes;
             AscendC::LocalTensor<int64_t> expertTokenNumsLocalTensor =
-                resource.ubBuf.template GetBufferByByte<int64_t>(GROUP_LIST_LOCAL_OFFSET + groupListLocalBytes);
+                resource.ubBuf.template GetBufferByByte<int64_t>(metaUbOffset);
+            metaUbOffset += groupListLocalBytes;
 
             uint32_t prevTokenNum = 0;
             if (expertStart > 0) {
