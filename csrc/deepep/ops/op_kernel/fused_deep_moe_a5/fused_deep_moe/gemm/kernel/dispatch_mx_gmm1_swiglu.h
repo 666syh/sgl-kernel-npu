@@ -1342,7 +1342,7 @@ public:
     {
         if constexpr (GMM1_SWIZZLE_DIRECTION == 0) {
             uint32_t tileBlockIdx = mBlock / GMM1_SWIZZLE_OFFSET;
-            uint32_t tileBlockLoop = Ceil(mLoops, GMM1_SWIZZLE_OFFSET);
+            uint32_t tileBlockLoop = CEIL(mLoops, GMM1_SWIZZLE_OFFSET);
             uint32_t nRow = GMM1_SWIZZLE_OFFSET;
             if (tileBlockIdx == tileBlockLoop - 1) {
                 nRow = mLoops - GMM1_SWIZZLE_OFFSET * tileBlockIdx;
@@ -1352,7 +1352,7 @@ public:
             return tileBlockIdx * (GMM1_SWIZZLE_OFFSET * nLoops) + nInnerIdx * nRow + inTileBlockRow;
         } else {
             uint32_t tileBlockIdx = nBlock / GMM1_SWIZZLE_OFFSET;
-            uint32_t tileBlockLoop = Ceil(nLoops, GMM1_SWIZZLE_OFFSET);
+            uint32_t tileBlockLoop = CEIL(nLoops, GMM1_SWIZZLE_OFFSET);
             uint32_t nCol = GMM1_SWIZZLE_OFFSET;
             if (tileBlockIdx == tileBlockLoop - 1) {
                 nCol = nLoops - GMM1_SWIZZLE_OFFSET * tileBlockIdx;
@@ -1710,8 +1710,8 @@ public:
                 BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
                 uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
                 uint32_t groupStartCoreIdx = startCoreIdx;
-                uint32_t mLoops = Ceil(currentM, L1_TILE_M);
-                uint32_t nLoops = Ceil(params.problemShape.n(), L1_TILE_N);
+                uint32_t mLoops = CEIL(currentM, L1_TILE_M);
+                uint32_t nLoops = CEIL(params.problemShape.n(), L1_TILE_N);
                 uint32_t routedHalfN = params.problemShape.n() / 2;
 
                 uint32_t startLoopIdx;
