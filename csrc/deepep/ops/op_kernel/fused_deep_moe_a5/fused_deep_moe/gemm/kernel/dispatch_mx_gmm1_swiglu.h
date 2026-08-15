@@ -1370,9 +1370,9 @@ public:
     }
 
     CATLASS_DEVICE
-    uint32_t GetTargetForLoop(uint32_t baseTarget, uint32_t loopIdx, uint32_t coreNum)
+    uint32_t GetTargetForLoop(uint32_t completedCount, uint32_t loopIdx, uint32_t coreNum)
     {
-        return baseTarget + loopIdx / coreNum;
+        return completedCount + loopIdx / coreNum + 1;
     }
 
     CATLASS_DEVICE
@@ -1390,6 +1390,14 @@ public:
                                  uint32_t leftColOffset, uint32_t rightColOffset, GemmCoord const &leftActualBlockShape,
                                  GemmCoord const &rightActualBlockShape)
     {
+        constexpr uint32_t MUL_TILE_M = 8;
+        constexpr uint32_t MUL_TILE_N = L1_TILE_N;
+        constexpr uint32_t EPILOGUE_UB_SIZE = BlockEpilogue::UB_STAGES * BlockEpilogue::TILE_COUNT *
+                                              (sizeof(ElementC) + sizeof(XType) + sizeof(ElementC));
+        constexpr uint32_t MUL_UB_SIZE = 2 * MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
+        static_assert(EPILOGUE_UB_SIZE + MUL_UB_SIZE <= ArchTag::UB_SIZE,
+                      "Swiglu epilogue and routed mul buffers exceed UB capacity");
+
         uint32_t actualPairM = leftActualBlockShape.m();
         uint32_t actualPairN = (leftActualBlockShape.n() < rightActualBlockShape.n()) ? leftActualBlockShape.n()
                                                                                       : rightActualBlockShape.n();
@@ -1404,9 +1412,9 @@ public:
         uint32_t subblockIdx = AscendC::GetSubBlockIdx();
         uint32_t subblockNum = AscendC::GetSubBlockNum();
 
-        uint32_t ubOffset = BlockEpilogue::TILE_COUNT * (sizeof(ElementC) + sizeof(XType) + sizeof(ElementC));
+        uint32_t ubOffset = EPILOGUE_UB_SIZE;
         AscendC::LocalTensor<ElementC> leftLocalTensor = resource.ubBuf.template GetBufferByByte<ElementC>(ubOffset);
-        ubOffset += BlockEpilogue::TILE_COUNT * sizeof(ElementC);
+        ubOffset += MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
         AscendC::LocalTensor<ElementC> rightLocalTensor = resource.ubBuf.template GetBufferByByte<ElementC>(ubOffset);
 
         AscendC::GlobalTensor<ElementC> gmSwigluOutTensor;
@@ -1426,46 +1434,55 @@ public:
         auto reducedBlockTensor =
             GetTile(reducedTensor, tla::MakeCoord(rowOffset, leftColOffset), tla::MakeShape(actualPairM, actualPairN));
 
+        constexpr int32_t MUL_EVENT_ID = 0;
+        AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
         for (uint32_t loopIdx = subblockIdx; loopIdx < tileLoops; loopIdx += subblockNum) {
             auto tileCoord = epilogueTileSwizzle.GetTileCoord(loopIdx);
             auto actualTileShape = epilogueTileSwizzle.GetActualTileShape(tileCoord);
             MatrixCoord tileOffsetInBlock = tileCoord * tileShape;
             uint32_t tileOffsetInBlockRow = tileOffsetInBlock.row();
             uint32_t tileOffsetInBlockColumn = tileOffsetInBlock.column();
-            uint32_t count = actualTileShape.row() * actualTileShape.column();
 
-            auto leftSubTensor = GetTile(leftBlockTensor, tla::MakeCoord(tileOffsetInBlockRow, tileOffsetInBlockColumn),
-                                         tla::MakeShape(actualTileShape.row(), actualTileShape.column()));
-            auto rightSubTensor =
-                GetTile(rightBlockTensor, tla::MakeCoord(tileOffsetInBlockRow, tileOffsetInBlockColumn),
-                        tla::MakeShape(actualTileShape.row(), actualTileShape.column()));
-            auto reducedSubTensor =
-                GetTile(reducedBlockTensor, tla::MakeCoord(tileOffsetInBlockRow, tileOffsetInBlockColumn),
-                        tla::MakeShape(actualTileShape.row(), actualTileShape.column()));
+            for (uint32_t rowInTile = 0; rowInTile < actualTileShape.row(); rowInTile += MUL_TILE_M) {
+                uint32_t actualMulM =
+                    (actualTileShape.row() - rowInTile < MUL_TILE_M) ? (actualTileShape.row() - rowInTile) : MUL_TILE_M;
+                uint32_t actualMulN = actualTileShape.column();
+                uint32_t count = actualMulM * actualMulN;
+                uint32_t subTileRow = tileOffsetInBlockRow + rowInTile;
 
-            auto layoutUb = tla::MakeLayout(tla::MakeShape(actualTileShape.row(), actualTileShape.column()),
-                                            tla::MakeStride(BlockEpilogue::TILE_N, tla::Int<1>{}));
-            auto leftUbTensor = tla::MakeTensor(leftLocalTensor, layoutUb, Arch::PositionUB{});
-            auto rightUbTensor = tla::MakeTensor(rightLocalTensor, layoutUb, Arch::PositionUB{});
+                auto leftSubTensor = GetTile(leftBlockTensor, tla::MakeCoord(subTileRow, tileOffsetInBlockColumn),
+                                             tla::MakeShape(actualMulM, actualMulN));
+                auto rightSubTensor = GetTile(rightBlockTensor, tla::MakeCoord(subTileRow, tileOffsetInBlockColumn),
+                                              tla::MakeShape(actualMulM, actualMulN));
+                auto reducedSubTensor = GetTile(reducedBlockTensor, tla::MakeCoord(subTileRow, tileOffsetInBlockColumn),
+                                                tla::MakeShape(actualMulM, actualMulN));
 
-            using CopyGmToUb = typename Catlass::Epilogue::Tile::CopyGm2UbTla<ArchTag, decltype(leftSubTensor),
-                                                                              decltype(leftUbTensor)>;
-            using CopyUbToGm = typename Catlass::Epilogue::Tile::CopyUb2GmTla<ArchTag, decltype(leftUbTensor),
-                                                                              decltype(reducedSubTensor)>;
-            CopyGmToUb copyGmToUb;
-            CopyUbToGm copyUbToGm;
+                auto layoutUb =
+                    tla::MakeLayout(tla::MakeShape(actualMulM, actualMulN), tla::MakeStride(actualMulN, tla::Int<1>{}));
+                auto leftUbTensor = tla::MakeTensor(leftLocalTensor, layoutUb, Arch::PositionUB{});
+                auto rightUbTensor = tla::MakeTensor(rightLocalTensor, layoutUb, Arch::PositionUB{});
 
-            copyGmToUb(leftUbTensor, leftSubTensor);
-            copyGmToUb(rightUbTensor, rightSubTensor);
-            AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(0);
-            AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(0);
-            AscendC::Mul(leftLocalTensor, leftLocalTensor, rightLocalTensor, count);
-            AscendC::PipeBarrier<PIPE_V>();
-            AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
-            AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
-            copyUbToGm(reducedSubTensor, leftUbTensor);
+                using CopyGmToUb = typename Catlass::Epilogue::Tile::CopyGm2UbTla<ArchTag, decltype(leftSubTensor),
+                                                                                  decltype(leftUbTensor)>;
+                using CopyUbToGm = typename Catlass::Epilogue::Tile::CopyUb2GmTla<ArchTag, decltype(leftUbTensor),
+                                                                                  decltype(reducedSubTensor)>;
+                CopyGmToUb copyGmToUb;
+                CopyUbToGm copyUbToGm;
+
+                AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
+                copyGmToUb(leftUbTensor, leftSubTensor);
+                copyGmToUb(rightUbTensor, rightSubTensor);
+                AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(MUL_EVENT_ID);
+                AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(MUL_EVENT_ID);
+                AscendC::Mul(leftLocalTensor, leftLocalTensor, rightLocalTensor, count);
+                AscendC::PipeBarrier<PIPE_V>();
+                AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
+                AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
+                copyUbToGm(reducedSubTensor, leftUbTensor);
+                AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
+            }
         }
-        AscendC::PipeBarrier<PIPE_ALL>();
+        AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
     }
 
     CATLASS_DEVICE
@@ -1676,16 +1693,17 @@ public:
             auto tensorD = tla::MakeTensor(gmSwigluOutTensor, params.layoutC, Arch::PositionGM{});
             AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
             constexpr uint32_t MAX_PRODUCER_CORE_NUM = 256;
-            uint32_t producerTargetBase[MAX_PRODUCER_CORE_NUM];
+            uint32_t producerCompletedCount[MAX_PRODUCER_CORE_NUM];
             for (uint32_t producerCore = 0; producerCore < MAX_PRODUCER_CORE_NUM; ++producerCore) {
-                producerTargetBase[producerCore] = 1;
+                producerCompletedCount[producerCore] = 0;
             }
             if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
                 GemmCoord sharedProblemShape{axisBS, params.shareProblemShape.n(), params.shareProblemShape.k()};
                 BlockScheduler sharedBlockScheduler(sharedProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
                 uint32_t sharedCoreLoops = sharedBlockScheduler.GetCoreLoops();
                 for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
-                    producerTargetBase[producerCore] += GetAssignedLoopCount(sharedCoreLoops, coreNum, producerCore, 0);
+                    producerCompletedCount[producerCore] +=
+                        GetAssignedLoopCount(sharedCoreLoops, coreNum, producerCore, 0);
                 }
             }
 
@@ -1698,6 +1716,9 @@ public:
                                   static_cast<int32_t>(compCoreIdx), target);
                     target += 1;
                     currentM = FlushAndGetValue<int32_t>(groupTokenNumStateTensor, GROUP_TOKEN_COUNT);
+                    for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
+                        producerCompletedCount[producerCore] += 1;
+                    }
                 } else {
                     currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
@@ -1737,8 +1758,10 @@ public:
                     uint32_t leftLoopIdx = GetBlockLoopIdx(mLoops, nLoops, leftBlockCoord.m(), leftBlockCoord.n());
                     int32_t leftProducerCore = GetProducerCoreForLoop(leftLoopIdx, coreNum, groupStartCoreIdx);
                     int32_t rightProducerCore = GetProducerCoreForLoop(loopIdx, coreNum, groupStartCoreIdx);
-                    uint32_t leftTarget = GetTargetForLoop(producerTargetBase[leftProducerCore], leftLoopIdx, coreNum);
-                    uint32_t rightTarget = GetTargetForLoop(producerTargetBase[rightProducerCore], loopIdx, coreNum);
+                    uint32_t leftTarget =
+                        GetTargetForLoop(producerCompletedCount[leftProducerCore], leftLoopIdx, coreNum);
+                    uint32_t rightTarget =
+                        GetTargetForLoop(producerCompletedCount[rightProducerCore], loopIdx, coreNum);
 
                     auto tensorLeftBlockC =
                         GetTile(tensorC, tla::MakeCoord(totalM + leftBlockCoord.m() * L1_TILE_M, leftColOffset),
@@ -1769,7 +1792,7 @@ public:
                 totalM += inGroupProblemShape.m();
                 target += GetAssignedLoopCount(coreLoops, coreNum, compCoreIdx, groupStartCoreIdx);
                 for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
-                    producerTargetBase[producerCore] +=
+                    producerCompletedCount[producerCore] +=
                         GetAssignedLoopCount(coreLoops, coreNum, producerCore, groupStartCoreIdx);
                 }
 
