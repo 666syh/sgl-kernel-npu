@@ -1393,15 +1393,15 @@ public:
         constexpr uint32_t MUL_TILE_N = L1_TILE_N;
         constexpr uint32_t MX_GROUP_SIZE = 32;
         constexpr uint32_t MUL_TILE_ELEMENT_COUNT = MUL_TILE_M * MUL_TILE_N;
-        constexpr uint32_t MUL_TILE_SCALE_COUNT = MUL_TILE_ELEMENT_COUNT / MX_GROUP_SIZE;
+        constexpr uint32_t QUANT_ROW_SCALE_COUNT = MUL_TILE_N / MX_GROUP_SIZE;
         constexpr uint32_t EPILOGUE_UB_SIZE = BlockEpilogue::UB_STAGES * BlockEpilogue::TILE_COUNT *
                                               (sizeof(ElementC) + sizeof(XType) + sizeof(ElementC));
         constexpr uint32_t MUL_UB_SIZE = 2 * MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
         constexpr uint32_t MUL_BUFFER_SIZE = MUL_TILE_M * MUL_TILE_N * sizeof(ElementC);
         constexpr uint32_t QUANT_INPUT_SIZE = MUL_TILE_ELEMENT_COUNT * sizeof(XType);
-        constexpr uint32_t QUANT_OUTPUT_SIZE = MxCount2Byte<ElementA>(MUL_TILE_ELEMENT_COUNT);
-        constexpr uint32_t QUANT_SCALE_SIZE = CEIL_UP(MUL_TILE_SCALE_COUNT * sizeof(ElementMxScaleA));
-        constexpr uint32_t QUANT_SCRATCH_SIZE = CEIL_UP(MUL_TILE_SCALE_COUNT * 2 * sizeof(float));
+        constexpr uint32_t QUANT_OUTPUT_SIZE = MxCount2Byte<ElementA>(MUL_TILE_N);
+        constexpr uint32_t QUANT_SCALE_SIZE = CEIL_UP(QUANT_ROW_SCALE_COUNT * sizeof(ElementMxScaleA));
+        constexpr uint32_t QUANT_SCRATCH_SIZE = CEIL_UP(QUANT_ROW_SCALE_COUNT * 2 * sizeof(float));
         constexpr uint32_t QUANT_WORKSPACE_SIZE =
             QUANT_INPUT_SIZE + QUANT_OUTPUT_SIZE + QUANT_SCALE_SIZE + QUANT_SCRATCH_SIZE;
         static_assert(L1_TILE_N % MX_GROUP_SIZE == 0, "Routed quant tile must contain complete MX groups");
@@ -1495,29 +1495,33 @@ public:
                 AscendC::PipeBarrier<PIPE_V>();
                 AscendC::Cast(quantInputLocalTensor, leftLocalTensor, AscendC::RoundMode::CAST_RINT, count);
                 AscendC::PipeBarrier<PIPE_V>();
-                uint32_t mxScaleNum = count / MX_GROUP_SIZE;
-                QuantDynamicMx(quantOutputLocalTensor, quantInputLocalTensor, quantScratchLocalTensor, count,
-                               mxScaleNum);
-                AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
-                AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
-
-                AscendC::LocalTensor<uint8_t> mxScaleLocalTensor =
-                    quantOutputLocalTensor[count].template ReinterpretCast<uint8_t>();
                 uint32_t mxScaleNumPerRow = actualMulN / MX_GROUP_SIZE;
-                AscendC::DataCopyExtParams mxScaleCopyParams = {
-                    static_cast<uint16_t>(actualMulM),
-                    static_cast<uint32_t>(mxScaleNumPerRow * sizeof(ElementMxScaleA)), 0U,
-                    static_cast<uint32_t>((mxScaleNumPerToken - mxScaleNumPerRow) * sizeof(ElementMxScaleA)), 0U};
                 uint32_t outputColOffset = leftColOffset + tileOffsetInBlockColumn;
                 uint32_t outputScaleColOffset = outputColOffset / MX_GROUP_SIZE;
+                AscendC::DataCopyExtParams mxScaleCopyParams = {
+                    1U, static_cast<uint32_t>(mxScaleNumPerRow * sizeof(ElementMxScaleA)), 0U, 0U, 0U};
+                // UB-to-GM DataCopyPad advances source blocks at 32-byte granularity, so emit each 8-byte scale row
+                // from the aligned single-row quant output instead of treating tightly packed rows as a 2D source.
                 for (uint32_t rowIdx = 0; rowIdx < actualMulM; ++rowIdx) {
+                    if (rowIdx > 0) {
+                        AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(MUL_EVENT_ID);
+                    }
+                    AscendC::LocalTensor<XType> quantInputRowTensor = quantInputLocalTensor[rowIdx * actualMulN];
+                    QuantDynamicMx(quantOutputLocalTensor, quantInputRowTensor, quantScratchLocalTensor, actualMulN,
+                                   mxScaleNumPerRow);
+                    AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
+                    AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(MUL_EVENT_ID);
+
+                    AscendC::LocalTensor<uint8_t> mxScaleLocalTensor =
+                        quantOutputLocalTensor[actualMulN].template ReinterpretCast<uint8_t>();
                     uint32_t outputRow = rowOffset + subTileRow + rowIdx;
-                    AscendC::DataCopy(gmX2Tensor[outputRow * gmm2HLen + outputColOffset],
-                                      quantOutputLocalTensor[rowIdx * actualMulN], actualMulN);
+                    AscendC::DataCopy(gmX2Tensor[outputRow * gmm2HLen + outputColOffset], quantOutputLocalTensor,
+                                      actualMulN);
+                    AscendC::DataCopyPad(gmX2ScaleTensor[outputRow * mxScaleNumPerToken + outputScaleColOffset],
+                                         mxScaleLocalTensor, mxScaleCopyParams);
+                    AscendC::SetFlag<AscendC::HardEvent::MTE3_V>(MUL_EVENT_ID);
                 }
-                uint32_t outputStartRow = rowOffset + subTileRow;
-                AscendC::DataCopyPad(gmX2ScaleTensor[outputStartRow * mxScaleNumPerToken + outputScaleColOffset],
-                                     mxScaleLocalTensor, mxScaleCopyParams);
+                AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(MUL_EVENT_ID);
                 AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
             }
         }
