@@ -168,7 +168,7 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
     GM_ADDR gmAScale, GM_ADDR gmBScale, GM_ADDR gmSwapSpace, GM_ADDR gmD,
     // shared expert, matmul
     Catlass::GemmCoord sharedProblemShape, GM_ADDR gmShareA, GM_ADDR gmShareB, GM_ADDR gmShareAScale,
-    GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareD, void *combiner, uint32_t expectedAivNum,
+    GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareD, void *combiner,
     FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
@@ -246,7 +246,6 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
                                          gmShareSwapSpace /*ptrShareC*/,
                                          gmShareD,
                                          combiner,
-                                         expectedAivNum,
                                          profile};
 
     MatmulKernel kernel;
@@ -462,6 +461,6 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
                           Gmm2EpilogueTileShape, Gmm2BlockScheduler>(
         gmm2ProblemShape, groupCount_, gmGroupList, gmX2, gmWeight2_, gmX2Scale, gmScale2_, gmGmm2SwapSpace,
         gmGmm2DepOut, shareGmm2ProblemShape, gmShareX2, gmShareWeight2_, gmShareX2Scale, gmShareWeight2Scale_,
-        gmShareMm2SwapSpace, gmShareOutput_, &combiner, tilingData_->fusedDeepMoeInfo.aivNum, &profileWriter);
+        gmShareMm2SwapSpace, gmShareOutput_, &combiner, &profileWriter);
 }
 #endif  // FUSED_DEEP_MOE_H

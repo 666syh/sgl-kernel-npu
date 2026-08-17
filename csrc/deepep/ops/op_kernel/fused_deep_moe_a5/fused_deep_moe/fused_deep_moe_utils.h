@@ -8,21 +8,6 @@ namespace CVSoftSync {
 constexpr uint32_t SOFT_SYNC_SPACE_SIZE = 512;
 }
 
-namespace FusedDeepMoeSync {
-constexpr uint64_t GROUP_TOKEN_NUM_OFFSET = 932 * 1024;
-constexpr uint32_t GROUP_INFO_SIZE = 32;
-constexpr uint32_t INT32_COUNT_PER_BLOCK = 32 / sizeof(int32_t);
-// Recv owns indices 0..7. Keep each readiness counter in its own 32-byte block.
-constexpr uint32_t ROUTED_X2_DONE_COUNT_INDEX = 8;
-constexpr uint32_t SHARED_X2_DONE_COUNT_INDEX = 16;
-static_assert(GROUP_INFO_SIZE % INT32_COUNT_PER_BLOCK == 0);
-static_assert(ROUTED_X2_DONE_COUNT_INDEX % INT32_COUNT_PER_BLOCK == 0);
-static_assert(SHARED_X2_DONE_COUNT_INDEX % INT32_COUNT_PER_BLOCK == 0);
-static_assert(ROUTED_X2_DONE_COUNT_INDEX >= INT32_COUNT_PER_BLOCK);
-static_assert(SHARED_X2_DONE_COUNT_INDEX >= ROUTED_X2_DONE_COUNT_INDEX + INT32_COUNT_PER_BLOCK);
-static_assert(SHARED_X2_DONE_COUNT_INDEX + INT32_COUNT_PER_BLOCK <= GROUP_INFO_SIZE);
-}  // namespace FusedDeepMoeSync
-
 template <typename T>
 __aicore__ inline T FlushAndGetValue(AscendC::GlobalTensor<T> &globalTensor, uint64_t index)
 {
