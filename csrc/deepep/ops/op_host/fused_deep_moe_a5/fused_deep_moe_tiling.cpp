@@ -622,7 +622,8 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     size_t shareSwigluOutSize = shareExpertTokenNum * shareGmm1HLen * sizeof(float);
     size_t swigluOutFullSize = maxTokenNum * gmm1HLen * sizeof(float);
     size_t gmm2SwapSize = (maxTokenNum * h + shareExpertTokenNum * h) * sizeof(float);
-    size_t maxSwapSwigluSize = CeilUp(gmm1SwapSize < gmm2SwapSize ? gmm2SwapSize : gmm1SwapSize, GM_ALIGN_SIZE);
+    size_t gmm1SwapSwigluSize = CeilUp(gmm1SwapSize, GM_ALIGN_SIZE);
+    size_t gmm2SwapAlignedSize = CeilUp(gmm2SwapSize, GM_ALIGN_SIZE);
     size_t gmm2DepOutSize =
         CeilUp(moeExpertNumPerRank > 1 ? 0 : maxTokenNum * h * TOKEN_DTYPE_BYTE_SIZE, GM_ALIGN_SIZE);
     size_t groupListSize = CeilUp(moeExpertNumPerRank * sizeof(int64_t), GM_ALIGN_SIZE);
@@ -651,9 +652,10 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     tilingData.workSpaceOffset.gmm1SwapSpaceOffset = offset + shareExpertTokenNum * shareGmm1HLen * sizeof(float);
     tilingData.workSpaceOffset.shareSwigluOffset = offset;
     tilingData.workSpaceOffset.swigluOffset = offset + shareExpertTokenNum * shareGmm1HLen * sizeof(float);
+    offset += gmm1SwapSwigluSize;
     tilingData.workSpaceOffset.shareMm2SwapSpaceOffset = offset;
     tilingData.workSpaceOffset.gmm2SwapSpaceOffset = offset + shareExpertTokenNum * h * sizeof(float);
-    offset += maxSwapSwigluSize;
+    offset += gmm2SwapAlignedSize;
     tilingData.workSpaceOffset.y2TokenOffset = offset;
 #else
     tilingData.workSpaceOffset.shareX1TokenOffset = offset;
@@ -738,6 +740,9 @@ static ge::graphStatus FusedDeepMoeTilingFuncImpl(gert::TilingContext &context)
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context.GetPlatformInfo());
     uint32_t aicNum = ascendcPlatform.GetCoreNumAic();
     uint32_t aivNum = ascendcPlatform.GetCoreNumAiv();
+    OPS_ERR_IF(aicNum == 0 || aivNum != aicNum * 2,
+               OPS_LOG_E(nodeName, "A5 fused requires 1C2V, but got aicNum=%u and aivNum=%u.", aicNum, aivNum),
+               return ge::GRAPH_FAILED);
     tilingData->fusedDeepMoeInfo.aicNum = aicNum;
     tilingData->fusedDeepMoeInfo.aivNum = aivNum;
     OPS_ERR_IF(CheckData(nodeName, *tilingData) != ge::GRAPH_SUCCESS, OPS_LOG_E(nodeName, "CheckData failed."),

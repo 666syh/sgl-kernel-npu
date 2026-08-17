@@ -23,7 +23,7 @@
 constexpr uint32_t STATE_OFFSET = 512;
 constexpr uint64_t WIN_STATE_OFFSET = 512 * 1024;
 constexpr uint64_t STATE_WIN_OFFSET = 900 * 1024;
-constexpr uint64_t GROUP_TOKEN_NUM_OFFSET = 932 * 1024;
+constexpr uint64_t GROUP_TOKEN_NUM_OFFSET = FusedDeepMoeSync::GROUP_TOKEN_NUM_OFFSET;
 constexpr uint64_t SOFT_SYNC_OFFSET = 964 * 1024;
 constexpr uint64_t SHARE_QUANT_SOFT_SYNC_OFFSET = 1000 * 1024;
 constexpr uint32_t SELF_STATE_OFFSET = 256 * 1024;
@@ -38,6 +38,7 @@ constexpr int32_t BUFFER_NUM = 2;
 constexpr int32_t GATHER_SECOND_NUM = 2;
 constexpr uint8_t DISPATCH_SEND_PRIVATE_FORMAT_V1 = 1;
 constexpr uint8_t DISPATCH_RECV_PRIVATE_FORMAT_V1 = 1;
+constexpr uint32_t GROUP_INFO_SIZE = FusedDeepMoeSync::GROUP_INFO_SIZE;
 #define OPT_RANK_OFFSET 512
 
 #define CEIL_UP(x) ((x + UB_ALIGN - 1) / UB_ALIGN * UB_ALIGN)
@@ -53,7 +54,6 @@ constexpr uint8_t DISPATCH_RECV_PRIVATE_FORMAT_V1 = 1;
 #define SELF_COUNT_INDEX 3
 #define TOTAL_COUNT_INDEX 4
 #define GROUP_TOKEN_COUNT 3  // equal to SELF_COUNT_INDEX
-#define GROUP_INFO_SIZE 32
 
 using namespace Cam;
 namespace Catlass::Gemm::Kernel {
@@ -287,6 +287,25 @@ public:
         }
     }
 
+    CATLASS_DEVICE
+    void NotifyX2Ready(uint32_t groupIdx, uint32_t counterIndex)
+    {
+        AscendC::GlobalTensor<int32_t> readyTensor;
+        readyTensor.SetGlobalBuffer((__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) +
+                                    groupIdx * GROUP_INFO_SIZE + counterIndex);
+        AscendC::LocalTensor<int32_t> notifyLocalTensor = resource.ubBuf.template GetBufferByByte<int32_t>(0);
+        AscendC::Duplicate(notifyLocalTensor, static_cast<int32_t>(0), INT32_COUNT_PER_BLOCK);
+        AscendC::SetFlag<AscendC::HardEvent::V_S>(0);
+        AscendC::WaitFlag<AscendC::HardEvent::V_S>(0);
+        notifyLocalTensor.SetValue(0, 1);
+        AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
+        AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
+        AscendC::SetAtomicAdd<int32_t>();
+        AscendC::DataCopy(readyTensor, notifyLocalTensor, INT32_COUNT_PER_BLOCK);
+        AscendC::SetAtomicNone();
+        AscendC::PipeBarrier<PIPE_MTE3>();
+    }
+
     __aicore__ inline GM_ADDR GetWindStateAddrByRankId(int64_t rankId)
     {
         return Mc2Kernel::GetBaseWindStateAddrByRankId(winContext_, rankId, epRankId) + dataState * WIN_STATE_OFFSET;
@@ -513,7 +532,9 @@ public:
         }
 
         AscendC::PipeBarrier<PIPE_ALL>();
-        AscendC::SyncAll<false>();
+        if constexpr (!(EXEC_FLAG & EXEC_FLAG_DEEP_FUSE)) {
+            AscendC::SyncAll<false>();
+        }
     }
 
     CATLASS_DEVICE
@@ -1304,23 +1325,19 @@ public:
             AscendC::DataCopy(softSyncTensor[compCoreIdx * CVSoftSync::SOFT_SYNC_SPACE_SIZE / sizeof(int32_t)],
                               tmpZeroLocalTensor, INT32_COUNT_PER_BLOCK);
         }
-        if constexpr (!(EXEC_FLAG & EXEC_FLAG_DEEP_FUSE)) {
-            return;
-        }
-        if (aivIdx == aiCoreGroupNum * subBlockNum - 1) {
-            // clean
-            AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
-            groupTokenNumStateTensor.SetGlobalBuffer((__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET));
-            AscendC::LocalTensor<int32_t> tmpZeroLocalTensor = resource.ubBuf.template GetBufferByByte<int32_t>(512);
-            AscendC::Duplicate(tmpZeroLocalTensor, (int32_t)0, GROUP_INFO_SIZE * localExpertNum);
-            AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
-            AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
-            AscendC::DataCopy(groupTokenNumStateTensor, tmpZeroLocalTensor, GROUP_INFO_SIZE * localExpertNum);
-            if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
-                AscendC::GlobalTensor<int32_t> shareQuantTokenStateTensor;
-                shareQuantTokenStateTensor.SetGlobalBuffer(
-                    (__gm__ int32_t *)(statusDataSpaceGm + SHARE_QUANT_SOFT_SYNC_OFFSET));
-                AscendC::DataCopy(shareQuantTokenStateTensor, tmpZeroLocalTensor, 8);
+        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            if (aivIdx == aiCoreGroupNum * subBlockNum - 1) {
+                AscendC::LocalTensor<int32_t> tmpZeroLocalTensor =
+                    resource.ubBuf.template GetBufferByByte<int32_t>(512);
+                AscendC::Duplicate(tmpZeroLocalTensor, (int32_t)0, INT32_COUNT_PER_BLOCK);
+                AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
+                AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
+                if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
+                    AscendC::GlobalTensor<int32_t> shareQuantTokenStateTensor;
+                    shareQuantTokenStateTensor.SetGlobalBuffer(
+                        (__gm__ int32_t *)(statusDataSpaceGm + SHARE_QUANT_SOFT_SYNC_OFFSET));
+                    AscendC::DataCopy(shareQuantTokenStateTensor, tmpZeroLocalTensor, INT32_COUNT_PER_BLOCK);
+                }
             }
         }
     }
@@ -1774,6 +1791,10 @@ public:
                                                     rightColOffset, leftActualBlockShape, rightActualBlockShape);
                 }
 
+                if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                    NotifyX2Ready(groupIdx, FusedDeepMoeSync::ROUTED_X2_DONE_COUNT_INDEX);
+                }
+
                 totalM += inGroupProblemShape.m();
                 target += GetAssignedLoopCount(coreLoops, coreNum, compCoreIdx, groupStartCoreIdx);
                 for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
@@ -1790,7 +1811,11 @@ public:
             AscendC::PipeBarrier<PIPE_ALL>();
         }
         icache_preload(8);
-        AscendC::SyncAll<false>();
+        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            AscendC::SyncAll<true>();
+        } else {
+            AscendC::SyncAll<false>();
+        }
         AscendC::PipeBarrier<PIPE_ALL>();
 
         UpdateAndCleanInfo(params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
@@ -1799,6 +1824,9 @@ public:
         if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
             PostSwigluDynamicQuant(params.gmShareSwigluOut, params.ptrShareX2, params.gmShareX2Scale, axisBS,
                                    params.shareProblemShape.n(), startCoreIdx);
+            if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                NotifyX2Ready(0, FusedDeepMoeSync::SHARED_X2_DONE_COUNT_INDEX);
+            }
         }
     }
 
