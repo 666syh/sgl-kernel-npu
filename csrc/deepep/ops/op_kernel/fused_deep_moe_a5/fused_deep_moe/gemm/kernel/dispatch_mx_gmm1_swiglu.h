@@ -532,9 +532,7 @@ public:
         }
 
         AscendC::PipeBarrier<PIPE_ALL>();
-        if constexpr (!(EXEC_FLAG & EXEC_FLAG_DEEP_FUSE)) {
-            AscendC::SyncAll<false>();
-        }
+        AscendC::SyncAll<false>();
     }
 
     CATLASS_DEVICE
@@ -1811,11 +1809,7 @@ public:
             AscendC::PipeBarrier<PIPE_ALL>();
         }
         icache_preload(8);
-        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-            AscendC::SyncAll<true>();
-        } else {
-            AscendC::SyncAll<false>();
-        }
+        AscendC::SyncAll<false>();
         AscendC::PipeBarrier<PIPE_ALL>();
 
         UpdateAndCleanInfo(params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);

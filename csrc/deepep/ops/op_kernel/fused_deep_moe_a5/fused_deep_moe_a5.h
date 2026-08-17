@@ -443,14 +443,12 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         stageBarrierStart = profileWriter.Now();
     }
     AscendC::PipeBarrier<PIPE_ALL>();
-    if constexpr ((EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) == 0) {
-        Arch::CrossCoreFlag gmm1AivFinished{0};
-        if constexpr (g_coreType == AscendC::AIV) {
-            Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
-            Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(gmm1AivFinished);
-        } else {
-            Arch::CrossCoreWaitFlag(gmm1AivFinished);
-        }
+    Arch::CrossCoreFlag gmm1AivFinished{0};
+    if constexpr (g_coreType == AscendC::AIV) {
+        Arch::CrossCoreBarrier<0x0, PIPE_MTE3>();
+        Arch::CrossCoreSetFlag<0x2, PIPE_MTE3>(gmm1AivFinished);
+    } else {
+        Arch::CrossCoreWaitFlag(gmm1AivFinished);
     }
     if (profileWriter.enabled) {
         profileWriter.Record(FusedDeepMoeProfileStage::StageBarrier, 0U, stageBarrierStart, profileWriter.Now());
