@@ -258,7 +258,7 @@ def make_random_profile_cases(
     total_case_count = args.num_warmups + args.num_tests
     for case_idx in range(total_case_count):
         case_seed = args.random_profile_seed + case_idx * world_size + rank
-        torch_generator = torch.Generator(device="cpu")
+        torch_generator = torch.Generator(device="npu")
         torch_generator.manual_seed(case_seed)
         routing_rng = random.Random(case_seed)
 
@@ -266,18 +266,18 @@ def make_random_profile_cases(
             torch.rand(
                 (local_num_tokens, args.hidden),
                 dtype=torch.float32,
+                device="npu",
                 generator=torch_generator,
-            )
-            .bfloat16()
-            .npu()
+            ).bfloat16()
             * 2
             - 1
         )
         expert_scales = torch.rand(
             (local_num_tokens, args.num_topk),
             dtype=torch.float32,
+            device="npu",
             generator=torch_generator,
-        ).npu()
+        )
         if local_num_tokens > 0:
             sampled_rows = [
                 routing_rng.sample(range(args.num_experts), args.num_topk)
