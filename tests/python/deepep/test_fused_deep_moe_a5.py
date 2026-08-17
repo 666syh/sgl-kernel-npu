@@ -246,6 +246,180 @@ def make_small_op_padded_inputs(
     }
 
 
+def make_random_profile_cases(
+    base_inputs: Dict[str, torch.Tensor],
+    rank: int,
+    world_size: int,
+    local_num_tokens: int,
+    padded_num_tokens: int,
+    args: argparse.Namespace,
+) -> List[Dict[str, object]]:
+    cases = []
+    total_case_count = args.num_warmups + args.num_tests
+    for case_idx in range(total_case_count):
+        case_seed = args.random_profile_seed + case_idx * world_size + rank
+        torch_generator = torch.Generator(device="cpu")
+        torch_generator.manual_seed(case_seed)
+        routing_rng = random.Random(case_seed)
+
+        x = (
+            torch.rand(
+                (local_num_tokens, args.hidden),
+                dtype=torch.float32,
+                generator=torch_generator,
+            )
+            .bfloat16()
+            .npu()
+            * 2
+            - 1
+        )
+        expert_scales = torch.rand(
+            (local_num_tokens, args.num_topk),
+            dtype=torch.float32,
+            generator=torch_generator,
+        ).npu()
+        if local_num_tokens > 0:
+            sampled_rows = [
+                routing_rng.sample(range(args.num_experts), args.num_topk)
+                for _ in range(local_num_tokens)
+            ]
+            expert_ids = torch.tensor(sampled_rows, dtype=torch.int32).npu()
+        else:
+            expert_ids = torch.empty((0, args.num_topk), dtype=torch.int32).npu()
+
+        fused_inputs = {
+            **base_inputs,
+            "x": x,
+            "expert_ids": expert_ids,
+            "expert_scales": expert_scales,
+        }
+        cases.append(
+            {
+                "seed": case_seed,
+                "fused_inputs": fused_inputs,
+                "small_inputs": make_small_op_padded_inputs(
+                    fused_inputs, local_num_tokens, padded_num_tokens
+                ),
+            }
+        )
+    return cases
+
+
+def assert_unique_tensor_storage(tensors: List[torch.Tensor], name: str):
+    data_ptrs = [tensor.data_ptr() for tensor in tensors if tensor.numel() > 0]
+    if len(data_ptrs) != len(set(data_ptrs)):
+        raise AssertionError(
+            f"{name} must use distinct storage for every profile iteration"
+        )
+
+
+def validate_random_profile_results(
+    profile_cases: List[Dict[str, object]],
+    small_results: List[Tuple[torch.Tensor, torch.Tensor]],
+    fused_results: List[Tuple[torch.Tensor, torch.Tensor]],
+    rank: int,
+    world_size: int,
+    local_num_tokens: int,
+    padded_num_tokens: int,
+    local_experts: int,
+    args: argparse.Namespace,
+):
+    local_error = None
+    total_case_count = args.num_warmups + args.num_tests
+    try:
+        if len(profile_cases) != total_case_count:
+            raise AssertionError(
+                f"profile case count mismatch: expected={total_case_count}, actual={len(profile_cases)}"
+            )
+        if (
+            len(small_results) != total_case_count
+            or len(fused_results) != total_case_count
+        ):
+            raise AssertionError(
+                "profile result count mismatch: "
+                f"expected={total_case_count}, small={len(small_results)}, fused={len(fused_results)}"
+            )
+
+        for input_name in ("x", "expert_ids", "expert_scales"):
+            assert_unique_tensor_storage(
+                [case["fused_inputs"][input_name] for case in profile_cases],
+                f"random profile fused input {input_name}",
+            )
+            assert_unique_tensor_storage(
+                [case["small_inputs"][input_name] for case in profile_cases],
+                f"random profile small-op input {input_name}",
+            )
+        assert_unique_tensor_storage(
+            [result[0] for result in small_results], "random profile small-op output"
+        )
+        assert_unique_tensor_storage(
+            [result[0] for result in fused_results], "random profile fused output"
+        )
+
+        for test_idx in range(args.num_tests):
+            result_idx = args.num_warmups + test_idx
+            case = profile_cases[result_idx]
+            small_output, small_counts = small_results[result_idx]
+            fused_output, fused_counts = fused_results[result_idx]
+            valid_small_output = small_output[:local_num_tokens]
+            valid_fused_output = fused_output[:local_num_tokens]
+            small_nan_count = torch.isnan(small_output).sum().item()
+            fused_nan_count = torch.isnan(fused_output).sum().item()
+            avg_diff, max_diff, cosine_diff = summarize_output_diff(
+                valid_small_output, valid_fused_output
+            )
+
+            try:
+                assert small_output.shape == (padded_num_tokens, args.hidden)
+                assert fused_output.shape == (local_num_tokens, args.hidden)
+                assert small_output.dtype == torch.bfloat16
+                assert fused_output.dtype == torch.bfloat16
+                assert small_counts.shape == (local_experts,)
+                assert fused_counts.shape == (local_experts,)
+                assert small_nan_count == 0
+                assert fused_nan_count == 0
+                torch.testing.assert_close(small_counts, fused_counts)
+                if local_num_tokens > 0:
+                    torch.testing.assert_close(
+                        valid_small_output.float(),
+                        valid_fused_output.float(),
+                        atol=ACCURACY_ATOL,
+                        rtol=ACCURACY_RTOL,
+                    )
+            except Exception as exc:
+                local_error = (
+                    f"[rank {rank}] random profile accuracy failed: "
+                    f"performance_iteration={test_idx}, result_index={result_idx}, "
+                    f"seed={case['seed']}, local_num_tokens={local_num_tokens}, "
+                    f"avg_diff={avg_diff:.6f}, max_diff={max_diff:.6f}, "
+                    f"calc_diff={cosine_diff:.6f}, small_nan_count={small_nan_count}, "
+                    f"fused_nan_count={fused_nan_count}, "
+                    f"expert_ids={case['fused_inputs']['expert_ids'].cpu().tolist()}, "
+                    f"small_counts={small_counts.cpu().tolist()}, "
+                    f"fused_counts={fused_counts.cpu().tolist()}: {exc}"
+                )
+                break
+    except Exception as exc:
+        local_error = f"[rank {rank}] random profile validation setup failed: {exc}"
+
+    failure_flag = torch.tensor(
+        [1 if local_error is not None else 0], dtype=torch.int32, device="npu"
+    )
+    dist.all_reduce(failure_flag, op=dist.ReduceOp.SUM)
+    if failure_flag.item() != 0:
+        if local_error is not None:
+            print(local_error, flush=True)
+        dist.barrier()
+        raise AssertionError(
+            f"Random profile accuracy validation failed on {failure_flag.item()} of {world_size} ranks"
+        )
+    if rank == 0:
+        print(
+            f"Random profile accuracy check passed for {args.num_tests} performance iterations.",
+            flush=True,
+        )
+
+
 def run_small_op_baseline(
     inputs: Dict[str, torch.Tensor],
     hcomm_name: str,
@@ -951,6 +1125,26 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         small_stats = None
         small_breakdown_stats = None
         fused_stats = None
+        profile_cases = None
+        small_profile_results = []
+        fused_profile_results = []
+        if args.random_profile_cases:
+            profile_cases = make_random_profile_cases(
+                inputs,
+                rank,
+                world_size,
+                local_num_tokens,
+                padded_num_tokens,
+                args,
+            )
+            # Keep random input construction outside both profiler regions.
+            torch.npu.synchronize()
+            if rank == 0:
+                print(
+                    "Random profile cases prepared: "
+                    f"count={len(profile_cases)}, seed={args.random_profile_seed}",
+                    flush=True,
+                )
 
         if True:
             small_trace_path = (
@@ -971,9 +1165,14 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     if small_profile_call_idx == 0 and args.num_warmups > 0
                     else 1
                 )
+                profile_inputs = (
+                    profile_cases[small_profile_call_idx]["small_inputs"]
+                    if profile_cases is not None
+                    else small_op_inputs
+                )
                 small_profile_call_idx += 1
-                return run_small_op_baseline(
-                    small_op_inputs,
+                result = run_small_op_baseline(
+                    profile_inputs,
                     hcomm_name_small,
                     rank,
                     world_size,
@@ -982,6 +1181,9 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     gmm_burn_in_repeats=gmm_burn_in_repeats,
                     warmup_burn_in_buffers=warmup_burn_in_buffers,
                 )
+                if profile_cases is not None:
+                    small_profile_results.append(result)
+                return result
 
             (
                 small_durations,
@@ -1044,14 +1246,22 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     burn_in_lhs, burn_in_rhs = warmup_burn_in_buffers
                     for _ in range(SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS):
                         _ = torch.matmul(burn_in_lhs, burn_in_rhs)
+                profile_inputs = (
+                    profile_cases[fused_profile_call_idx]["fused_inputs"]
+                    if profile_cases is not None
+                    else inputs
+                )
                 fused_profile_call_idx += 1
-                return run_buffer_fused(
+                result = run_buffer_fused(
                     buffer,
-                    inputs,
+                    profile_inputs,
                     padded_num_tokens,
                     args,
                     kernel_trace_dir=args.kernel_trace_dir,
                 )
+                if profile_cases is not None:
+                    fused_profile_results.append(result)
+                return result
 
             try:
                 (
@@ -1089,6 +1299,20 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                     )
                     buffer.runtime.end_profile()
         dist.barrier()
+
+        if profile_cases is not None:
+            validate_random_profile_results(
+                profile_cases,
+                small_profile_results,
+                fused_profile_results,
+                rank,
+                world_size,
+                local_num_tokens,
+                padded_num_tokens,
+                local_experts,
+                args,
+            )
+            dist.barrier()
 
         if small_stats is not None:
             small_stats_tensor = torch.tensor(
@@ -1293,6 +1517,20 @@ def main():
         help="Number of counted performance iterations when --profile-num-tests is not set.",
     )
     parser.add_argument(
+        "--random-profile-cases",
+        action="store_true",
+        help=(
+            "Use distinct randomized activation/routing inputs for every profiler "
+            "iteration and compare results afterward."
+        ),
+    )
+    parser.add_argument(
+        "--random-profile-seed",
+        type=int,
+        default=2026,
+        help="Base seed for deterministic per-iteration randomized profiler inputs.",
+    )
+    parser.add_argument(
         "--quant",
         choices=tuple(MX_QUANT_CONFIGS.keys()),
         default="fp8_e4m3",
@@ -1358,6 +1596,8 @@ def main():
         parser.error("--num-warmups must be non-negative")
     if args.num_tests <= 0:
         parser.error("--num-tests must be positive")
+    if args.random_profile_seed < 0:
+        parser.error("--random-profile-seed must be non-negative")
     if args.quant == "fp4_e2m1" and args.weight_format == "NZ":
         parser.error(
             "--weight-format NZ is currently supported for FP8 quantization only"
