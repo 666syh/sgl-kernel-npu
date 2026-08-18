@@ -307,6 +307,14 @@ public:
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
 
+        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            // Diagnostic serialization barrier: all AIV send/recv work must
+            // finish before any AIC starts GMM1.
+            AscendC::PipeBarrier<PIPE_ALL>();
+            AscendC::SyncAll<false>();
+            AscendC::PipeBarrier<PIPE_ALL>();
+        }
+
         AscendC::GlobalTensor<ElementA> gmA;
         AscendC::GlobalTensor<ElementMxScaleA> gmMxScaleA;
         AscendC::GlobalTensor<ElementB> gmB;
@@ -514,7 +522,7 @@ public:
 
         // Diagnostic serialization barrier: do not let AIV Swiglu consume any
         // GMM1 output until every AIC has completed its GMM1 work. The
-        // existing SyncAll below remains as the end-of-Swiglu barrier.
+        // The second barrier pair below remains as the end-of-Swiglu barrier.
         AscendC::PipeBarrier<PIPE_ALL>();
         AscendC::SyncAll<false>();
         AscendC::PipeBarrier<PIPE_ALL>();
@@ -1369,9 +1377,15 @@ public:
                 RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount,
                              params.profile);
             }
+
+            // Pair with the AIC barrier before GMM1. This intentionally
+            // disables Recv-to-GMM1 overlap for the precision experiment.
+            AscendC::PipeBarrier<PIPE_ALL>();
+            AscendC::SyncAll<false>();
+            AscendC::PipeBarrier<PIPE_ALL>();
         }
 
-        // Pair with the first AIC barrier above. This intentionally disables
+        // Pair with the second AIC barrier above. This intentionally disables
         // GMM1-to-Swiglu overlap for the precision isolation experiment.
         AscendC::PipeBarrier<PIPE_ALL>();
         AscendC::SyncAll<false>();
