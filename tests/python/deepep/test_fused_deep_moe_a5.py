@@ -485,6 +485,7 @@ def validate_random_profile_results(
             avg_diff, max_diff, cosine_diff = summarize_output_diff(
                 valid_small_output, valid_fused_output
             )
+            same_round_error = None
 
             small_cross_error = None
             fused_cross_error = None
@@ -537,12 +538,18 @@ def validate_random_profile_results(
                 assert fused_nan_count == 0
                 torch.testing.assert_close(small_counts, fused_counts)
                 if local_num_tokens > 0:
-                    torch.testing.assert_close(
-                        valid_small_output.float(),
-                        valid_fused_output.float(),
-                        atol=ACCURACY_ATOL,
-                        rtol=ACCURACY_RTOL,
-                    )
+                    try:
+                        torch.testing.assert_close(
+                            valid_small_output.float(),
+                            valid_fused_output.float(),
+                            atol=ACCURACY_ATOL,
+                            rtol=ACCURACY_RTOL,
+                        )
+                    except Exception as exc:
+                        same_round_error = str(exc).splitlines()[0]
+                        raise AssertionError(
+                            f"small_vs_fused mismatch: {same_round_error}"
+                        ) from exc
                 if (
                     small_cross_error
                     or fused_cross_error
@@ -565,7 +572,8 @@ def validate_random_profile_results(
                     f"fused_nan_count={fused_nan_count}, "
                     f"expert_ids={case['fused_inputs']['expert_ids'].cpu().tolist()}, "
                     f"small_counts={small_counts.cpu().tolist()}, "
-                    f"fused_counts={fused_counts.cpu().tolist()}: {exc}"
+                    f"fused_counts={fused_counts.cpu().tolist()}, "
+                    f"comparison={'small_vs_fused' if same_round_error else 'profile'}: {exc}"
                 )
                 if (
                     small_cross_error
