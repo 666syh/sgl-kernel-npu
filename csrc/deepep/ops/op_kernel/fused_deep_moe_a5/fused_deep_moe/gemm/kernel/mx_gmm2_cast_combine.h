@@ -335,8 +335,7 @@ public:
         }
         AscendC::PipeBarrier<PIPE_ALL>();
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-            // Diagnostic serialization barrier: keep every AIC here until all
-            // GMM2 work and AIV epilogues are complete before Combine starts.
+            // Keep every AIC here until all GMM2 MMAD work is complete.
             AscendC::SyncAll<false>();
             AscendC::PipeBarrier<PIPE_ALL>();
         }
@@ -361,8 +360,7 @@ public:
         uint64_t profWeightSumStart = 0;
 
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-            // Pair with the AIC barrier after GMM2. BlockEpilogue has left its
-            // scope, so its pending output pipeline is complete before Combine.
+            // Pair with the AIC barrier after GMM2 before starting the AIV epilogue.
             AscendC::PipeBarrier<PIPE_ALL>();
             AscendC::SyncAll<false>();
             AscendC::PipeBarrier<PIPE_ALL>();
@@ -478,6 +476,13 @@ public:
                 }
             }
         } while (false);
+
+        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            // Publish all AIV epilogue window writes before any AIV starts Combine.
+            AscendC::PipeBarrier<PIPE_ALL>();
+            AscendC::SyncAll<true>();
+            AscendC::PipeBarrier<PIPE_ALL>();
+        }
 
         if (params.profile != nullptr) {
             profWeightSumStart = params.profile->Now();
