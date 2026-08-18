@@ -71,6 +71,7 @@ SMALL_FIRST_WARMUP_GMM_BURN_IN_REPEATS = 100
 SMALL_FIRST_WARMUP_MATMUL_DIM_SCALE = 4
 ACCURACY_ATOL = 2.0
 ACCURACY_RTOL = 0.02
+PROFILE_DEBUG_HEAD_BYTES = 32
 
 
 def get_mx_quant_config(args: argparse.Namespace) -> Dict[str, object]:
@@ -356,6 +357,69 @@ def assert_unique_tensor_storage(tensors: List[torch.Tensor], name: str):
         )
 
 
+def format_tensor_head_bytes(
+    tensor: torch.Tensor, max_bytes: int = PROFILE_DEBUG_HEAD_BYTES
+) -> str:
+    """Return a compact raw-byte preview after all profiled work is complete."""
+    try:
+        byte_tensor = tensor.detach().contiguous().cpu().view(torch.uint8).flatten()
+        values = byte_tensor[:max_bytes].tolist()
+        return " ".join(f"{int(value):02x}" for value in values)
+    except Exception as exc:
+        return f"<unavailable: {exc}>"
+
+
+def print_profile_case_head_bytes(
+    profile_cases: List[Dict[str, object]],
+    small_results: List[Tuple[torch.Tensor, torch.Tensor]],
+    fused_results: List[Tuple[torch.Tensor, torch.Tensor]],
+    rank: int,
+):
+    """Print compact per-iteration input/output bytes for a failed profile."""
+    print(
+        f"[rank {rank}] profile debug tensor heads "
+        f"(first {PROFILE_DEBUG_HEAD_BYTES} bytes; values are raw storage bytes):",
+        flush=True,
+    )
+    input_names = ("x", "expert_ids", "expert_scales")
+    case_count = min(len(profile_cases), len(small_results), len(fused_results))
+    for case_idx in range(case_count):
+        case = profile_cases[case_idx]
+        print(
+            f"[rank {rank}] iteration={case_idx}, seed={case.get('seed')}, "
+            f"fixed={case.get('fixed_values', False)}",
+            flush=True,
+        )
+        for side, inputs in (
+            ("small_input", case.get("small_inputs", {})),
+            ("fused_input", case.get("fused_inputs", {})),
+        ):
+            for input_name in input_names:
+                tensor = inputs.get(input_name)
+                if tensor is None:
+                    continue
+                print(
+                    f"  {side}.{input_name}: dtype={tensor.dtype}, "
+                    f"shape={tuple(tensor.shape)}, data_ptr=0x{tensor.data_ptr():x}, "
+                    f"bytes={format_tensor_head_bytes(tensor)}",
+                    flush=True,
+                )
+        small_output, small_counts = small_results[case_idx]
+        fused_output, fused_counts = fused_results[case_idx]
+        for side, tensor in (
+            ("small_output", small_output),
+            ("fused_output", fused_output),
+            ("small_counts", small_counts),
+            ("fused_counts", fused_counts),
+        ):
+            print(
+                f"  {side}: dtype={tensor.dtype}, shape={tuple(tensor.shape)}, "
+                f"data_ptr=0x{tensor.data_ptr():x}, "
+                f"bytes={format_tensor_head_bytes(tensor)}",
+                flush=True,
+            )
+
+
 def validate_random_profile_results(
     profile_cases: List[Dict[str, object]],
     small_results: List[Tuple[torch.Tensor, torch.Tensor]],
@@ -598,6 +662,9 @@ def validate_random_profile_results(
     if failure_flag.item() != 0:
         if local_error is not None:
             print(local_error, flush=True)
+            print_profile_case_head_bytes(
+                profile_cases, small_results, fused_results, rank
+            )
         dist.barrier()
         raise AssertionError(
             f"Random profile accuracy validation failed on {failure_flag.item()} of {world_size} ranks"
