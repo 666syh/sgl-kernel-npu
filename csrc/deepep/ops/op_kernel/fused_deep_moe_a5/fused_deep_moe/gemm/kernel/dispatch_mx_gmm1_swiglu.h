@@ -512,6 +512,13 @@ public:
             }
         }
 
+        // Diagnostic serialization barrier: do not let AIV Swiglu consume any
+        // GMM1 output until every AIC has completed its GMM1 work. The
+        // existing SyncAll below remains as the end-of-Swiglu barrier.
+        AscendC::PipeBarrier<PIPE_ALL>();
+        AscendC::SyncAll<false>();
+        AscendC::PipeBarrier<PIPE_ALL>();
+
         AscendC::PipeBarrier<PIPE_ALL>();
         AscendC::SyncAll<false>();
     }
@@ -1363,6 +1370,12 @@ public:
                              params.profile);
             }
         }
+
+        // Pair with the first AIC barrier above. This intentionally disables
+        // GMM1-to-Swiglu overlap for the precision isolation experiment.
+        AscendC::PipeBarrier<PIPE_ALL>();
+        AscendC::SyncAll<false>();
+        AscendC::PipeBarrier<PIPE_ALL>();
 
         uint32_t totalTokenNum = 0;
 
