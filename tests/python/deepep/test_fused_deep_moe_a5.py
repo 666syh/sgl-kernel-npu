@@ -305,6 +305,49 @@ def make_random_profile_cases(
     return cases
 
 
+def make_fixed_profile_cases(
+    base_inputs: Dict[str, torch.Tensor],
+    rank: int,
+    world_size: int,
+    local_num_tokens: int,
+    padded_num_tokens: int,
+    args: argparse.Namespace,
+) -> List[Dict[str, object]]:
+    """Create distinct tensor storage with identical values for every profile call.
+
+    This mode separates cross-iteration state corruption from input-dependent
+    numerical differences.  We intentionally clone only the per-call inputs;
+    quantized weights remain shared and immutable.
+    """
+    total_case_count = args.num_warmups + args.num_tests
+    source = make_random_profile_cases(
+        base_inputs,
+        rank,
+        world_size,
+        local_num_tokens,
+        padded_num_tokens,
+        argparse.Namespace(**{**vars(args), "num_warmups": 1, "num_tests": 0}),
+    )[0]
+    cases = []
+    for case_idx in range(total_case_count):
+        fused_inputs = dict(source["fused_inputs"])
+        for name in ("x", "expert_ids", "expert_scales"):
+            fused_inputs[name] = source["fused_inputs"][name].clone()
+        small_inputs = make_small_op_padded_inputs(
+            fused_inputs, local_num_tokens, padded_num_tokens
+        )
+        cases.append(
+            {
+                "seed": source["seed"],
+                "fused_inputs": fused_inputs,
+                "small_inputs": small_inputs,
+                "fixed_values": True,
+                "case_index": case_idx,
+            }
+        )
+    return cases
+
+
 def assert_unique_tensor_storage(tensors: List[torch.Tensor], name: str):
     data_ptrs = [tensor.data_ptr() for tensor in tensors if tensor.numel() > 0]
     if len(data_ptrs) != len(set(data_ptrs)):
@@ -355,7 +398,81 @@ def validate_random_profile_results(
         assert_unique_tensor_storage(
             [result[0] for result in fused_results], "random profile fused output"
         )
+        assert_unique_tensor_storage(
+            [result[1] for result in small_results], "random profile small-op counts"
+        )
+        assert_unique_tensor_storage(
+            [result[1] for result in fused_results], "random profile fused counts"
+        )
 
+        if profile_cases[0].get("fixed_values", False) and total_case_count > 1:
+            baseline_small = small_results[0][0][:local_num_tokens].float()
+            baseline_fused = fused_results[0][0][:local_num_tokens].float()
+            baseline_small_counts = small_results[0][1]
+            baseline_fused_counts = fused_results[0][1]
+            fixed_cross_mismatches = []
+            for case_idx in range(1, total_case_count):
+                small_value_error = None
+                fused_value_error = None
+                small_count_error = None
+                fused_count_error = None
+                current_small = small_results[case_idx][0][:local_num_tokens].float()
+                current_fused = fused_results[case_idx][0][:local_num_tokens].float()
+                try:
+                    torch.testing.assert_close(
+                        current_small, baseline_small, atol=0.0, rtol=0.0
+                    )
+                except Exception as exc:
+                    small_value_error = str(exc).splitlines()[0]
+                try:
+                    torch.testing.assert_close(
+                        current_fused, baseline_fused, atol=0.0, rtol=0.0
+                    )
+                except Exception as exc:
+                    fused_value_error = str(exc).splitlines()[0]
+                try:
+                    torch.testing.assert_close(
+                        small_results[case_idx][1], baseline_small_counts
+                    )
+                except Exception as exc:
+                    small_count_error = str(exc).splitlines()[0]
+                try:
+                    torch.testing.assert_close(
+                        fused_results[case_idx][1], baseline_fused_counts
+                    )
+                except Exception as exc:
+                    fused_count_error = str(exc).splitlines()[0]
+                if any(
+                    (
+                        small_value_error,
+                        fused_value_error,
+                        small_count_error,
+                        fused_count_error,
+                    )
+                ):
+                    small_avg, small_max, _ = summarize_output_diff(
+                        baseline_small, current_small
+                    )
+                    fused_avg, fused_max, _ = summarize_output_diff(
+                        baseline_fused, current_fused
+                    )
+                    fixed_cross_mismatches.append(
+                        "iteration="
+                        f"{case_idx}, seed={profile_cases[case_idx]['seed']}; "
+                        f"small(avg={small_avg:.6f}, max={small_max:.6f}, error={small_value_error!r}), "
+                        f"fused(avg={fused_avg:.6f}, max={fused_max:.6f}, error={fused_value_error!r}), "
+                        f"small_counts={small_count_error!r}, fused_counts={fused_count_error!r}"
+                    )
+            if fixed_cross_mismatches:
+                raise AssertionError(
+                    "fixed-value cross-iteration mismatches: "
+                    + " | ".join(fixed_cross_mismatches)
+                )
+
+        first_formal_small = None
+        first_formal_fused = None
+        first_formal_counts = None
+        first_formal_fused_counts = None
         for test_idx in range(args.num_tests):
             result_idx = args.num_warmups + test_idx
             case = profile_cases[result_idx]
@@ -368,6 +485,46 @@ def validate_random_profile_results(
             avg_diff, max_diff, cosine_diff = summarize_output_diff(
                 valid_small_output, valid_fused_output
             )
+
+            small_cross_error = None
+            fused_cross_error = None
+            counts_cross_error = None
+            fused_counts_cross_error = None
+            if case.get("fixed_values", False):
+                if first_formal_small is None:
+                    first_formal_small = valid_small_output.float().clone()
+                    first_formal_fused = valid_fused_output.float().clone()
+                    first_formal_counts = small_counts.clone()
+                    first_formal_fused_counts = fused_counts.clone()
+                else:
+                    try:
+                        torch.testing.assert_close(
+                            valid_small_output.float(),
+                            first_formal_small,
+                            atol=0.0,
+                            rtol=0.0,
+                        )
+                    except Exception as exc:
+                        small_cross_error = str(exc).splitlines()[0]
+                    try:
+                        torch.testing.assert_close(
+                            valid_fused_output.float(),
+                            first_formal_fused,
+                            atol=0.0,
+                            rtol=0.0,
+                        )
+                    except Exception as exc:
+                        fused_cross_error = str(exc).splitlines()[0]
+                    try:
+                        torch.testing.assert_close(small_counts, first_formal_counts)
+                    except Exception as exc:
+                        counts_cross_error = str(exc).splitlines()[0]
+                    try:
+                        torch.testing.assert_close(
+                            fused_counts, first_formal_fused_counts
+                        )
+                    except Exception as exc:
+                        fused_counts_cross_error = str(exc).splitlines()[0]
 
             try:
                 assert small_output.shape == (padded_num_tokens, args.hidden)
@@ -386,9 +543,21 @@ def validate_random_profile_results(
                         atol=ACCURACY_ATOL,
                         rtol=ACCURACY_RTOL,
                     )
+                if (
+                    small_cross_error
+                    or fused_cross_error
+                    or counts_cross_error
+                    or fused_counts_cross_error
+                ):
+                    raise AssertionError(
+                        "fixed-value cross-iteration mismatch: "
+                        f"small={small_cross_error!r}, fused={fused_cross_error!r}, "
+                        f"small_counts={counts_cross_error!r}, "
+                        f"fused_counts={fused_counts_cross_error!r}"
+                    )
             except Exception as exc:
                 local_error = (
-                    f"[rank {rank}] random profile accuracy failed: "
+                    f"[rank {rank}] profile accuracy failed: "
                     f"performance_iteration={test_idx}, result_index={result_idx}, "
                     f"seed={case['seed']}, local_num_tokens={local_num_tokens}, "
                     f"avg_diff={avg_diff:.6f}, max_diff={max_diff:.6f}, "
@@ -398,6 +567,18 @@ def validate_random_profile_results(
                     f"small_counts={small_counts.cpu().tolist()}, "
                     f"fused_counts={fused_counts.cpu().tolist()}: {exc}"
                 )
+                if (
+                    small_cross_error
+                    or fused_cross_error
+                    or counts_cross_error
+                    or fused_counts_cross_error
+                ):
+                    local_error += (
+                        f", fixed_cross_iteration={{small={small_cross_error!r}, "
+                        f"fused={fused_cross_error!r}, "
+                        f"small_counts={counts_cross_error!r}, "
+                        f"fused_counts={fused_counts_cross_error!r}}}"
+                    )
                 break
     except Exception as exc:
         local_error = f"[rank {rank}] random profile validation setup failed: {exc}"
@@ -1128,8 +1309,13 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         profile_cases = None
         small_profile_results = []
         fused_profile_results = []
-        if args.random_profile_cases:
-            profile_cases = make_random_profile_cases(
+        if args.random_profile_cases or args.fixed_profile_cases:
+            case_builder = (
+                make_fixed_profile_cases
+                if args.fixed_profile_cases
+                else make_random_profile_cases
+            )
+            profile_cases = case_builder(
                 inputs,
                 rank,
                 world_size,
@@ -1141,7 +1327,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
             torch.npu.synchronize()
             if rank == 0:
                 print(
-                    "Random profile cases prepared: "
+                    f"{'Fixed' if args.fixed_profile_cases else 'Random'} profile cases prepared: "
                     f"count={len(profile_cases)}, seed={args.random_profile_seed}",
                     flush=True,
                 )
@@ -1531,6 +1717,14 @@ def main():
         help="Base seed for deterministic per-iteration randomized profiler inputs.",
     )
     parser.add_argument(
+        "--fixed-profile-cases",
+        action="store_true",
+        help=(
+            "Use identical activation/routing values with distinct tensor storage "
+            "for every profiler iteration; implies profile-case validation."
+        ),
+    )
+    parser.add_argument(
         "--quant",
         choices=tuple(MX_QUANT_CONFIGS.keys()),
         default="fp8_e4m3",
@@ -1598,6 +1792,10 @@ def main():
         parser.error("--num-tests must be positive")
     if args.random_profile_seed < 0:
         parser.error("--random-profile-seed must be non-negative")
+    if args.random_profile_cases and args.fixed_profile_cases:
+        parser.error(
+            "--random-profile-cases and --fixed-profile-cases are mutually exclusive"
+        )
     if args.quant == "fp4_e2m1" and args.weight_format == "NZ":
         parser.error(
             "--weight-format NZ is currently supported for FP8 quantization only"
