@@ -24,6 +24,14 @@ constexpr int64_t CORE_NUM_PER_GROUP = 3;
 constexpr int64_t INT32_COUNT_PER_BLOCK = 32 / sizeof(int32_t);
 }  // namespace GMM2
 
+namespace A5ControlState {
+constexpr uint64_t BEGIN_OFFSET = 932 * 1024;
+constexpr uint64_t END_OFFSET = 1024 * 1024;
+constexpr uint32_t BLOCK_BYTES = 32;
+constexpr uint32_t INT32_COUNT_PER_BLOCK = BLOCK_BYTES / sizeof(int32_t);
+static_assert((END_OFFSET - BEGIN_OFFSET) % BLOCK_BYTES == 0);
+}  // namespace A5ControlState
+
 #if (defined(CATLASS_ARCH) && CATLASS_ARCH == 3510)
 
 // Template for GroupedMxMatmulSliceM kernel
@@ -527,12 +535,41 @@ public:
             AscendC::DataCopy(softSyncTensor[coreIdx * CVSoftSync::SOFT_SYNC_SPACE_SIZE / sizeof(int32_t)],
                               tmpZeroLocalTensor, GMM2::INT32_COUNT_PER_BLOCK);
         }
+
+        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            // Wait for every AIV's local GMM2 soft-sync cleanup before the owner
+            // clears the complete local control-state region.
+            AscendC::PipeBarrier<PIPE_ALL>();
+            AscendC::SyncAll<true>();
+            AscendC::PipeBarrier<PIPE_ALL>();
+            if (AscendC::GetBlockIdx() == 0 && AscendC::GetSubBlockIdx() == 0) {
+                CleanA5ControlState();
+            }
+        }
         if (params.profile != nullptr) {
             params.profile->Record(FusedDeepMoeProfileStage::WeightSum, profWeightSumStart, params.profile->Now());
         }
     }
 
 private:
+    CATLASS_DEVICE void CleanA5ControlState()
+    {
+        AscendC::GlobalTensor<int32_t> controlStateTensor;
+        controlStateTensor.SetGlobalBuffer((__gm__ int32_t *)(syncGmAddr + A5ControlState::BEGIN_OFFSET));
+        AscendC::LocalTensor<int32_t> zeroTensor = resource.ubBuf.template GetBufferByByte<int32_t>(0);
+        AscendC::Duplicate(zeroTensor, (int32_t)0, A5ControlState::INT32_COUNT_PER_BLOCK);
+        AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
+        AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
+
+        constexpr uint32_t blockCount =
+            (A5ControlState::END_OFFSET - A5ControlState::BEGIN_OFFSET) / A5ControlState::BLOCK_BYTES;
+        for (uint32_t blockIdx = 0; blockIdx < blockCount; ++blockIdx) {
+            AscendC::DataCopy(controlStateTensor[blockIdx * A5ControlState::INT32_COUNT_PER_BLOCK], zeroTensor,
+                              A5ControlState::INT32_COUNT_PER_BLOCK);
+        }
+        AscendC::PipeBarrier<PIPE_ALL>();
+    }
+
     friend struct AicSetFunc;
     struct AicSetFunc {
         CATLASS_DEVICE
