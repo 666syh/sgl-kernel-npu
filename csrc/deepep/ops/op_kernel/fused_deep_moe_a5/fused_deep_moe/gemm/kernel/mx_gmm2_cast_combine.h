@@ -157,8 +157,22 @@ public:
         AscendC::GlobalTensor<int32_t> readyTensor;
         readyTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(
             gmX2ReadyState + static_cast<uint64_t>(groupIdx) * FusedDeepMoeSync::X2_READY_SLOT_SIZE));
-        while (FlushAndGetValue<int32_t>(readyTensor, FusedDeepMoeSync::X2_READY_COUNTER_INDEX) !=
-               static_cast<int32_t>(expectedAivNum)) {
+        uint32_t runtimeAivNum = AscendC::GetBlockNum() * AscendC::GetSubBlockNum();
+        if (runtimeAivNum != expectedAivNum) {
+            AscendC::printf("[A5 X2 ready] group=%u expected_aiv=%u runtime_aiv=%u\n", groupIdx, expectedAivNum,
+                            runtimeAivNum);
+        }
+        bool overNotifyReported = false;
+        while (true) {
+            int32_t actualCount = FlushAndGetValue<int32_t>(readyTensor, FusedDeepMoeSync::X2_READY_COUNTER_INDEX);
+            if (actualCount > static_cast<int32_t>(expectedAivNum) && !overNotifyReported) {
+                AscendC::printf("[A5 X2 ready] group=%u expected=%u actual=%d\n", groupIdx, expectedAivNum,
+                                actualCount);
+                overNotifyReported = true;
+            }
+            if (actualCount >= static_cast<int32_t>(expectedAivNum)) {
+                break;
+            }
             SPIN_WAIT_CYCLES();
         }
         AscendC::PipeBarrier<PIPE_ALL>();
