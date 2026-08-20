@@ -1525,7 +1525,7 @@ public:
                                         tla::MakeShape(actualPairM, rightActualBlockShape.n()));
         uint32_t mxScaleNumPerToken = CeilDiv(CeilDiv(gmm2HLen, MX_GROUP_SIZE), 2) * 2;
 
-        constexpr int32_t MUL_EVENT_ID = 0;
+        constexpr int32_t MUL_EVENT_ID = 2;  // Need to be distinguished from the event in blockEpilogue
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(MUL_EVENT_ID);
         for (uint32_t loopIdx = subblockIdx; loopIdx < tileLoops; loopIdx += subblockNum) {
             auto tileCoord = epilogueTileSwizzle.GetTileCoord(loopIdx);
