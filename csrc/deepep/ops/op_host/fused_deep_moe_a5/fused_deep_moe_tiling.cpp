@@ -24,7 +24,10 @@ constexpr uint32_t GM_ALIGN_SIZE = 512;
 constexpr uint32_t TOKEN_DTYPE_BYTE_SIZE = 2;
 constexpr uint32_t L1_TILE_BYTE_SIZE = 32 * 1024;
 constexpr uint32_t CUBE_WORKSPACE_STAGE = 4;
-constexpr uint32_t RESERVED_WORKSPACE_SIZE = 256 * 1024;
+constexpr uint32_t X2_READY_MAX_ROUTED_EXPERTS = 256;
+constexpr uint32_t X2_READY_SLOT_SIZE = 512;
+constexpr uint32_t X2_READY_SIZE = X2_READY_SLOT_SIZE * X2_READY_MAX_ROUTED_EXPERTS;
+constexpr uint32_t RESERVED_WORKSPACE_SIZE = X2_READY_SIZE;
 
 constexpr uint32_t INPUT_X_INDEX = 0;
 constexpr uint32_t INPUT_EXPERT_IDS_INDEX = 1;
@@ -517,6 +520,9 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext &contex
                return ge::GRAPH_FAILED);
     OPS_ERR_IF(moeExpertNumPerRank * epRankSize > MAX_MOE_EXERT_NUM,
                OPS_LOG_E(nodeName, "moeExpertNumPerRank * epRankSize must <= %u.", MAX_MOE_EXERT_NUM),
+               return ge::GRAPH_FAILED);
+    OPS_ERR_IF(moeExpertNumPerRank > X2_READY_MAX_ROUTED_EXPERTS,
+               OPS_LOG_E(nodeName, "local routed expert count must <= %u.", X2_READY_MAX_ROUTED_EXPERTS),
                return ge::GRAPH_FAILED);
     OPS_ERR_IF(moeExpertNum <= 0, OPS_LOG_E(nodeName, "moeExpertNum must > 0."), return ge::GRAPH_FAILED);
     OPS_ERR_IF((moeExpertNum % epRankSize) != 0, OPS_LOG_E(nodeName, "moeExpertNum must be divisible by epRankSize."),

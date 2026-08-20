@@ -80,6 +80,7 @@ public:
         GemmCoord sharedProblemShape;
         void *combiner;
         uint32_t expectedAivNum;
+        GM_ADDR gmX2ReadyState;
         FusedDeepMoeProfileWriter *profile;
 
         // Methods
@@ -94,7 +95,7 @@ public:
                LayoutA const &layoutSharedA_, GM_ADDR ptrSharedB_, LayoutB const &layoutSharedB_,
                GM_ADDR ptrSharedMxScaleA_, LayoutMxScaleA layoutSharedMxScaleA_, GM_ADDR ptrSharedMxScaleB_,
                LayoutMxScaleB layoutSharedMxScaleB_, GM_ADDR ptrSharedC_, GM_ADDR ptrSharedD_, void *combiner_,
-               uint32_t expectedAivNum_, FusedDeepMoeProfileWriter *profile_)
+               uint32_t expectedAivNum_, GM_ADDR gmX2ReadyState_, FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -122,6 +123,7 @@ public:
               ptrSharedD(reinterpret_cast<__gm__ ElementD *>(ptrSharedD_)),
               combiner(combiner_),
               expectedAivNum(expectedAivNum_),
+              gmX2ReadyState(gmX2ReadyState_),
               profile(profile_)
         {}
     };
@@ -138,7 +140,7 @@ public:
     CATLASS_DEVICE void operator()(Params const &params);
 
     CATLASS_DEVICE
-    void WaitX2Ready(uint32_t groupIdx, uint32_t counterIndex, uint32_t expectedAivNum)
+    void WaitSharedX2Ready(uint32_t groupIdx, uint32_t counterIndex, uint32_t expectedAivNum)
     {
         AscendC::GlobalTensor<int32_t> readyTensor;
         readyTensor.SetGlobalBuffer((__gm__ int32_t *)(syncGmAddr + FusedDeepMoeSync::GROUP_TOKEN_NUM_OFFSET) +
@@ -147,6 +149,37 @@ public:
             SPIN_WAIT_CYCLES();
         }
         AscendC::PipeBarrier<PIPE_ALL>();
+    }
+
+    CATLASS_DEVICE
+    void WaitRoutedX2Ready(uint32_t groupIdx, uint32_t expectedAivNum)
+    {
+        AscendC::GlobalTensor<int32_t> readyTensor;
+        readyTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(
+            gmX2ReadyState + static_cast<uint64_t>(groupIdx) * FusedDeepMoeSync::X2_READY_SLOT_SIZE));
+        while (FlushAndGetValue<int32_t>(readyTensor, FusedDeepMoeSync::X2_READY_COUNTER_INDEX) !=
+               static_cast<int32_t>(expectedAivNum)) {
+            SPIN_WAIT_CYCLES();
+        }
+        AscendC::PipeBarrier<PIPE_ALL>();
+    }
+
+    CATLASS_DEVICE
+    void CleanRoutedX2ReadyState(uint32_t problemCount)
+    {
+        uint32_t workerIdx = AscendC::GetBlockIdx() * AscendC::GetSubBlockNum() + AscendC::GetSubBlockIdx();
+        uint32_t workerCount = AscendC::GetBlockNum() * AscendC::GetSubBlockNum();
+        AscendC::LocalTensor<int32_t> zeroLocal = resource.ubBuf.template GetBufferByByte<int32_t>(0);
+        AscendC::Duplicate(zeroLocal, static_cast<int32_t>(0), GMM2::INT32_COUNT_PER_BLOCK);
+        AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
+        AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
+        for (uint32_t slotIdx = workerIdx; slotIdx < problemCount; slotIdx += workerCount) {
+            AscendC::GlobalTensor<int32_t> readyTensor;
+            readyTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(
+                gmX2ReadyState + static_cast<uint64_t>(slotIdx) * FusedDeepMoeSync::X2_READY_SLOT_SIZE));
+            AscendC::DataCopy(readyTensor, zeroLocal, GMM2::INT32_COUNT_PER_BLOCK);
+        }
+        AscendC::PipeBarrier<PIPE_MTE3>();
     }
 
     CATLASS_DEVICE
@@ -183,6 +216,7 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
+        gmX2ReadyState = params.gmX2ReadyState;
         AscendC::ICachePreLoad(1);
 
         BlockScheduler blockScheduler;
@@ -222,7 +256,7 @@ public:
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
                 uint64_t profGroupStart = 0;
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    WaitX2Ready(groupIdx, FusedDeepMoeSync::ROUTED_X2_DONE_COUNT_INDEX, params.expectedAivNum);
+                    WaitRoutedX2Ready(groupIdx, params.expectedAivNum);
                 }
                 gmMxScaleA.SetGlobalBuffer(params.ptrMxScaleA + gmGroupOffsetMxScaleA);
                 if constexpr (EXEC_FLAG & EXEC_FLAG_TENSOR_LIST) {
@@ -323,7 +357,7 @@ public:
         }
         if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
             if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                WaitX2Ready(0, FusedDeepMoeSync::SHARED_X2_DONE_COUNT_INDEX, params.expectedAivNum);
+                WaitSharedX2Ready(0, FusedDeepMoeSync::SHARED_X2_DONE_COUNT_INDEX, params.expectedAivNum);
             }
             currentM = params.sharedProblemShape.m();
             gmA.SetGlobalBuffer(params.ptrSharedA);
@@ -400,6 +434,7 @@ public:
     template <>
     CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
     {
+        gmX2ReadyState = params.gmX2ReadyState;
         auto *combiner = (MoeDistributeCombineImpl::CamMoeDistributeCombine<TemplateMC2TypeFunc> *)params.combiner;
 
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
@@ -577,6 +612,9 @@ public:
             resource.pipe.Destroy();
         }
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+            CleanRoutedX2ReadyState(params.problemCount);
+        }
+        if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
             if (AscendC::GetSubBlockIdx() == 0) {
                 CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(syncGmAddr + GMM2::SOFT_SYNC_OFFSET),
                               static_cast<int32_t>(coreIdx), target);
@@ -634,6 +672,7 @@ private:
     AscendC::GlobalTensor<GM_ADDR> epWinContext_;
     __gm__ Mc2Kernel::HcclOpParam *winContext_;
     GM_ADDR syncGmAddr;
+    GM_ADDR gmX2ReadyState;
     Arch::Resource<ArchTag> resource;
 };
 

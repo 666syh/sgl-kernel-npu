@@ -64,8 +64,8 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
     GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareSwigluOut, GM_ADDR gmShareD, GM_ADDR gmShareDScale,
     // dispatch and quant, when EXEC_FLAG_DEEP_FUSE.
     GM_ADDR gmX, GM_ADDR gmExpertIds, GM_ADDR xActiveMask, GM_ADDR gmMoeSmoothScales, GM_ADDR gmShareSmoothScales,
-    GM_ADDR gmExpandIdx, GM_ADDR gmEpSendCount, GM_ADDR gmExpertTokenNums, const FusedDeepMoeInfo &fusedDeepMoeInfo,
-    FusedDeepMoeProfileWriter *profile)
+    GM_ADDR gmExpandIdx, GM_ADDR gmEpSendCount, GM_ADDR gmExpertTokenNums, GM_ADDR gmX2ReadyState,
+    const FusedDeepMoeInfo &fusedDeepMoeInfo, FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
                    std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
@@ -150,6 +150,7 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
                                          gmExpandIdx,
                                          gmEpSendCount,
                                          gmExpertTokenNums,
+                                         gmX2ReadyState,
                                          fusedDeepMoeInfo,
                                          profile};
 
@@ -169,7 +170,7 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
     // shared expert, matmul
     Catlass::GemmCoord sharedProblemShape, GM_ADDR gmShareA, GM_ADDR gmShareB, GM_ADDR gmShareAScale,
     GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareD, void *combiner, uint32_t expectedAivNum,
-    FusedDeepMoeProfileWriter *profile)
+    GM_ADDR gmX2ReadyState, FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
                    std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
@@ -247,6 +248,7 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
                                          gmShareD,
                                          combiner,
                                          expectedAivNum,
+                                         gmX2ReadyState,
                                          profile};
 
     MatmulKernel kernel;
@@ -402,6 +404,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
     GM_ADDR gmGroupList = workspaceGM_ + tilingData_->workSpaceOffset.groupListOffset;
     GM_ADDR gmExpandIdx = workspaceGM_ + tilingData_->workSpaceOffset.expandIdxOffset;
     GM_ADDR gmEpSendCount = workspaceGM_ + tilingData_->workSpaceOffset.epSendCountOffset;
+    GM_ADDR gmX2ReadyState = workspaceGM_ + tilingData_->workSpaceOffset.reservedOffset;
     FusedDeepMoeProfileWriter profileWriter;
     profileWriter.Init(profileBufferGM_, tilingData_->fusedDeepMoeInfo.profileEnable != 0,
                        static_cast<uint32_t>(tilingData_->fusedDeepMoeInfo.profileLaunchId),
@@ -413,7 +416,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         gmSwigluOut, gmX2, gmX2Scale, shareGmm1ProblemShape, gmShareX1, gmShareWeight1_, gmShareX1Scale,
         gmShareWeight1Scale_, gmShareMm1SwapSpace, gmShareSwigluOut, gmShareX2, gmShareX2Scale, gmX_, gmexpertIds_,
         xActiveMask_, gmSmoothScales_, gmShareSmoothScales_, gmExpandIdx, gmEpSendCount, gmExpertTokenNums_,
-        tilingData_->fusedDeepMoeInfo, &profileWriter);
+        gmX2ReadyState, tilingData_->fusedDeepMoeInfo, &profileWriter);
     uint64_t stageBarrierStart = 0U;
     if (profileWriter.enabled) {
         stageBarrierStart = profileWriter.Now();
@@ -440,6 +443,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
                           Gmm2EpilogueTileShape, Gmm2BlockScheduler>(
         gmm2ProblemShape, groupCount_, gmGroupList, gmX2, gmWeight2_, gmX2Scale, gmScale2_, gmGmm2SwapSpace,
         gmGmm2DepOut, shareGmm2ProblemShape, gmShareX2, gmShareWeight2_, gmShareX2Scale, gmShareWeight2Scale_,
-        gmShareMm2SwapSpace, gmShareOutput_, &combiner, tilingData_->fusedDeepMoeInfo.aivNum, &profileWriter);
+        gmShareMm2SwapSpace, gmShareOutput_, &combiner, tilingData_->fusedDeepMoeInfo.aivNum, gmX2ReadyState,
+        &profileWriter);
 }
 #endif  // FUSED_DEEP_MOE_H
