@@ -341,8 +341,11 @@ public:
         AscendC::Duplicate(zeroLocalTensor, static_cast<int32_t>(0), INT32_COUNT_PER_BLOCK);
         AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(0);
         AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(0);
-        uint32_t workerIdx = AscendC::GetBlockIdx() * AscendC::GetSubBlockNum() + AscendC::GetSubBlockIdx();
-        uint32_t workerCount = AscendC::GetBlockNum() * AscendC::GetSubBlockNum();
+        // On AIV, GetBlockIdx() already identifies the logical AIV worker.
+        // Do not multiply by the AIC/AIV subblock count: that skips slots and
+        // leaves some ready counters uncleared before the next dispatch.
+        uint32_t workerIdx = AscendC::GetBlockIdx();
+        uint32_t workerCount = AscendC::GetBlockNum();
         for (uint32_t slotIdx = workerIdx; slotIdx < problemCount; slotIdx += workerCount) {
             AscendC::GlobalTensor<int32_t> readyTensor;
             readyTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(
