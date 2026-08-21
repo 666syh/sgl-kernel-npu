@@ -1444,10 +1444,12 @@ public:
     CATLASS_DEVICE
     void SyncSwigluOutBeforeMul()
     {
-        AscendC::PipeBarrier<PIPE_ALL>();
-        AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(0);
-        AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(0);
-        AscendC::PipeBarrier<PIPE_ALL>();
+        // BlockEpilogue publishes its final GM write with MTE3_V(0). Consume
+        // that event before Mul/Quant starts reading swigluOut from GM. The
+        // event is then re-armed for the next BlockEpilogue stage (or the
+        // BlockEpilogue destructor when this is the final stage).
+        AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(0);
+        AscendC::SetFlag<AscendC::HardEvent::MTE3_V>(0);
     }
 
     CATLASS_DEVICE
@@ -1692,102 +1694,27 @@ public:
         AscendC::GlobalTensor<ElementC> gmC;
         AscendC::GlobalTensor<ElementC> gmSwigluOutTensor;
         AscendC::GlobalTensor<ElementC> gmShareSwigluOutTensor;
-
-        BlockEpilogue blockEpilogue(resource);
         uint32_t startCoreIdx = 0;
-        uint32_t currentM = 0;
-        uint32_t target = 1;
 
-        if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
-            currentM = axisBS;
-            gmC.SetGlobalBuffer(params.ptrShareC);
-            gmShareSwigluOutTensor.SetGlobalBuffer(params.gmShareSwigluOut);
-
-            auto tensorC = tla::MakeTensor(gmC, params.layoutShareC, Arch::PositionGM{});
-            auto tensorD = tla::MakeTensor(gmShareSwigluOutTensor, params.layoutShareC, Arch::PositionGM{});
-
-            GemmCoord inGroupProblemShape{currentM, params.shareProblemShape.n(), params.shareProblemShape.k()};
-            BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
-            uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
-
-            uint32_t startLoopIdx;
-            if (coreIdx < startCoreIdx) {
-                startLoopIdx = coreIdx + coreNum - startCoreIdx;
-            } else {
-                startLoopIdx = coreIdx - startCoreIdx;
-            }
-
-            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
-                GemmCoord blockCoord = matmulBlockScheduler.GetBlockCoord(loopIdx);
-                GemmCoord actualBlockShape = matmulBlockScheduler.GetActualBlockShape(blockCoord);
-
-                auto tensorBlockC =
-                    GetTile(tensorC, tla::MakeCoord(blockCoord.m() * L1_TILE_M, blockCoord.n() * L1_TILE_N),
-                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
-
-                auto tensorBlockD =
-                    GetTile(tensorD, tla::MakeCoord(blockCoord.m() * L1_TILE_M, blockCoord.n() * L1_TILE_N),
-                            tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
-
-                bool isLeft = (blockCoord.n() * L1_TILE_N < params.shareProblemShape.n() / 2);
-                CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
-                              static_cast<int32_t>(compCoreIdx), target);
-                target += 1;
-                blockEpilogue(tensorBlockC, tensorBlockD, actualBlockShape, isLeft);
-            }
-            startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
-        }
+        // Keep the BlockEpilogue lifetime bounded to the GMM1/Swiglu stage.
+        // Its destructor drains the event-0 pipeline before the later
+        // global synchronization and status cleanup stages.
         {
-            int64_t totalM = 0;
-            gmC.SetGlobalBuffer(params.ptrC);
-            gmSwigluOutTensor.SetGlobalBuffer(params.gmSwigluOut);
-            AscendC::GlobalTensor<ElementGroupList> groupList;
-            groupList.SetGlobalBuffer(params.ptrGroupList);
+            BlockEpilogue blockEpilogue(resource);
+            uint32_t currentM = 0;
+            uint32_t target = 1;
 
-            auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
-            auto tensorD = tla::MakeTensor(gmSwigluOutTensor, params.layoutC, Arch::PositionGM{});
-            AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
-            constexpr uint32_t MAX_PRODUCER_CORE_NUM = 256;
-            uint32_t producerCompletedCount[MAX_PRODUCER_CORE_NUM];
-            for (uint32_t producerCore = 0; producerCore < MAX_PRODUCER_CORE_NUM; ++producerCore) {
-                producerCompletedCount[producerCore] = 0;
-            }
             if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
-                GemmCoord sharedProblemShape{axisBS, params.shareProblemShape.n(), params.shareProblemShape.k()};
-                BlockScheduler sharedBlockScheduler(sharedProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
-                uint32_t sharedCoreLoops = sharedBlockScheduler.GetCoreLoops();
-                for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
-                    producerCompletedCount[producerCore] +=
-                        GetAssignedLoopCount(sharedCoreLoops, coreNum, producerCore, 0);
-                }
-            }
+                currentM = axisBS;
+                gmC.SetGlobalBuffer(params.ptrShareC);
+                gmShareSwigluOutTensor.SetGlobalBuffer(params.gmShareSwigluOut);
 
-            for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
-                uint64_t profSwigluStart = 0;
-                if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    groupTokenNumStateTensor.SetGlobalBuffer(
-                        (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) + groupIdx * GROUP_INFO_SIZE);
-                    CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
-                                  static_cast<int32_t>(compCoreIdx), target);
-                    target += 1;
-                    currentM = FlushAndGetValue<int32_t>(groupTokenNumStateTensor, GROUP_TOKEN_COUNT);
-                    for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
-                        producerCompletedCount[producerCore] += 1;
-                    }
-                } else {
-                    currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
-                                               : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
-                }
-                if (params.profile != nullptr) {
-                    profSwigluStart = params.profile->Now();
-                }
-                GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
+                auto tensorC = tla::MakeTensor(gmC, params.layoutShareC, Arch::PositionGM{});
+                auto tensorD = tla::MakeTensor(gmShareSwigluOutTensor, params.layoutShareC, Arch::PositionGM{});
+
+                GemmCoord inGroupProblemShape{currentM, params.shareProblemShape.n(), params.shareProblemShape.k()};
                 BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
                 uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
-                uint32_t groupStartCoreIdx = startCoreIdx;
-                uint32_t mLoops = CEIL(currentM, L1_TILE_M);
-                uint32_t nLoops = CEIL(params.problemShape.n(), L1_TILE_N);
-                uint32_t routedHalfN = params.problemShape.n() / 2;
 
                 uint32_t startLoopIdx;
                 if (coreIdx < startCoreIdx) {
@@ -1797,70 +1724,151 @@ public:
                 }
 
                 for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
-                    GemmCoord rightBlockCoord = matmulBlockScheduler.GetBlockCoord(loopIdx);
-                    uint32_t rightColOffset = rightBlockCoord.n() * L1_TILE_N;
-                    if (rightColOffset < routedHalfN) {
-                        continue;
+                    GemmCoord blockCoord = matmulBlockScheduler.GetBlockCoord(loopIdx);
+                    GemmCoord actualBlockShape = matmulBlockScheduler.GetActualBlockShape(blockCoord);
+
+                    auto tensorBlockC =
+                        GetTile(tensorC, tla::MakeCoord(blockCoord.m() * L1_TILE_M, blockCoord.n() * L1_TILE_N),
+                                tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
+
+                    auto tensorBlockD =
+                        GetTile(tensorD, tla::MakeCoord(blockCoord.m() * L1_TILE_M, blockCoord.n() * L1_TILE_N),
+                                tla::MakeShape(actualBlockShape.m(), actualBlockShape.n()));
+
+                    bool isLeft = (blockCoord.n() * L1_TILE_N < params.shareProblemShape.n() / 2);
+                    CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
+                                  static_cast<int32_t>(compCoreIdx), target);
+                    target += 1;
+                    blockEpilogue(tensorBlockC, tensorBlockD, actualBlockShape, isLeft);
+                }
+                startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
+            }
+            {
+                int64_t totalM = 0;
+                gmC.SetGlobalBuffer(params.ptrC);
+                gmSwigluOutTensor.SetGlobalBuffer(params.gmSwigluOut);
+                AscendC::GlobalTensor<ElementGroupList> groupList;
+                groupList.SetGlobalBuffer(params.ptrGroupList);
+
+                auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
+                auto tensorD = tla::MakeTensor(gmSwigluOutTensor, params.layoutC, Arch::PositionGM{});
+                AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
+                constexpr uint32_t MAX_PRODUCER_CORE_NUM = 256;
+                uint32_t producerCompletedCount[MAX_PRODUCER_CORE_NUM];
+                for (uint32_t producerCore = 0; producerCore < MAX_PRODUCER_CORE_NUM; ++producerCore) {
+                    producerCompletedCount[producerCore] = 0;
+                }
+                if constexpr (EXEC_FLAG & EXEC_FLAG_SHARED_EXPERT) {
+                    GemmCoord sharedProblemShape{axisBS, params.shareProblemShape.n(), params.shareProblemShape.k()};
+                    BlockScheduler sharedBlockScheduler(sharedProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
+                    uint32_t sharedCoreLoops = sharedBlockScheduler.GetCoreLoops();
+                    for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
+                        producerCompletedCount[producerCore] +=
+                            GetAssignedLoopCount(sharedCoreLoops, coreNum, producerCore, 0);
+                    }
+                }
+
+                for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+                    uint64_t profSwigluStart = 0;
+                    if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                        groupTokenNumStateTensor.SetGlobalBuffer(
+                            (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) +
+                            groupIdx * GROUP_INFO_SIZE);
+                        CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
+                                      static_cast<int32_t>(compCoreIdx), target);
+                        target += 1;
+                        currentM = FlushAndGetValue<int32_t>(groupTokenNumStateTensor, GROUP_TOKEN_COUNT);
+                        for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
+                            producerCompletedCount[producerCore] += 1;
+                        }
+                    } else {
+                        currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
+                                                   : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                    }
+                    if (params.profile != nullptr) {
+                        profSwigluStart = params.profile->Now();
+                    }
+                    GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
+                    BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
+                    uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
+                    uint32_t groupStartCoreIdx = startCoreIdx;
+                    uint32_t mLoops = CEIL(currentM, L1_TILE_M);
+                    uint32_t nLoops = CEIL(params.problemShape.n(), L1_TILE_N);
+                    uint32_t routedHalfN = params.problemShape.n() / 2;
+
+                    uint32_t startLoopIdx;
+                    if (coreIdx < startCoreIdx) {
+                        startLoopIdx = coreIdx + coreNum - startCoreIdx;
+                    } else {
+                        startLoopIdx = coreIdx - startCoreIdx;
                     }
 
-                    uint32_t leftColOffset = rightColOffset - routedHalfN;
-                    uint32_t leftNBlock = leftColOffset / L1_TILE_N;
-                    GemmCoord leftBlockCoord{rightBlockCoord.m(), leftNBlock, 0};
-                    GemmCoord rightActualBlockShape = matmulBlockScheduler.GetActualBlockShape(rightBlockCoord);
-                    GemmCoord leftActualBlockShape = matmulBlockScheduler.GetActualBlockShape(leftBlockCoord);
+                    for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
+                        GemmCoord rightBlockCoord = matmulBlockScheduler.GetBlockCoord(loopIdx);
+                        uint32_t rightColOffset = rightBlockCoord.n() * L1_TILE_N;
+                        if (rightColOffset < routedHalfN) {
+                            continue;
+                        }
 
-                    uint32_t leftLoopIdx = GetBlockLoopIdx(mLoops, nLoops, leftBlockCoord.m(), leftBlockCoord.n());
-                    int32_t leftProducerCore = GetProducerCoreForLoop(leftLoopIdx, coreNum, groupStartCoreIdx);
-                    int32_t rightProducerCore = GetProducerCoreForLoop(loopIdx, coreNum, groupStartCoreIdx);
-                    uint32_t leftTarget =
-                        GetTargetForLoop(producerCompletedCount[leftProducerCore], leftLoopIdx, coreNum);
-                    uint32_t rightTarget =
-                        GetTargetForLoop(producerCompletedCount[rightProducerCore], loopIdx, coreNum);
+                        uint32_t leftColOffset = rightColOffset - routedHalfN;
+                        uint32_t leftNBlock = leftColOffset / L1_TILE_N;
+                        GemmCoord leftBlockCoord{rightBlockCoord.m(), leftNBlock, 0};
+                        GemmCoord rightActualBlockShape = matmulBlockScheduler.GetActualBlockShape(rightBlockCoord);
+                        GemmCoord leftActualBlockShape = matmulBlockScheduler.GetActualBlockShape(leftBlockCoord);
 
-                    auto tensorLeftBlockC =
-                        GetTile(tensorC, tla::MakeCoord(totalM + leftBlockCoord.m() * L1_TILE_M, leftColOffset),
-                                tla::MakeShape(leftActualBlockShape.m(), leftActualBlockShape.n()));
-                    auto tensorLeftBlockD =
-                        GetTile(tensorD, tla::MakeCoord(totalM + leftBlockCoord.m() * L1_TILE_M, leftColOffset),
-                                tla::MakeShape(leftActualBlockShape.m(), leftActualBlockShape.n()));
-                    auto tensorRightBlockC =
-                        GetTile(tensorC, tla::MakeCoord(totalM + rightBlockCoord.m() * L1_TILE_M, rightColOffset),
-                                tla::MakeShape(rightActualBlockShape.m(), rightActualBlockShape.n()));
-                    auto tensorRightBlockD =
-                        GetTile(tensorD, tla::MakeCoord(totalM + rightBlockCoord.m() * L1_TILE_M, rightColOffset),
-                                tla::MakeShape(rightActualBlockShape.m(), rightActualBlockShape.n()));
+                        uint32_t leftLoopIdx = GetBlockLoopIdx(mLoops, nLoops, leftBlockCoord.m(), leftBlockCoord.n());
+                        int32_t leftProducerCore = GetProducerCoreForLoop(leftLoopIdx, coreNum, groupStartCoreIdx);
+                        int32_t rightProducerCore = GetProducerCoreForLoop(loopIdx, coreNum, groupStartCoreIdx);
+                        uint32_t leftTarget =
+                            GetTargetForLoop(producerCompletedCount[leftProducerCore], leftLoopIdx, coreNum);
+                        uint32_t rightTarget =
+                            GetTargetForLoop(producerCompletedCount[rightProducerCore], loopIdx, coreNum);
 
-                    CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
-                                  leftProducerCore, leftTarget);
-                    blockEpilogue(tensorLeftBlockC, tensorLeftBlockD, leftActualBlockShape, true);
-                    CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
-                                  rightProducerCore, rightTarget);
-                    blockEpilogue(tensorRightBlockC, tensorRightBlockD, rightActualBlockShape, false);
-                    SyncSwigluOutBeforeMul();
-                    ProcessMulAndQuantFromSwigluOut(params.gmSwigluOut, params.ptrX2, params.gmX2Scale,
-                                                    params.problemShape.m(), params.problemShape.n(), routedHalfN,
-                                                    totalM + rightBlockCoord.m() * L1_TILE_M, leftColOffset,
-                                                    rightColOffset, leftActualBlockShape, rightActualBlockShape);
+                        auto tensorLeftBlockC =
+                            GetTile(tensorC, tla::MakeCoord(totalM + leftBlockCoord.m() * L1_TILE_M, leftColOffset),
+                                    tla::MakeShape(leftActualBlockShape.m(), leftActualBlockShape.n()));
+                        auto tensorLeftBlockD =
+                            GetTile(tensorD, tla::MakeCoord(totalM + leftBlockCoord.m() * L1_TILE_M, leftColOffset),
+                                    tla::MakeShape(leftActualBlockShape.m(), leftActualBlockShape.n()));
+                        auto tensorRightBlockC =
+                            GetTile(tensorC, tla::MakeCoord(totalM + rightBlockCoord.m() * L1_TILE_M, rightColOffset),
+                                    tla::MakeShape(rightActualBlockShape.m(), rightActualBlockShape.n()));
+                        auto tensorRightBlockD =
+                            GetTile(tensorD, tla::MakeCoord(totalM + rightBlockCoord.m() * L1_TILE_M, rightColOffset),
+                                    tla::MakeShape(rightActualBlockShape.m(), rightActualBlockShape.n()));
+
+                        CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
+                                      leftProducerCore, leftTarget);
+                        blockEpilogue(tensorLeftBlockC, tensorLeftBlockD, leftActualBlockShape, true);
+                        CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
+                                      rightProducerCore, rightTarget);
+                        blockEpilogue(tensorRightBlockC, tensorRightBlockD, rightActualBlockShape, false);
+                        SyncSwigluOutBeforeMul();
+                        ProcessMulAndQuantFromSwigluOut(params.gmSwigluOut, params.ptrX2, params.gmX2Scale,
+                                                        params.problemShape.m(), params.problemShape.n(), routedHalfN,
+                                                        totalM + rightBlockCoord.m() * L1_TILE_M, leftColOffset,
+                                                        rightColOffset, leftActualBlockShape, rightActualBlockShape);
+                    }
+
+                    if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
+                        NotifyRoutedX2Ready(groupIdx);
+                    }
+
+                    totalM += inGroupProblemShape.m();
+                    target += GetAssignedLoopCount(coreLoops, coreNum, compCoreIdx, groupStartCoreIdx);
+                    for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
+                        producerCompletedCount[producerCore] +=
+                            GetAssignedLoopCount(coreLoops, coreNum, producerCore, groupStartCoreIdx);
+                    }
+
+                    startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
+                    if (params.profile != nullptr) {
+                        params.profile->Record(FusedDeepMoeProfileStage::Swiglu, groupIdx, profSwigluStart,
+                                               params.profile->Now());
+                    }
                 }
-
-                if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    NotifyRoutedX2Ready(groupIdx);
-                }
-
-                totalM += inGroupProblemShape.m();
-                target += GetAssignedLoopCount(coreLoops, coreNum, compCoreIdx, groupStartCoreIdx);
-                for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
-                    producerCompletedCount[producerCore] +=
-                        GetAssignedLoopCount(coreLoops, coreNum, producerCore, groupStartCoreIdx);
-                }
-
-                startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
-                if (params.profile != nullptr) {
-                    params.profile->Record(FusedDeepMoeProfileStage::Swiglu, groupIdx, profSwigluStart,
-                                           params.profile->Now());
-                }
+                AscendC::PipeBarrier<PIPE_ALL>();
             }
-            AscendC::PipeBarrier<PIPE_ALL>();
         }
         icache_preload(8);
         if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
