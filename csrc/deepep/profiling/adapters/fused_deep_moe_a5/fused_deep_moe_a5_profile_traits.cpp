@@ -77,7 +77,7 @@ std::string GetStageDisplayName(uint64_t stageId, uint64_t occurrenceId, const C
     uint32_t stageOccurrenceCount = Cam::GetProfileStageOccurrenceCount(stageLayout, static_cast<uint32_t>(stageId));
     auto stage = static_cast<ProfileStage>(stageId);
     if (stage == ProfileStage::DispatchRecv || stage == ProfileStage::Gmm1 || stage == ProfileStage::Swiglu ||
-        stage == ProfileStage::Gmm2 || stage == ProfileStage::Combine) {
+        stage == ProfileStage::Quant || stage == ProfileStage::Gmm2 || stage == ProfileStage::Combine) {
         oss << "[group=" << occurrenceId << "]";
     } else if (stageOccurrenceCount > 1U || occurrenceId != 0U) {
         oss << "[occ=" << occurrenceId << "]";
@@ -137,8 +137,9 @@ Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Swiglu), groupCountCapacity),
         "invalid swiglu occurrence capacity.");
-    EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Quant), 1U),
-                     "invalid quant occurrence capacity.");
+    EP_HOST_ASSERT_S(
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::Quant), groupCountCapacity),
+        "invalid quant occurrence capacity.");
     EP_HOST_ASSERT_S(Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::StageBarrier), 1U),
                      "invalid stage barrier occurrence capacity.");
     EP_HOST_ASSERT_S(

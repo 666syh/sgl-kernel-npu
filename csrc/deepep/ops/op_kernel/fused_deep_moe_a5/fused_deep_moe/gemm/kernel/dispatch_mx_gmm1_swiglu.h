@@ -1769,7 +1769,6 @@ public:
                 }
 
                 for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
-                    uint64_t profSwigluStart = 0;
                     if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                         groupTokenNumStateTensor.SetGlobalBuffer(
                             (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) +
@@ -1784,9 +1783,6 @@ public:
                     } else {
                         currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                    : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
-                    }
-                    if (params.profile != nullptr) {
-                        profSwigluStart = params.profile->Now();
                     }
                     GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
                     BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
@@ -1837,6 +1833,10 @@ public:
                             GetTile(tensorD, tla::MakeCoord(totalM + rightBlockCoord.m() * L1_TILE_M, rightColOffset),
                                     tla::MakeShape(rightActualBlockShape.m(), rightActualBlockShape.n()));
 
+                        uint64_t profSwigluStart = 0;
+                        if (params.profile != nullptr) {
+                            profSwigluStart = params.profile->Now();
+                        }
                         CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
                                       leftProducerCore, leftTarget);
                         blockEpilogue(tensorLeftBlockC, tensorLeftBlockD, leftActualBlockShape, true);
@@ -1844,10 +1844,25 @@ public:
                                       rightProducerCore, rightTarget);
                         blockEpilogue(tensorRightBlockC, tensorRightBlockD, rightActualBlockShape, false);
                         SyncSwigluOutBeforeMul();
+
+                        if (params.profile != nullptr) {
+                            params.profile->Record(FusedDeepMoeProfileStage::Swiglu, groupIdx, profSwigluStart,
+                                                   params.profile->Now());
+                        }
+
+                        uint64_t profMulQuantStart = 0;
+                        if (params.profile != nullptr) {
+                            profMulQuantStart = params.profile->Now();
+                        }
                         ProcessMulAndQuantFromSwigluOut(params.gmSwigluOut, params.ptrX2, params.gmX2Scale,
                                                         params.problemShape.m(), params.problemShape.n(), routedHalfN,
                                                         totalM + rightBlockCoord.m() * L1_TILE_M, leftColOffset,
                                                         rightColOffset, leftActualBlockShape, rightActualBlockShape);
+
+                        if (params.profile != nullptr) {
+                            params.profile->Record(FusedDeepMoeProfileStage::Quant, groupIdx, profMulQuantStart,
+                                                   params.profile->Now());
+                        }
                     }
 
                     if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
@@ -1862,10 +1877,6 @@ public:
                     }
 
                     startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
-                    if (params.profile != nullptr) {
-                        params.profile->Record(FusedDeepMoeProfileStage::Swiglu, groupIdx, profSwigluStart,
-                                               params.profile->Now());
-                    }
                 }
                 AscendC::PipeBarrier<PIPE_ALL>();
             }
