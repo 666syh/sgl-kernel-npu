@@ -1203,19 +1203,34 @@ public:
                 profDispatchRecvEnd = profile->Now();
                 profDispatchRecvNotifyStart = profile->Now();
             }
-            notifyCubeTensor.SetValue(CV_FLAG_INDEX, vToCFlag);
-            notifyCubeTensor.SetValue(GROUP_ID_INDEX, groupId);
-            notifyCubeTensor.SetValue(SELF_COUNT_INDEX, coreTokenCount);
-            AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
+            uint32_t idleCoreNum = recvCoreNum - useCoreNum;
+            bool hasToken = coreTokenCount > 0;
+            bool isIdleOwner = recvCoreIdx == 0 && idleCoreNum > 0;
+            uint32_t notifyCoreCount = hasToken ? 1U : 0U;
+            if (isIdleOwner) {
+                notifyCoreCount += idleCoreNum;
+            }
 
-            AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
-            groupTokenNumStateTensor.SetGlobalBuffer((__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET));
-            AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
-            AscendC::SetAtomicAdd<int32_t>();
-            AscendC::DataCopy(groupTokenNumStateTensor[groupId * GROUP_INFO_SIZE], notifyCubeTensor,
-                              INT32_COUNT_PER_BLOCK);
-            AscendC::SetAtomicNone();
-            AscendC::PipeBarrier<PIPE_ALL>();
+            if (notifyCoreCount > 0) {
+                for (uint32_t index = 0; index < INT32_COUNT_PER_BLOCK; ++index) {
+                    notifyCubeTensor.SetValue(index, 0);
+                }
+                uint32_t cvFlagContribution = static_cast<uint32_t>(vToCFlag) * notifyCoreCount;
+                notifyCubeTensor.SetValue(CV_FLAG_INDEX, static_cast<int32_t>(cvFlagContribution));
+                notifyCubeTensor.SetValue(GROUP_ID_INDEX, groupId * notifyCoreCount);
+                notifyCubeTensor.SetValue(SELF_COUNT_INDEX, coreTokenCount);
+                AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
+
+                AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
+                groupTokenNumStateTensor.SetGlobalBuffer(
+                    (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET));
+                AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
+                AscendC::SetAtomicAdd<int32_t>();
+                AscendC::DataCopy(groupTokenNumStateTensor[groupId * GROUP_INFO_SIZE], notifyCubeTensor,
+                                  INT32_COUNT_PER_BLOCK);
+                AscendC::SetAtomicNone();
+                AscendC::PipeBarrier<PIPE_ALL>();
+            }
             if (profile != nullptr) {
                 profDispatchRecvNotifyEnd = profile->Now();
             }
