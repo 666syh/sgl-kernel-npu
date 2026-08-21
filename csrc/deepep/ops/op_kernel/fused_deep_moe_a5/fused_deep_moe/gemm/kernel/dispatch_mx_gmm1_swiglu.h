@@ -1159,6 +1159,9 @@ public:
         uint32_t preExpertToken = 0;
         for (uint32_t groupId = 0; groupId < localExpertNum; ++groupId) {
             uint64_t profDispatchRecvStart = 0;
+            uint64_t profDispatchRecvEnd = 0;
+            uint64_t profDispatchRecvNotifyStart = 0;
+            uint64_t profDispatchRecvNotifyEnd = 0;
             if (profile != nullptr) {
                 profDispatchRecvStart = profile->Now();
             }
@@ -1196,6 +1199,10 @@ public:
             }
             // recv finish, inform AIC
             AscendC::PipeBarrier<PIPE_ALL>();
+            if (profile != nullptr) {
+                profDispatchRecvEnd = profile->Now();
+                profDispatchRecvNotifyStart = profile->Now();
+            }
             notifyCubeTensor.SetValue(CV_FLAG_INDEX, vToCFlag);
             notifyCubeTensor.SetValue(GROUP_ID_INDEX, groupId);
             notifyCubeTensor.SetValue(SELF_COUNT_INDEX, coreTokenCount);
@@ -1209,6 +1216,9 @@ public:
                               INT32_COUNT_PER_BLOCK);
             AscendC::SetAtomicNone();
             AscendC::PipeBarrier<PIPE_ALL>();
+            if (profile != nullptr) {
+                profDispatchRecvNotifyEnd = profile->Now();
+            }
 
             startCoreIdx = (startCoreIdx + currentM) % recvCoreNum;
             preExpertToken += currentM;
@@ -1216,8 +1226,10 @@ public:
                 auto dispatchRecvPayload = Cam::ToProfilePrivatePayloadRaw(Cam::MakeDispatchRecvPrivatePayloadV1(
                     Cam::PROFILE_PRIVATE_DATA_VALID, DISPATCH_RECV_PRIVATE_FORMAT_V1,
                     static_cast<uint64_t>(coreTokenCount)));
-                profile->Record(FusedDeepMoeProfileStage::DispatchRecv, groupId, profDispatchRecvStart, profile->Now(),
-                                dispatchRecvPayload);
+                profile->Record(FusedDeepMoeProfileStage::DispatchRecv, groupId, profDispatchRecvStart,
+                                profDispatchRecvEnd, dispatchRecvPayload);
+                profile->Record(FusedDeepMoeProfileStage::DispatchRecvNotify, groupId, profDispatchRecvNotifyStart,
+                                profDispatchRecvNotifyEnd, dispatchRecvPayload);
             }
         }
 
