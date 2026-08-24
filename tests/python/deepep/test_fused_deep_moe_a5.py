@@ -79,19 +79,61 @@ def get_mx_quant_config(args: argparse.Namespace) -> Dict[str, object]:
 
 
 def maybe_cast_weight_to_nz(
-    args: argparse.Namespace, weight: torch.Tensor
+    args: argparse.Namespace,
+    weight: torch.Tensor,
+    origin_dtype: torch.dtype,
+    logical_shape: Tuple[int, int, int],
 ) -> torch.Tensor:
-    """Convert supported quantized weights to A5 FRACTAL_NZ storage."""
+    """Convert a quantized weight to A5 FRACTAL_NZ storage.
+
+    FP4 quantization returns packed bytes whose subsequent view as float4 is a
+    recovery-format tensor.  CANN does not accept that recovery format as the
+    input to npu_format_cast, so the layout conversion must happen first.
+    """
     if args.weight_format != "NZ":
-        return weight
-    if args.quant == "fp4_e2m1":
-        raise ValueError("FP4 + NZ is not supported yet")
+        return weight.view(origin_dtype)
 
     # Prefer the public enum when available; keep numeric 29 as a compatibility
     # fallback for torch_npu versions that do not expose Format.FRACTAL_NZ.
     npu_format = getattr(torch_npu, "Format", None)
     fractal_nz = getattr(npu_format, "FRACTAL_NZ", 29)
-    return torch_npu.npu_format_cast(weight, fractal_nz)
+    try:
+        if args.quant == "fp4_e2m1":
+            weight = torch_npu.npu_format_cast(weight, fractal_nz)
+        else:
+            weight = torch_npu.npu_format_cast(weight.view(origin_dtype), fractal_nz)
+    except RuntimeError as exc:
+        if args.quant == "fp4_e2m1":
+            raise RuntimeError(
+                "FP4-NZ input construction is unavailable in this CANN/PTA "
+                "environment: packed FP4 npu_format_cast failed. "
+                "The fused kernel was not invoked."
+            ) from exc
+        raise
+
+    weight = weight.view(origin_dtype)
+    format_code = torch_npu.get_npu_format(weight)
+    if format_code != fractal_nz:
+        raise RuntimeError(
+            f"FP4/quantized NZ construction produced format {format_code}, "
+            f"expected FRACTAL_NZ({fractal_nz})"
+        )
+    if args.quant == "fp4_e2m1":
+        expected_bytes = (
+            ((logical_shape[2] + 63) // 64)
+            * ((logical_shape[1] + 15) // 16)
+            * 16
+            * 64
+            // 2
+            * logical_shape[0]
+        )
+        actual_bytes = weight.untyped_storage().nbytes()
+        if actual_bytes < expected_bytes:
+            raise RuntimeError(
+                f"FP4-NZ storage is too small: got {actual_bytes} bytes, "
+                f"expected at least {expected_bytes} for logical shape {logical_shape}"
+            )
+    return weight
 
 
 def log_quant_tensor(rank: int, enabled: bool, name: str, tensor: torch.Tensor):
@@ -164,8 +206,12 @@ def make_umdk_static_inputs(
     gmm1_weight, gmm1_scale_raw = torch_npu.npu_dynamic_mx_quant(
         gmm1_fp, dst_type=quant_cfg["quant_dst_type"], axis=1
     )
-    gmm1_weight = gmm1_weight.view(quant_cfg["origin_dtype"])
-    gmm1_weight = maybe_cast_weight_to_nz(args, gmm1_weight)
+    gmm1_weight = maybe_cast_weight_to_nz(
+        args,
+        gmm1_weight,
+        quant_cfg["origin_dtype"],
+        (local_experts, args.hidden, args.moe_intermediate_size * 2),
+    )
     gmm1_scale = gmm1_scale_raw.view(torch.float8_e8m0fnu)
 
     gmm2_fp = (
@@ -178,8 +224,12 @@ def make_umdk_static_inputs(
     gmm2_weight, gmm2_scale_raw = torch_npu.npu_dynamic_mx_quant(
         gmm2_fp, dst_type=quant_cfg["quant_dst_type"], axis=1
     )
-    gmm2_weight = gmm2_weight.view(quant_cfg["origin_dtype"])
-    gmm2_weight = maybe_cast_weight_to_nz(args, gmm2_weight)
+    gmm2_weight = maybe_cast_weight_to_nz(
+        args,
+        gmm2_weight,
+        quant_cfg["origin_dtype"],
+        (local_experts, args.moe_intermediate_size, args.hidden),
+    )
     gmm2_scale = gmm2_scale_raw.view(torch.float8_e8m0fnu)
 
     return {
@@ -1244,6 +1294,7 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
                 f"num_experts={args.num_experts}, "
                 f"num_topk={args.num_topk}, "
                 f"quant={args.quant}, "
+                f"weight_format={args.weight_format}, "
                 f"kernel_trace_dir={args.kernel_trace_dir}, "
                 f"num_warmups={args.num_warmups}, "
                 f"num_tests={args.num_tests}, "
@@ -1809,7 +1860,7 @@ def main():
         "--weight-format",
         choices=("ND", "NZ"),
         default="ND",
-        help="Storage format for quantized GMM weights; NZ is supported for FP8 only.",
+        help="Storage format for quantized GMM weights.",
     )
     parser.add_argument(
         "--trace-dir",
@@ -1870,10 +1921,6 @@ def main():
     if args.random_profile_cases and args.fixed_profile_cases:
         parser.error(
             "--random-profile-cases and --fixed-profile-cases are mutually exclusive"
-        )
-    if args.quant == "fp4_e2m1" and args.weight_format == "NZ":
-        parser.error(
-            "--weight-format NZ is currently supported for FP8 quantization only"
         )
     if args.quant == "fp4_e2m1" and args.hidden % 2 != 0:
         parser.error("--hidden must be even when --quant is fp4_e2m1")

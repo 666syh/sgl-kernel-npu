@@ -81,6 +81,7 @@ public:
         void *combiner;
         uint32_t expectedAivNum;
         GM_ADDR gmX2ReadyState;
+        uint64_t weightExpertStrideBytes;
         FusedDeepMoeProfileWriter *profile;
 
         // Methods
@@ -95,7 +96,8 @@ public:
                LayoutA const &layoutSharedA_, GM_ADDR ptrSharedB_, LayoutB const &layoutSharedB_,
                GM_ADDR ptrSharedMxScaleA_, LayoutMxScaleA layoutSharedMxScaleA_, GM_ADDR ptrSharedMxScaleB_,
                LayoutMxScaleB layoutSharedMxScaleB_, GM_ADDR ptrSharedC_, GM_ADDR ptrSharedD_, void *combiner_,
-               uint32_t expectedAivNum_, GM_ADDR gmX2ReadyState_, FusedDeepMoeProfileWriter *profile_)
+               uint32_t expectedAivNum_, GM_ADDR gmX2ReadyState_, uint64_t weightExpertStrideBytes_,
+               FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -124,6 +126,7 @@ public:
               combiner(combiner_),
               expectedAivNum(expectedAivNum_),
               gmX2ReadyState(gmX2ReadyState_),
+              weightExpertStrideBytes(weightExpertStrideBytes_),
               profile(profile_)
         {}
     };
@@ -270,7 +273,14 @@ public:
                     gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(groupIdx));
                     gmMxScaleB.SetGlobalBuffer(gmBScalelistTensorDesc.GetDataPtr<ElementMxScaleB>(groupIdx));
                 } else {
-                    gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(0) + gmGroupOffsetB);
+                    if (params.weightExpertStrideBytes != 0U) {
+                        auto *weightBase =
+                            reinterpret_cast<__gm__ uint8_t *>(gmBlistTensorDesc.GetDataPtr<ElementB>(0));
+                        gmB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(
+                            weightBase + static_cast<uint64_t>(groupIdx) * params.weightExpertStrideBytes));
+                    } else {
+                        gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(0) + gmGroupOffsetB);
+                    }
                     gmMxScaleB.SetGlobalBuffer(gmBScalelistTensorDesc.GetDataPtr<ElementMxScaleB>(0) +
                                                gmGroupOffsetMxScaleB);
                 }
@@ -340,12 +350,14 @@ public:
                 totalM += inGroupProblemShape.m();
 
                 if constexpr (!(EXEC_FLAG & EXEC_FLAG_TENSOR_LIST)) {
-                    if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t, float4_e1m2x2_t>) {
-                        gmGroupOffsetB += std::is_same_v<LayoutB, layout::ColumnMajor>
-                                              ? CeilDiv<2>(inGroupProblemShape.k()) * inGroupProblemShape.n()
-                                              : CeilDiv<2>(inGroupProblemShape.n()) * inGroupProblemShape.k();
-                    } else {
-                        gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
+                    if (params.weightExpertStrideBytes == 0U) {
+                        if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t, float4_e1m2x2_t>) {
+                            gmGroupOffsetB += std::is_same_v<LayoutB, layout::ColumnMajor>
+                                                  ? CeilDiv<2>(inGroupProblemShape.k()) * inGroupProblemShape.n()
+                                                  : CeilDiv<2>(inGroupProblemShape.n()) * inGroupProblemShape.k();
+                        } else {
+                            gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
+                        }
                     }
                     gmGroupOffsetMxScaleB += mxScaleAlignedK * inGroupProblemShape.n();
                 }

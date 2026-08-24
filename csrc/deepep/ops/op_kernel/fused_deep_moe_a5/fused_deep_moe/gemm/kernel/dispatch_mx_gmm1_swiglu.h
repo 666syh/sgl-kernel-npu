@@ -155,6 +155,7 @@ public:
         uint32_t topK;
         uint32_t tokenLen;
         uint32_t shareN;
+        uint64_t weightExpertStrideBytes;
         // Methods
         CATLASS_HOST_DEVICE
         Params() {}
@@ -218,7 +219,8 @@ public:
               bs(fusedDeepMoeInfo.bs),
               topK(fusedDeepMoeInfo.k),
               tokenLen(fusedDeepMoeInfo.h),
-              shareN(fusedDeepMoeInfo.shareGmm1HLen)
+              shareN(fusedDeepMoeInfo.shareGmm1HLen),
+              weightExpertStrideBytes(fusedDeepMoeInfo.gmm1WeightExpertStrideBytes)
         {}
     };
 
@@ -484,7 +486,14 @@ public:
                     gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(groupIdx));
                     gmMxScaleB.SetGlobalBuffer(gmBScalelistTensorDesc.GetDataPtr<ElementMxScaleB>(groupIdx));
                 } else {
-                    gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(0) + gmGroupOffsetB);
+                    if (params.weightExpertStrideBytes != 0U) {
+                        auto *weightBase =
+                            reinterpret_cast<__gm__ uint8_t *>(gmBlistTensorDesc.GetDataPtr<ElementB>(0));
+                        gmB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(
+                            weightBase + static_cast<uint64_t>(groupIdx) * params.weightExpertStrideBytes));
+                    } else {
+                        gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(0) + gmGroupOffsetB);
+                    }
                     gmMxScaleB.SetGlobalBuffer(gmBScalelistTensorDesc.GetDataPtr<ElementMxScaleB>(0) +
                                                gmGroupOffsetMxScaleB);
                 }
@@ -558,12 +567,14 @@ public:
                 totalM += inGroupProblemShape.m();
 
                 if constexpr (!(EXEC_FLAG & EXEC_FLAG_TENSOR_LIST)) {
-                    if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t, float4_e1m2x2_t>) {
-                        gmGroupOffsetB += std::is_same_v<LayoutB, layout::ColumnMajor>
-                                              ? CeilDiv<2>(inGroupProblemShape.k()) * inGroupProblemShape.n()
-                                              : CeilDiv<2>(inGroupProblemShape.n()) * inGroupProblemShape.k();
-                    } else {
-                        gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
+                    if (params.weightExpertStrideBytes == 0U) {
+                        if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t, float4_e1m2x2_t>) {
+                            gmGroupOffsetB += std::is_same_v<LayoutB, layout::ColumnMajor>
+                                                  ? CeilDiv<2>(inGroupProblemShape.k()) * inGroupProblemShape.n()
+                                                  : CeilDiv<2>(inGroupProblemShape.n()) * inGroupProblemShape.k();
+                        } else {
+                            gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
+                        }
                     }
                     gmGroupOffsetMxScaleB += mxScaleAlignedK * inGroupProblemShape.n();
                 }
