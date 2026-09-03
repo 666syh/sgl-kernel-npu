@@ -107,7 +107,7 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
 
     using ArchTag = Catlass::Arch::Ascend950;
     constexpr bool enableUnitFlag = true;
-    using DispatchPolicy = Catlass::Gemm::MmadMxWithCallback<ArchTag, enableUnitFlag>;
+    using DispatchPolicy = Catlass::Gemm::MmadMxWithCallback<ArchTag, enableUnitFlag, 16, 1, true>;
 
     auto layoutA = tla::MakeLayout<ElementA, LayoutTagA>(m, k);
     auto layoutB = tla::MakeLayout<ElementB, LayoutTagB>(k, n);
@@ -213,7 +213,7 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
 
     using ArchTag = Catlass::Arch::Ascend950;
     constexpr bool enableUnitFlag = true;
-    using DispatchPolicy = Catlass::Gemm::MmadMxWithCallback<ArchTag, enableUnitFlag>;
+    using DispatchPolicy = Catlass::Gemm::MmadMxWithCallback<ArchTag, enableUnitFlag, 16, 1, true>;
 
     auto layoutA = tla::MakeLayout<ElementA, LayoutTagA>(m, k);
     auto layoutShareA = tla::MakeLayout<ElementA, LayoutTagA>(m, shareK);
