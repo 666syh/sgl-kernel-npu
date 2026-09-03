@@ -34,7 +34,6 @@ public:
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
     using L1TileShape = typename BlockMmad::L1TileShape;
-    using L0TileShape = typename BlockMmad::L0TileShape;
     using ElementA = typename BlockMmad::ElementA;
     using LayoutA = typename BlockMmad::LayoutA;
     using ElementB = typename BlockMmad::ElementB;
@@ -59,7 +58,6 @@ public:
     static constexpr uint32_t L1_TILE_M = tla::get<0>(L1TileShape{});
     static constexpr uint32_t L1_TILE_N = tla::get<1>(L1TileShape{});
     static constexpr uint32_t L1_TILE_K = tla::get<2>(L1TileShape{});
-    static constexpr uint32_t L0_TILE_K = tla::get<2>(L0TileShape{});
 
     /// Parameters structure
     struct Params {
@@ -230,11 +228,6 @@ public:
     {
         gmX2ReadyState = params.gmX2ReadyState;
         AscendC::ICachePreLoad(1);
-        if (AscendC::GetBlockIdx() == 0) {
-            AscendC::printf("[A5 tile] GMM2 L1=(%u,%u,%u) L0K=%u bitsB=%u\\n", L1_TILE_M, L1_TILE_N, L1_TILE_K,
-                            L0_TILE_K, SizeOfBits<ElementB>::value);
-        }
-
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
         uint32_t coreIdx = AscendC::GetBlockIdx();
