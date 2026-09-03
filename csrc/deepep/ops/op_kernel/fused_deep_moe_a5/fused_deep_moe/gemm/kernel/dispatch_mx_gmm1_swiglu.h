@@ -290,7 +290,7 @@ public:
             if (FlushAndGetValue<int32_t>(groupTokenNumStateTensor, 0) == static_cast<int32_t>(expected)) {
                 break;
             }
-            SPIN_WAIT_CYCLES();
+            SPIN_WAIT_CYCLES<500>();
         }
     }
 
@@ -1103,7 +1103,7 @@ public:
                 if (tmpLocalTensor.GetValue(TOKEN_READY_FLAG_INDEX) == tokenFlag) {
                     break;
                 }
-                SPIN_WAIT_CYCLES<500>();
+                SPIN_WAIT_CYCLES();
             }
             AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(0);
             AscendC::DataCopy(xTmpTensor_, tokGlobal, MxByte2Count<ElementA>(hCommuSize));

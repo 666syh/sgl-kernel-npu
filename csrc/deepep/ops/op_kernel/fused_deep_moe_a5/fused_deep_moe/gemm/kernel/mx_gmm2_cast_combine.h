@@ -149,7 +149,7 @@ public:
         readyTensor.SetGlobalBuffer((__gm__ int32_t *)(syncGmAddr + FusedDeepMoeSync::GROUP_TOKEN_NUM_OFFSET) +
                                     groupIdx * FusedDeepMoeSync::GROUP_INFO_SIZE);
         while (FlushAndGetValue<int32_t>(readyTensor, counterIndex) != static_cast<int32_t>(expectedAivNum)) {
-            SPIN_WAIT_CYCLES();
+            SPIN_WAIT_CYCLES<500>();
         }
         AscendC::PipeBarrier<PIPE_ALL>();
     }
@@ -165,7 +165,7 @@ public:
             if (actualCount == static_cast<int32_t>(expectedAivNum)) {
                 break;
             }
-            SPIN_WAIT_CYCLES();
+            SPIN_WAIT_CYCLES<500>();
         }
 
         AscendC::PipeBarrier<PIPE_ALL>();
