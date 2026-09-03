@@ -73,6 +73,10 @@ constexpr uint32_t GMM1_L1M = 256;
 constexpr uint32_t GMM1_L1N = 256;
 constexpr uint32_t GMM1_L1K = 256;
 constexpr uint32_t GMM1_L0K = 128;
+// FP4 stores two logical values per byte, so its L1/L0 K tiles can be
+// doubled while keeping the same physical buffer footprint as FP8.
+constexpr uint32_t GMM1_L1K_FP4 = 512;
+constexpr uint32_t GMM1_L0K_FP4 = 256;
 constexpr uint32_t GMM1_EPIM = 64;
 constexpr uint32_t GMM1_SWIZZLE_OFFSET = 3;
 constexpr uint32_t GMM1_SWIZZLE_DIRECTION = 0;
@@ -81,6 +85,8 @@ constexpr uint32_t GMM2_L1M = 256;
 constexpr uint32_t GMM2_L1N = 256;
 constexpr uint32_t GMM2_L1K = 256;
 constexpr uint32_t GMM2_L0K = 128;
+constexpr uint32_t GMM2_L1K_FP4 = 512;
+constexpr uint32_t GMM2_L0K_FP4 = 256;
 constexpr uint32_t GMM2_EPIM = 64;
 constexpr uint32_t GMM2_SWIZZLE_OFFSET = 3;
 constexpr uint32_t GMM2_SWIZZLE_DIRECTION = 0;

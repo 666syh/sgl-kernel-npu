@@ -34,14 +34,30 @@ using ElementC = float;
 using ElementMxScale = fp8_e8m0_t;
 using ElementGroupList = int64_t;
 
-using Gmm1L1TileShape = Shape<Int<GMM1_L1M>, Int<GMM1_L1N>, Int<GMM1_L1K>>;
-using Gmm1L0TileShape = Shape<Int<GMM1_L1M>, Int<GMM1_L1N>, Int<GMM1_L0K>>;
+template <class Element>
+using Gmm1L1TileShape =
+    Shape<Int<GMM1_L1M>, Int<GMM1_L1N>,
+          Int<std::is_same_v<Element, float4_e2m1x2_t> || std::is_same_v<Element, float4_e1m2x2_t> ? GMM1_L1K_FP4
+                                                                                                   : GMM1_L1K>>;
+template <class Element>
+using Gmm1L0TileShape =
+    Shape<Int<GMM1_L1M>, Int<GMM1_L1N>,
+          Int<std::is_same_v<Element, float4_e2m1x2_t> || std::is_same_v<Element, float4_e1m2x2_t> ? GMM1_L0K_FP4
+                                                                                                   : GMM1_L0K>>;
 using Gmm1EpilogueTileShape = MatrixShape<GMM1_EPIM, GMM1_L1N>;
 using Gmm1BlockScheduler =
     typename Catlass::Gemm::Block::GemmIdentityBlockSwizzle<GMM1_SWIZZLE_OFFSET, GMM1_SWIZZLE_DIRECTION>;
 
-using Gmm2L1TileShape = Shape<Int<GMM2_L1M>, Int<GMM2_L1N>, Int<GMM2_L1K>>;
-using Gmm2L0TileShape = Shape<Int<GMM2_L1M>, Int<GMM2_L1N>, Int<GMM2_L0K>>;
+template <class Element>
+using Gmm2L1TileShape =
+    Shape<Int<GMM2_L1M>, Int<GMM2_L1N>,
+          Int<std::is_same_v<Element, float4_e2m1x2_t> || std::is_same_v<Element, float4_e1m2x2_t> ? GMM2_L1K_FP4
+                                                                                                   : GMM2_L1K>>;
+template <class Element>
+using Gmm2L0TileShape =
+    Shape<Int<GMM2_L1M>, Int<GMM2_L1N>,
+          Int<std::is_same_v<Element, float4_e2m1x2_t> || std::is_same_v<Element, float4_e1m2x2_t> ? GMM2_L0K_FP4
+                                                                                                   : GMM2_L0K>>;
 using Gmm2EpilogueTileShape = MatrixShape<GMM2_EPIM, GMM2_L1N>;
 using Gmm2BlockScheduler =
     typename Catlass::Gemm::Block::GemmIdentityBlockSwizzle<GMM2_SWIZZLE_OFFSET, GMM2_SWIZZLE_DIRECTION>;
@@ -411,8 +427,8 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
                        static_cast<uint32_t>(tilingData_->fusedDeepMoeInfo.profileLaunchId),
                        static_cast<uint32_t>(g_coreType), tilingData_->fusedDeepMoeInfo.profileBufferBytes);
 
-    DispatchMxGmm1SwigluQuantFunc<TemplateMC2TypeFunc, ElementA, ElementB, Gmm1L1TileShape, Gmm1L0TileShape,
-                                  Gmm1EpilogueTileShape, Gmm1BlockScheduler>(
+    DispatchMxGmm1SwigluQuantFunc<TemplateMC2TypeFunc, ElementA, ElementB, Gmm1L1TileShape<ElementB>,
+                                  Gmm1L0TileShape<ElementB>, Gmm1EpilogueTileShape, Gmm1BlockScheduler>(
         gmm1ProblemShape, groupCount_, gmGroupList, gmX1, gmWeight1_, gmX1Scale, gmScale1_, gmGmm1SwapSpace,
         gmSwigluOut, gmX2, gmX2Scale, shareGmm1ProblemShape, gmShareX1, gmShareWeight1_, gmShareX1Scale,
         gmShareWeight1Scale_, gmShareMm1SwapSpace, gmShareSwigluOut, gmShareX2, gmShareX2Scale, gmX_, gmexpertIds_,
@@ -440,7 +456,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         combiner.Init(gmGmm2DepOut, gmexpertIds_, gmExpandIdx, gmEpSendCount, nullptr, gmexpertScales_, xActiveMask_,
                       gmOutput_, nullptr, nullptr, tilingData_);
     }
-    MxGmm2CastCombineFunc<TemplateMC2TypeFunc, ElementA, ElementB, Gmm2L1TileShape, Gmm2L0TileShape,
+    MxGmm2CastCombineFunc<TemplateMC2TypeFunc, ElementA, ElementB, Gmm2L1TileShape<ElementB>, Gmm2L0TileShape<ElementB>,
                           Gmm2EpilogueTileShape, Gmm2BlockScheduler>(
         gmm2ProblemShape, groupCount_, gmGroupList, gmX2, gmWeight2_, gmX2Scale, gmScale2_, gmGmm2SwapSpace,
         gmGmm2DepOut, shareGmm2ProblemShape, gmShareX2, gmShareWeight2_, gmShareX2Scale, gmShareWeight2Scale_,
