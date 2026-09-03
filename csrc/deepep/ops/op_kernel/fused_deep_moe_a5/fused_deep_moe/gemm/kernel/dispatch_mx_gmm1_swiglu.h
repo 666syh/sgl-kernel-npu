@@ -372,6 +372,10 @@ public:
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
         AscendC::ICachePreLoad(1);
+        if (AscendC::GetBlockIdx() == 0) {
+            AscendC::printf("[A5 tile] GMM1 L1=(%u,%u,%u) L0K=%u bitsB=%u\\n", L1_TILE_M, L1_TILE_N, L1_TILE_K,
+                            L0_TILE_K, SizeOfBits<ElementB>::value);
+        }
         uint32_t actualRecvCoreNumPerGroup = recvCoreNum;
 
         BlockScheduler blockScheduler;
