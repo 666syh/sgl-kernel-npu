@@ -79,7 +79,9 @@ constexpr uint32_t GMM1_L1K_FP4 = 512;
 constexpr uint32_t GMM1_L0K_FP4 = 256;
 constexpr uint32_t GMM1_EPIM = 64;
 constexpr uint32_t GMM1_SWIZZLE_OFFSET = 3;
-constexpr uint32_t GMM1_SWIZZLE_DIRECTION = 0;
+// For the M~1, large-N workload, match the grouped-matmul small-operator
+// traversal (N-priority) to improve weight locality.
+constexpr uint32_t GMM1_SWIZZLE_DIRECTION = 1;
 
 constexpr uint32_t GMM2_L1M = 256;
 constexpr uint32_t GMM2_L1N = 256;
@@ -89,7 +91,7 @@ constexpr uint32_t GMM2_L1K_FP4 = 512;
 constexpr uint32_t GMM2_L0K_FP4 = 256;
 constexpr uint32_t GMM2_EPIM = 64;
 constexpr uint32_t GMM2_SWIZZLE_OFFSET = 3;
-constexpr uint32_t GMM2_SWIZZLE_DIRECTION = 0;
+constexpr uint32_t GMM2_SWIZZLE_DIRECTION = 1;
 
 constexpr uint32_t MX_FP4_QUANT_MODE = 4U;
 constexpr uint32_t WEIGHT_LAYOUT_ND = 0U;
