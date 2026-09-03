@@ -34,6 +34,7 @@ public:
     using BlockMmad = BlockMmad_;
     using ArchTag = typename BlockMmad::ArchTag;
     using L1TileShape = typename BlockMmad::L1TileShape;
+    using L0TileShape = typename BlockMmad::L0TileShape;
     using ElementA = typename BlockMmad::ElementA;
     using LayoutA = typename BlockMmad::LayoutA;
     using ElementB = typename BlockMmad::ElementB;
@@ -58,6 +59,7 @@ public:
     static constexpr uint32_t L1_TILE_M = tla::get<0>(L1TileShape{});
     static constexpr uint32_t L1_TILE_N = tla::get<1>(L1TileShape{});
     static constexpr uint32_t L1_TILE_K = tla::get<2>(L1TileShape{});
+    static constexpr uint32_t L0_TILE_K = tla::get<2>(L0TileShape{});
 
     /// Parameters structure
     struct Params {
