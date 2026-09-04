@@ -39,12 +39,9 @@ struct WorkSpaceOffset {
 };
 
 struct RoutedGroupMeta {
-    uint32_t tokenCount;  // 当前 group 实际收到的 token 数
-    uint32_t tokenPrefix;  // 当前 group 在所有 routed token 中的起始偏移，也就是前面所有 group 的 token 数累计值
-    uint32_t recvActiveAivCount;  // 实际执行该 group 接收搬运的 AIV 数量
-    uint32_t computeActiveAivCount;  // 实际执行该 group GMM1/SwiGLU/MulQuant 并发送 X2 ready 通知的物理 AIV 数量
-    uint32_t flags;                  // metadata 发布状态和版本标记
-    uint32_t reserved[3];
+    uint32_t tokenCount;             // 当前 group 实际收到的 token 数
+    uint32_t computeActiveAivCount;  // GMM2 等待的 routed-X2 ready 通知数
+    uint8_t padding[24];             // 保持每个 group 独占一个 32B GM block
 };
 static_assert(sizeof(RoutedGroupMeta) == 32, "RoutedGroupMeta must occupy one GM cache line");
 

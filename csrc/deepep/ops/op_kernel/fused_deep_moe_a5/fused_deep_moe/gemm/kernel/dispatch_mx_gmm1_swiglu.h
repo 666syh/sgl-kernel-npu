@@ -1486,9 +1486,7 @@ public:
                         metaLocal.SetValue(i, 0);
                     }
                     metaLocal.SetValue(0, static_cast<int32_t>(tokenCount));
-                    metaLocal.SetValue(1, static_cast<int32_t>(prefix));
-                    metaLocal.SetValue(2, static_cast<int32_t>(tokenCount < recvCoreNum ? tokenCount : recvCoreNum));
-                    metaLocal.SetValue(3, static_cast<int32_t>(computeActive));
+                    metaLocal.SetValue(1, static_cast<int32_t>(computeActive));
                     AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
                     AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
                     AscendC::DataCopy(metaTensor[groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)], metaLocal,

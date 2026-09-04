@@ -296,7 +296,7 @@ public:
                             continue;
                         }
                         uint32_t expected = static_cast<uint32_t>(FlushAndGetValue<int32_t>(
-                            routedGroupMetaTensor, groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t) + 3));
+                            routedGroupMetaTensor, groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t) + 1));
                         if (expected != 0) {
                             WaitRoutedX2Ready(groupIdx, expected);
                         }
