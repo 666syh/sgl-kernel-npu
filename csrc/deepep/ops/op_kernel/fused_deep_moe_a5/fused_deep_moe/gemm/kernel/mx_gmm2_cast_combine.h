@@ -81,6 +81,8 @@ public:
         void *combiner;
         uint32_t expectedAivNum;
         GM_ADDR gmX2ReadyState;
+        GM_ADDR gmRoutedGroupMeta;
+        uint32_t enableRoutedSparseFastPath;
         uint64_t weightExpertStrideBytes;
         FusedDeepMoeProfileWriter *profile;
 
@@ -96,8 +98,8 @@ public:
                LayoutA const &layoutSharedA_, GM_ADDR ptrSharedB_, LayoutB const &layoutSharedB_,
                GM_ADDR ptrSharedMxScaleA_, LayoutMxScaleA layoutSharedMxScaleA_, GM_ADDR ptrSharedMxScaleB_,
                LayoutMxScaleB layoutSharedMxScaleB_, GM_ADDR ptrSharedC_, GM_ADDR ptrSharedD_, void *combiner_,
-               uint32_t expectedAivNum_, GM_ADDR gmX2ReadyState_, uint64_t weightExpertStrideBytes_,
-               FusedDeepMoeProfileWriter *profile_)
+               uint32_t expectedAivNum_, GM_ADDR gmX2ReadyState_, GM_ADDR gmRoutedGroupMeta_,
+               uint64_t weightExpertStrideBytes_, FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -126,6 +128,8 @@ public:
               combiner(combiner_),
               expectedAivNum(expectedAivNum_),
               gmX2ReadyState(gmX2ReadyState_),
+              gmRoutedGroupMeta(gmRoutedGroupMeta_),
+              enableRoutedSparseFastPath(0),
               weightExpertStrideBytes(weightExpertStrideBytes_),
               profile(profile_)
         {}
@@ -227,6 +231,8 @@ public:
     CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
     {
         gmX2ReadyState = params.gmX2ReadyState;
+        gmRoutedGroupMeta = params.gmRoutedGroupMeta;
+        bool sparseFastPath = params.enableRoutedSparseFastPath != 0;
         AscendC::ICachePreLoad(1);
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
@@ -261,11 +267,42 @@ public:
             int64_t totalM = 0;
             auto tensorA = tla::MakeTensor(gmA, params.layoutA, Arch::PositionGM{});
             auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
+            AscendC::GlobalTensor<int32_t> routedGroupMetaTensor;
+            if (sparseFastPath) {
+                routedGroupMetaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+            }
 
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
                 uint64_t profGroupStart = 0;
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    WaitRoutedX2Ready(groupIdx, params.expectedAivNum);
+                    if (sparseFastPath) {
+                        currentM = static_cast<uint32_t>(FlushAndGetValue<int32_t>(
+                            routedGroupMetaTensor, groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)));
+                        if (currentM == 0) {
+                            if constexpr (!(EXEC_FLAG & EXEC_FLAG_TENSOR_LIST)) {
+                                if (params.weightExpertStrideBytes == 0U) {
+                                    if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t,
+                                                                            float4_e1m2x2_t>) {
+                                        gmGroupOffsetB +=
+                                            std::is_same_v<LayoutB, layout::ColumnMajor>
+                                                ? CeilDiv<2>(params.problemShape.k()) * params.problemShape.n()
+                                                : CeilDiv<2>(params.problemShape.n()) * params.problemShape.k();
+                                    } else {
+                                        gmGroupOffsetB += params.problemShape.k() * params.problemShape.n();
+                                    }
+                                }
+                                gmGroupOffsetMxScaleB += mxScaleAlignedK * params.problemShape.n();
+                            }
+                            continue;
+                        }
+                        uint32_t expected = static_cast<uint32_t>(FlushAndGetValue<int32_t>(
+                            routedGroupMetaTensor, groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t) + 3));
+                        if (expected != 0) {
+                            WaitRoutedX2Ready(groupIdx, expected);
+                        }
+                    } else {
+                        WaitRoutedX2Ready(groupIdx, params.expectedAivNum);
+                    }
                 }
                 gmMxScaleA.SetGlobalBuffer(params.ptrMxScaleA + gmGroupOffsetMxScaleA);
                 if constexpr (EXEC_FLAG & EXEC_FLAG_TENSOR_LIST) {
@@ -284,9 +321,11 @@ public:
                                                gmGroupOffsetMxScaleB);
                 }
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    currentM = (groupIdx == 0) ? FlushAndGetValue<ElementGroupList>(groupList, groupIdx)
-                                               : (FlushAndGetValue<ElementGroupList>(groupList, groupIdx) -
-                                                  FlushAndGetValue<ElementGroupList>(groupList, groupIdx - 1));
+                    if (!sparseFastPath) {
+                        currentM = (groupIdx == 0) ? FlushAndGetValue<ElementGroupList>(groupList, groupIdx)
+                                                   : (FlushAndGetValue<ElementGroupList>(groupList, groupIdx) -
+                                                      FlushAndGetValue<ElementGroupList>(groupList, groupIdx - 1));
+                    }
                 } else {
                     currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
@@ -691,6 +730,7 @@ private:
     __gm__ Mc2Kernel::HcclOpParam *winContext_;
     GM_ADDR syncGmAddr;
     GM_ADDR gmX2ReadyState;
+    GM_ADDR gmRoutedGroupMeta;
     Arch::Resource<ArchTag> resource;
 };
 

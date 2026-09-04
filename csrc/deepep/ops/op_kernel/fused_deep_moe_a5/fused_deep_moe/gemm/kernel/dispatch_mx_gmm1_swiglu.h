@@ -143,6 +143,7 @@ public:
         GM_ADDR gmEpSendCount;
         GM_ADDR gmExpertTokenNums;
         GM_ADDR gmX2ReadyState;
+        GM_ADDR gmRoutedGroupMeta;
         FusedDeepMoeProfileWriter *profile;
 
         uint32_t epRankSize;
@@ -156,6 +157,7 @@ public:
         uint32_t tokenLen;
         uint32_t shareN;
         uint64_t weightExpertStrideBytes;
+        uint32_t enableRoutedSparseFastPath;
         // Methods
         CATLASS_HOST_DEVICE
         Params() {}
@@ -171,7 +173,8 @@ public:
                GM_ADDR gmShareSwigluOut_, GM_ADDR ptrShareX2_, GM_ADDR gmShareX2Scale_, GM_ADDR gmX_,
                GM_ADDR gmExpertIds_, GM_ADDR gmXActiveMask_, GM_ADDR gmMoeSmoothScales_, GM_ADDR gmShareSmoothScales_,
                GM_ADDR gmExpandIdx_, GM_ADDR gmEpSendCount_, GM_ADDR gmExpertTokenNums_, GM_ADDR gmX2ReadyState_,
-               const FusedDeepMoeInfo &fusedDeepMoeInfo, FusedDeepMoeProfileWriter *profile_)
+               GM_ADDR gmRoutedGroupMeta_, const FusedDeepMoeInfo &fusedDeepMoeInfo,
+               FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -209,6 +212,7 @@ public:
               gmEpSendCount(gmEpSendCount_),
               gmExpertTokenNums(gmExpertTokenNums_),
               gmX2ReadyState(gmX2ReadyState_),
+              gmRoutedGroupMeta(gmRoutedGroupMeta_),
               profile(profile_),
               epRankSize(fusedDeepMoeInfo.epRankSize),
               epRankId(fusedDeepMoeInfo.epRankId),
@@ -220,7 +224,8 @@ public:
               topK(fusedDeepMoeInfo.k),
               tokenLen(fusedDeepMoeInfo.h),
               shareN(fusedDeepMoeInfo.shareGmm1HLen),
-              weightExpertStrideBytes(fusedDeepMoeInfo.gmm1WeightExpertStrideBytes)
+              weightExpertStrideBytes(fusedDeepMoeInfo.gmm1WeightExpertStrideBytes),
+              enableRoutedSparseFastPath(fusedDeepMoeInfo.enableRoutedSparseFastPath)
         {}
     };
 
@@ -373,6 +378,7 @@ public:
     {
         AscendC::ICachePreLoad(1);
         uint32_t actualRecvCoreNumPerGroup = recvCoreNum;
+        bool sparseFastPath = params.enableRoutedSparseFastPath != 0;
 
         BlockScheduler blockScheduler;
         BlockMmad blockMmad(resource);
@@ -460,6 +466,13 @@ public:
 
             startCoreIdx = (startCoreIdx + coreLoops) % aicNum;
         }
+        if (sparseFastPath) {
+            // Pair with the AIV-side barrier after FinalizeGroupMetaAfterRecv.
+            // This is the publication point for routed metadata.
+            AscendC::PipeBarrier<PIPE_ALL>();
+            AscendC::SyncAll<false>();
+            AscendC::PipeBarrier<PIPE_ALL>();
+        }
         {
             AscendC::GlobalTensor<ElementGroupList> groupList;
             groupList.SetGlobalBuffer(params.ptrGroupList);
@@ -479,6 +492,10 @@ public:
             auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
 
             AscendC::GlobalTensor<int32_t> groupTokenNumStateTensor;
+            AscendC::GlobalTensor<int32_t> routedGroupMetaTensor;
+            if (sparseFastPath) {
+                routedGroupMetaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+            }
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
                 uint64_t profStart = 0;
                 gmMxScaleA.SetGlobalBuffer(params.ptrMxScaleA + gmGroupOffsetMxScaleA);
@@ -498,16 +515,36 @@ public:
                                                gmGroupOffsetMxScaleB);
                 }
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    groupTokenNumStateTensor.SetGlobalBuffer(
-                        (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) + groupIdx * GROUP_INFO_SIZE);
-                    // wait AIV recv needed tokens
-                    uint32_t expected = actualRecvCoreNumPerGroup * vToCFlag;
-                    WaitGroupTokenNumReady(groupTokenNumStateTensor, expected);
-                    callbackAfterFixpipe();
-                    currentM = groupTokenNumStateTensor.GetValue(GROUP_TOKEN_COUNT);
+                    if (sparseFastPath) {
+                        currentM = static_cast<uint32_t>(
+                            routedGroupMetaTensor.GetValue(groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)));
+                    } else {
+                        groupTokenNumStateTensor.SetGlobalBuffer(
+                            (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) +
+                            groupIdx * GROUP_INFO_SIZE);
+                        uint32_t expected = actualRecvCoreNumPerGroup * vToCFlag;
+                        WaitGroupTokenNumReady(groupTokenNumStateTensor, expected);
+                        callbackAfterFixpipe();
+                        currentM = groupTokenNumStateTensor.GetValue(GROUP_TOKEN_COUNT);
+                    }
                 } else {
                     currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                }
+                if (sparseFastPath && currentM == 0) {
+                    if constexpr (!(EXEC_FLAG & EXEC_FLAG_TENSOR_LIST)) {
+                        if (params.weightExpertStrideBytes == 0U) {
+                            if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t, float4_e1m2x2_t>) {
+                                gmGroupOffsetB += std::is_same_v<LayoutB, layout::ColumnMajor>
+                                                      ? CeilDiv<2>(params.problemShape.k()) * params.problemShape.n()
+                                                      : CeilDiv<2>(params.problemShape.n()) * params.problemShape.k();
+                            } else {
+                                gmGroupOffsetB += params.problemShape.k() * params.problemShape.n();
+                            }
+                        }
+                        gmGroupOffsetMxScaleB += mxScaleAlignedK * params.problemShape.n();
+                    }
+                    continue;
                 }
                 if (params.profile != nullptr) {
                     profStart = params.profile->Now();
@@ -1176,8 +1213,13 @@ public:
             if (profile != nullptr) {
                 profDispatchRecvStart = profile->Now();
             }
-            GetCumSum((groupId + 1) * epRankSize - 1, recvExpertNum, ubOffset);
-            uint32_t currentM = gatherMaskOutCountTensor.GetValue(0) - preExpertToken;
+            uint32_t currentM = 0;
+            if (sparseFastPath) {
+                currentM = GetGroupTokenCount(groupId);
+            } else {
+                GetCumSum((groupId + 1) * epRankSize - 1, recvExpertNum, ubOffset);
+                currentM = gatherMaskOutCountTensor.GetValue(0) - preExpertToken;
+            }
 
             uint32_t recvTokenPerCore = currentM / recvCoreNum;
             uint32_t remainToken = currentM % recvCoreNum;
@@ -1208,12 +1250,23 @@ public:
                 RecvToken(gmX1, gmX1Scale, startRankId, startTokenIdx + preExpertToken, startTokenIdxInRank,
                           recvTokenPerCore);
             }
-            // recv finish, inform AIC
+            // recv finish. Sparse metadata is generated in Finalize after all
+            // receive workers have reached the AIV-only barrier.
             AscendC::PipeBarrier<PIPE_ALL>();
             if (profile != nullptr) {
                 profDispatchRecvEnd = profile->Now();
                 profDispatchRecvNotifyStart = profile->Now();
             }
+            if (sparseFastPath) {
+                preExpertToken += currentM;
+                // Keep the same rotating receive partition as the legacy
+                // path. Empty groups do not move the rotation; non-empty
+                // groups do, even though their routed count notification is
+                // omitted in the sparse protocol.
+                startCoreIdx = (startCoreIdx + currentM) % recvCoreNum;
+                continue;
+            }
+
             uint32_t idleCoreNum = recvCoreNum - useCoreNum;
             bool hasToken = coreTokenCount > 0;
             bool isIdleOwner = recvCoreIdx == 0 && idleCoreNum > 0;
@@ -1289,10 +1342,23 @@ public:
     }
 
     CATLASS_DEVICE
+    uint32_t GetGroupTokenCount(uint32_t groupId) const
+    {
+        uint32_t count = 0;
+        uint32_t base = groupId * epRankSize;
+        for (uint32_t rank = 0; rank < epRankSize; ++rank) {
+            count += statusTensor_.GetValue((base + rank) * INT32_COUNT_PER_BLOCK + 1);
+        }
+        return count;
+    }
+
+    CATLASS_DEVICE
     void AivInitParams(Params const &params)
     {
         problemCount = params.problemCount;
         gmX2ReadyState = params.gmX2ReadyState;
+        gmRoutedGroupMeta = params.gmRoutedGroupMeta;
+        sparseFastPath = params.enableRoutedSparseFastPath != 0;
         moeExpertNumPerRank = params.moeExpertNumPerRank;
 
         epRankSize = params.epRankSize;
@@ -1344,7 +1410,7 @@ public:
     }
 
     CATLASS_DEVICE
-    void FinalizeGroupMetaAfterRecv(__gm__ ElementGroupList_ *ptrGroupList, GM_ADDR gmEpSendCount,
+    void FinalizeGroupMetaAfterRecv(const Params &params, __gm__ ElementGroupList_ *ptrGroupList, GM_ADDR gmEpSendCount,
                                     GM_ADDR gmExpertTokenNums)
     {
         if (aivNum > 0) {
@@ -1373,6 +1439,11 @@ public:
                 resource.ubBuf.template GetBufferByByte<int64_t>(metaUbOffset);
             metaUbOffset += groupListLocalBytes;
 
+            AscendC::LocalTensor<int32_t> metaLocal =
+                resource.ubBuf.template GetBufferByByte<int32_t>(ArchTag::UB_SIZE - UB_BLOCK_SIZE);
+            AscendC::GlobalTensor<int32_t> metaTensor;
+            metaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+
             uint32_t prevTokenNum = 0;
             if (expertStart > 0) {
                 prevTokenNum =
@@ -1395,6 +1466,37 @@ public:
             AscendC::DataCopyPad(expertTokenNumsOutGMTensor_[expertStart], groupListLocalTensor, copyOutParams);
             AscendC::DataCopyPad(nonCumSumExpertTokenNumsTensor[expertStart], expertTokenNumsLocalTensor,
                                  copyOutParams);
+
+            // Finalize already partitions routed experts across logical AIVs.
+            // Reuse that partition so each AIV writes its own metadata range
+            // exactly once instead of scanning every group for an owner slot.
+            if (params.enableRoutedSparseFastPath != 0) {
+                uint32_t metadataPrefix =
+                    expertStart == 0
+                        ? 0U
+                        : FlushAndGetValue<int32_t>(sendCountsGlobal, (expertStart - 1) * epRankSize + epRankSize - 1);
+                for (uint32_t expertOffset = 0; expertOffset < expertCount; ++expertOffset) {
+                    uint32_t groupIdx = expertStart + expertOffset;
+                    uint32_t cumulative = static_cast<uint32_t>(groupListLocalTensor.GetValue(expertOffset));
+                    uint32_t tokenCount = cumulative - metadataPrefix;
+                    // Only empty groups use the fast skip. Non-empty groups
+                    // preserve the legacy all-AIV ready-notification protocol.
+                    uint32_t computeActive = tokenCount == 0 ? 0U : aivNum;
+                    for (uint32_t i = 0; i < 8; ++i) {
+                        metaLocal.SetValue(i, 0);
+                    }
+                    metaLocal.SetValue(0, static_cast<int32_t>(tokenCount));
+                    metaLocal.SetValue(1, static_cast<int32_t>(prefix));
+                    metaLocal.SetValue(2, static_cast<int32_t>(tokenCount < recvCoreNum ? tokenCount : recvCoreNum));
+                    metaLocal.SetValue(3, static_cast<int32_t>(computeActive));
+                    AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
+                    AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
+                    AscendC::DataCopy(metaTensor[groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)], metaLocal,
+                                      INT32_COUNT_PER_BLOCK);
+                    AscendC::PipeBarrier<PIPE_MTE3>();
+                    metadataPrefix = cumulative;
+                }
+            }
         }
     }
 
@@ -1722,12 +1824,25 @@ public:
             }
             CleanRoutedX2ReadyState();
             AivOnlySync();
-            FinalizeGroupMetaAfterRecv(params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
-            AivOnlySync();
+            FinalizeGroupMetaAfterRecv(params, params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
+            if (params.enableRoutedSparseFastPath != 0) {
+                AscendC::PipeBarrier<PIPE_MTE3>();
+                AscendC::SyncAll<false>();
+                AscendC::PipeBarrier<PIPE_ALL>();
+            } else {
+                // Preserve the legacy AIV-only finalize boundary. The sparse
+                // path replaces it with the paired AIC/AIV publication sync.
+                AivOnlySync();
+            }
         }
 
         uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
         uint32_t coreNum = AscendC::GetBlockNum();
+        bool sparseFastPath = params.enableRoutedSparseFastPath != 0;
+        AscendC::GlobalTensor<int32_t> routedGroupMetaTensor;
+        if (sparseFastPath) {
+            routedGroupMetaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+        }
 
         AscendC::GlobalTensor<ElementC> gmC;
         AscendC::GlobalTensor<ElementC> gmSwigluOutTensor;
@@ -1808,19 +1923,27 @@ public:
 
                 for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
                     if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                        groupTokenNumStateTensor.SetGlobalBuffer(
-                            (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) +
-                            groupIdx * GROUP_INFO_SIZE);
-                        CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
-                                      static_cast<int32_t>(compCoreIdx), target);
-                        target += 1;
-                        currentM = FlushAndGetValue<int32_t>(groupTokenNumStateTensor, GROUP_TOKEN_COUNT);
-                        for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
-                            producerCompletedCount[producerCore] += 1;
+                        if (sparseFastPath) {
+                            currentM = static_cast<uint32_t>(
+                                routedGroupMetaTensor.GetValue(groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)));
+                        } else {
+                            groupTokenNumStateTensor.SetGlobalBuffer(
+                                (__gm__ int32_t *)(statusDataSpaceGm + GROUP_TOKEN_NUM_OFFSET) +
+                                groupIdx * GROUP_INFO_SIZE);
+                            CheckSyncFlag(reinterpret_cast<__gm__ int32_t *>(statusDataSpaceGm + SOFT_SYNC_OFFSET),
+                                          static_cast<int32_t>(compCoreIdx), target);
+                            target += 1;
+                            currentM = FlushAndGetValue<int32_t>(groupTokenNumStateTensor, GROUP_TOKEN_COUNT);
+                            for (uint32_t producerCore = 0; producerCore < coreNum; ++producerCore) {
+                                producerCompletedCount[producerCore] += 1;
+                            }
                         }
                     } else {
                         currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                    : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
+                    }
+                    if (sparseFastPath && currentM == 0) {
+                        continue;
                     }
                     GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
                     BlockScheduler matmulBlockScheduler(inGroupProblemShape, MakeCoord(L1_TILE_M, L1_TILE_N));
@@ -1988,6 +2111,8 @@ private:
     uint32_t x2MxScaleNum{0};
     uint32_t problemCount{0};
     GM_ADDR gmX2ReadyState{nullptr};
+    GM_ADDR gmRoutedGroupMeta{nullptr};
+    bool sparseFastPath{false};
 
     // state info
     int32_t tokenFlag{0};    // token flag

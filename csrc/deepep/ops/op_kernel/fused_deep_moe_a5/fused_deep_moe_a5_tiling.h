@@ -33,8 +33,20 @@ struct WorkSpaceOffset {
     int64_t groupListOffset;          // 各专家token数前缀和形式
     int64_t expandIdxOffset;          // dispatch时token在远端索引
     int64_t epSendCountOffset;        // 各专家从各个rank收到的token数
+    int64_t routedGroupMetaOffset;    // 稀疏routed路径的group metadata
+    int64_t routedGroupMetaSize;      // metadata区域大小（字节）
     int64_t reservedOffset;           // 预留空间
 };
+
+struct RoutedGroupMeta {
+    uint32_t tokenCount;  // 当前 group 实际收到的 token 数
+    uint32_t tokenPrefix;  // 当前 group 在所有 routed token 中的起始偏移，也就是前面所有 group 的 token 数累计值
+    uint32_t recvActiveAivCount;  // 实际执行该 group 接收搬运的 AIV 数量
+    uint32_t computeActiveAivCount;  // 实际执行该 group GMM1/SwiGLU/MulQuant 并发送 X2 ready 通知的物理 AIV 数量
+    uint32_t flags;                  // metadata 发布状态和版本标记
+    uint32_t reserved[3];
+};
+static_assert(sizeof(RoutedGroupMeta) == 32, "RoutedGroupMeta must occupy one GM cache line");
 
 struct FusedDeepMoeInfo {
     uint32_t epRankSize;           // epRankSize
@@ -60,6 +72,7 @@ struct FusedDeepMoeInfo {
     uint64_t gmm1WeightExpertStrideBytes;
     uint64_t gmm2WeightExpertStrideBytes;
     bool isTensorList;
+    uint32_t enableRoutedSparseFastPath;
 };
 
 struct FusedDeepMoeTilingData {

@@ -28,6 +28,7 @@ constexpr uint32_t X2_READY_MAX_ROUTED_EXPERTS = 256;
 constexpr uint32_t X2_READY_SLOT_SIZE = 512;
 constexpr uint32_t X2_READY_SIZE = X2_READY_SLOT_SIZE * X2_READY_MAX_ROUTED_EXPERTS;
 constexpr uint32_t RESERVED_WORKSPACE_SIZE = X2_READY_SIZE;
+constexpr uint32_t ROUTED_GROUP_META_ALIGN = 32;
 
 constexpr uint32_t INPUT_X_INDEX = 0;
 constexpr uint32_t INPUT_EXPERT_IDS_INDEX = 1;
@@ -865,7 +866,17 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     tilingData.workSpaceOffset.groupListOffset = tilingData.workSpaceOffset.y2TokenOffset + gmm2DepOutSize;
     tilingData.workSpaceOffset.expandIdxOffset = tilingData.workSpaceOffset.groupListOffset + groupListSize;
     tilingData.workSpaceOffset.epSendCountOffset = tilingData.workSpaceOffset.expandIdxOffset + expandIdxSize;
-    tilingData.workSpaceOffset.reservedOffset = tilingData.workSpaceOffset.epSendCountOffset + epSendCountSize;
+    tilingData.workSpaceOffset.routedGroupMetaOffset =
+        CeilUp(tilingData.workSpaceOffset.epSendCountOffset + epSendCountSize, ROUTED_GROUP_META_ALIGN);
+    size_t routedGroupMetaSize =
+        CeilUp(static_cast<size_t>(moeExpertNumPerRank) * sizeof(RoutedGroupMeta), GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.routedGroupMetaSize = static_cast<int64_t>(routedGroupMetaSize);
+    tilingData.workSpaceOffset.reservedOffset = tilingData.workSpaceOffset.routedGroupMetaOffset + routedGroupMetaSize;
+    OPS_ERR_IF(tilingData.workSpaceOffset.routedGroupMetaOffset <
+                       tilingData.workSpaceOffset.epSendCountOffset + epSendCountSize ||
+                   tilingData.workSpaceOffset.reservedOffset <
+                       tilingData.workSpaceOffset.routedGroupMetaOffset + routedGroupMetaSize,
+               OPS_LOG_E(nodeName, "routed group metadata overlaps workspace regions."), return ge::GRAPH_FAILED);
     size_t usrSize = tilingData.workSpaceOffset.reservedOffset + reservedSize;
     workSpaces[0] = SYSTEM_NEED_WORKSPACE + usrSize;
     return ge::GRAPH_SUCCESS;
@@ -962,6 +973,12 @@ static ge::graphStatus FusedDeepMoeTilingFuncImpl(gert::TilingContext &context)
     if (tilingData->fusedDeepMoeInfo.moeExpertNumPerRank != 1) {
         tilingKey |= EXEC_FLAG_DEEP_FUSE;
     }
+    tilingData->fusedDeepMoeInfo.enableRoutedSparseFastPath =
+        (tilingData->fusedDeepMoeInfo.moeExpertNumPerRank > 1 &&
+         static_cast<uint64_t>(tilingData->fusedDeepMoeInfo.bs) * tilingData->fusedDeepMoeInfo.k <
+             tilingData->fusedDeepMoeInfo.moeExpertNumPerRank)
+            ? 1U
+            : 0U;
     if (tilingData->fusedDeepMoeInfo.isTensorList) {
         tilingKey |= EXEC_FLAG_TENSOR_LIST;
     }

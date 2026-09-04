@@ -96,7 +96,7 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
     // dispatch and quant, when EXEC_FLAG_DEEP_FUSE.
     GM_ADDR gmX, GM_ADDR gmExpertIds, GM_ADDR xActiveMask, GM_ADDR gmMoeSmoothScales, GM_ADDR gmShareSmoothScales,
     GM_ADDR gmExpandIdx, GM_ADDR gmEpSendCount, GM_ADDR gmExpertTokenNums, GM_ADDR gmX2ReadyState,
-    const FusedDeepMoeInfo &fusedDeepMoeInfo, FusedDeepMoeProfileWriter *profile)
+    GM_ADDR gmRoutedGroupMeta, const FusedDeepMoeInfo &fusedDeepMoeInfo, FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
                    std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
@@ -181,6 +181,7 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
                                          gmEpSendCount,
                                          gmExpertTokenNums,
                                          gmX2ReadyState,
+                                         gmRoutedGroupMeta,
                                          fusedDeepMoeInfo,
                                          profile};
 
@@ -200,7 +201,8 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
     // shared expert, matmul
     Catlass::GemmCoord sharedProblemShape, GM_ADDR gmShareA, GM_ADDR gmShareB, GM_ADDR gmShareAScale,
     GM_ADDR gmShareBScale, GM_ADDR gmShareSwapSpace, GM_ADDR gmShareD, void *combiner, uint32_t expectedAivNum,
-    GM_ADDR gmX2ReadyState, uint64_t weightExpertStrideBytes, FusedDeepMoeProfileWriter *profile)
+    GM_ADDR gmX2ReadyState, GM_ADDR gmRoutedGroupMeta, uint32_t enableRoutedSparseFastPath,
+    uint64_t weightExpertStrideBytes, FusedDeepMoeProfileWriter *profile)
 {
     static_assert((std::is_same_v<ElementA, float8_e5m2_t> || std::is_same_v<ElementA, float8_e4m3_t> ||
                    std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
@@ -278,8 +280,10 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
                                          combiner,
                                          expectedAivNum,
                                          gmX2ReadyState,
+                                         gmRoutedGroupMeta,
                                          weightExpertStrideBytes,
                                          profile};
+    params.enableRoutedSparseFastPath = enableRoutedSparseFastPath;
 
     MatmulKernel kernel;
     kernel(params);
@@ -435,6 +439,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
     GM_ADDR gmExpandIdx = workspaceGM_ + tilingData_->workSpaceOffset.expandIdxOffset;
     GM_ADDR gmEpSendCount = workspaceGM_ + tilingData_->workSpaceOffset.epSendCountOffset;
     GM_ADDR gmX2ReadyState = workspaceGM_ + tilingData_->workSpaceOffset.reservedOffset;
+    GM_ADDR gmRoutedGroupMeta = workspaceGM_ + tilingData_->workSpaceOffset.routedGroupMetaOffset;
     FusedDeepMoeProfileWriter profileWriter;
     profileWriter.Init(profileBufferGM_, tilingData_->fusedDeepMoeInfo.profileEnable != 0,
                        static_cast<uint32_t>(tilingData_->fusedDeepMoeInfo.profileLaunchId),
@@ -446,7 +451,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         gmSwigluOut, gmX2, gmX2Scale, shareGmm1ProblemShape, gmShareX1, gmShareWeight1_, gmShareX1Scale,
         gmShareWeight1Scale_, gmShareMm1SwapSpace, gmShareSwigluOut, gmShareX2, gmShareX2Scale, gmX_, gmexpertIds_,
         xActiveMask_, gmSmoothScales_, gmShareSmoothScales_, gmExpandIdx, gmEpSendCount, gmExpertTokenNums_,
-        gmX2ReadyState, tilingData_->fusedDeepMoeInfo, &profileWriter);
+        gmX2ReadyState, gmRoutedGroupMeta, tilingData_->fusedDeepMoeInfo, &profileWriter);
     uint64_t stageBarrierStart = 0U;
     if (profileWriter.enabled) {
         stageBarrierStart = profileWriter.Now();
@@ -474,6 +479,7 @@ __aicore__ inline void FusedDeepMoe<TemplateMC2TypeFunc>::Process()
         gmm2ProblemShape, groupCount_, gmGroupList, gmX2, gmWeight2_, gmX2Scale, gmScale2_, gmGmm2SwapSpace,
         gmGmm2DepOut, shareGmm2ProblemShape, gmShareX2, gmShareWeight2_, gmShareX2Scale, gmShareWeight2Scale_,
         gmShareMm2SwapSpace, gmShareOutput_, &combiner, tilingData_->fusedDeepMoeInfo.aivNum, gmX2ReadyState,
+        gmRoutedGroupMeta, tilingData_->fusedDeepMoeInfo.enableRoutedSparseFastPath,
         tilingData_->fusedDeepMoeInfo.gmm2WeightExpertStrideBytes, &profileWriter);
 }
 #endif  // FUSED_DEEP_MOE_H
