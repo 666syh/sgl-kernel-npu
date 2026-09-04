@@ -11,7 +11,6 @@ namespace CamMoeCombineNormalImpl {
 constexpr uint32_t RANK_ID_OFFSET_IN_SRC_INFO = 0U;
 constexpr uint32_t TOKEN_IDX_OFFSET_IN_SRC_INFO = 1U;
 constexpr uint32_t TOPK_IDX_OFFSET_IN_SRC_INFO = 2U;
-constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 4UL * 1024UL * 1024UL;
 constexpr uint64_t MAGIC_WIN_OFFSET = 975UL * 1024UL;
 constexpr uint32_t TOKEN_SRC_INFO_LEN = 3U;
 constexpr uint32_t UB_32_ALIGN = 32U;
@@ -71,7 +70,9 @@ private:
 
     __aicore__ GM_ADDR GetBufferAddrByRankId(const int32_t rankId)
     {
-        return GetStateAddrByRankId(rankId) + COMBINE_STATE_WIN_OFFSET;
+        return GetStateAddrByRankId(rankId) + Moe::A3WindowLayout::kNormalCombineStateSize +
+               Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize +
+               Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize;
     }
 
     __aicore__ inline void SplitCoreCal(uint32_t totalNum, uint32_t &perCoreNum, uint32_t &startIdx, uint32_t &endIdx)

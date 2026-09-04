@@ -1,11 +1,10 @@
-#ifndef TILING_ARGS_H
-#define TILING_ARGS_H
+#ifndef WINDOW_LAYOUT_H
+#define WINDOW_LAYOUT_H
 
 #include <cstdint>
 
 namespace Moe {
 namespace A3WindowLayout {
-// Keep these host-side layout values synchronized with op_kernel/window_layout.h.
 constexpr uint64_t KB = 1024UL;
 constexpr uint64_t MB = 1024UL * KB;
 
@@ -34,4 +33,4 @@ static_assert(kV2StateTimeoutOffset + kV2StateTimeoutBytes <= kV2StateSize,
 }  // namespace A3WindowLayout
 }  // namespace Moe
 
-#endif  // TILING_ARGS_H
+#endif  // WINDOW_LAYOUT_H

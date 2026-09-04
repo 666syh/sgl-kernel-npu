@@ -7,12 +7,12 @@
 #include "moe_distribute_v2_base.h"
 #include "moe_distribute_combine_v2_tiling.h"
 #include "check_winsize.h"
+#include "window_layout.h"
 namespace MoeDistributeCombineV2Impl {
 using namespace MoeDistributeV2Base;
-constexpr uint8_t BUFFER_NUM = 2;                       // 多buf
-constexpr uint32_t STATE_OFFSET = 32U;                  // 状态空间偏移地址
-constexpr uint32_t STATE_SIZE = 1024UL * 1024UL;        // 1M
-constexpr uint32_t COMBINE_STATE_OFFSET = 64U * 1024U;  // 本卡状态空间偏移地址，前面的地址给dispatch用
+constexpr uint8_t BUFFER_NUM = 2;                 // 多buf
+constexpr uint32_t STATE_OFFSET = 32U;            // 状态空间偏移地址
+constexpr uint32_t STATE_SIZE = 1024UL * 1024UL;  // 1M
 constexpr uint8_t EP_DOMAIN = 0;
 constexpr uint8_t TP_DOMAIN = 1;
 constexpr uint32_t FLOAT_PER_UB_ALIGN = 8U;
@@ -90,18 +90,21 @@ private:
     __aicore__ GM_ADDR GetWinAddrByRankId(const int32_t rankId, const uint8_t domain)
     {
         if (domain == EP_DOMAIN) {
-            return GetBaseWindAddrByRankId(epWinContext_, rankId, epRankIdOriginal_) + winDataSizeOffset_;
-        } else {
-            return GetBaseWindAddrByRankId(tpWinContext_, rankId, tpRankId_) + winDataSizeOffset_;
+            return GetBaseWindAddrByRankId(epWinContext_, rankId, epRankIdOriginal_) + winDataSizeOffset_ +
+                   Moe::A3WindowLayout::kDataOffset;
         }
+        return GetBaseWindAddrByRankId(tpWinContext_, rankId, tpRankId_) + winDataSizeOffset_ +
+               Moe::A3WindowLayout::kDataOffset;
     }
 
     __aicore__ GM_ADDR GetWinStateAddrByRankId(const int32_t rankId, const uint8_t domain)
     {
         if (domain == EP_DOMAIN) {
-            return GetBaseWindStateAddrByRankId(epWinContext_, rankId, epRankIdOriginal_) + winStatusOffset_;
+            return GetBaseWindAddrByRankId(epWinContext_, rankId, epRankIdOriginal_) +
+                   dataState_ * (totalWinSize_ / 2UL) + Moe::A3WindowLayout::kV2CombineStateOffset;
         } else {
-            return GetBaseWindStateAddrByRankId(tpWinContext_, rankId, tpRankId_) + winStatusOffset_;
+            return GetBaseWindAddrByRankId(tpWinContext_, rankId, tpRankId_) + dataState_ * (totalWinSize_ / 2UL) +
+                   Moe::A3WindowLayout::kV2CombineStateOffset;
         }
     }
 
@@ -179,7 +182,6 @@ private:
     uint32_t stateOffset_{0};
     uint64_t activeMaskBsCnt_{0};
     uint64_t winDataSizeOffset_{0};
-    uint64_t winStatusOffset_{0};
     uint64_t totalWinSize_{0};
     uint32_t selfSendCnt_{0};
     uint32_t tpRemoteSendCnt_{0};
@@ -385,9 +387,10 @@ MoeDistributeCombineV2<TemplateMC2TypeFunc>::InitAttrs(const MoeDistributeCombin
     uint32_t sharedExpertRankNum = tilingData->moeDistributeCombineV2Info.sharedExpertRankNum;
     auto contextGM0 = AscendC::GetHcclContext<HCCL_GROUP_ID_0>();
     epWinContext_ = (__gm__ HcclOpParam *)contextGM0;
-    statusDataSpaceGm_ = GetStatusDataSpaceGm(epWinContext_);
+    statusDataSpaceGm_ = GetBaseWindAddrByRankId(epWinContext_, epRankIdOriginal_, epRankIdOriginal_) +
+                         Moe::A3WindowLayout::kV2CombineSelectorOffset;
     selfDataStatusGMTensor_.SetGlobalBuffer(
-        (__gm__ uint32_t *)(statusDataSpaceGm_ + STATE_WIN_OFFSET + coreIdx_ * WIN_ADDR_ALIGN));
+        (__gm__ uint32_t *)(statusDataSpaceGm_ + coreIdx_ * Moe::A3WindowLayout::kAivMetadataStride));
     TBuf<> dataStateBuf;
     tpipe_->InitBuffer(dataStateBuf, UB_ALIGN);
     dataState_ = InitWinState(selfDataStatusGMTensor_, epWinContext_, epRankIdOriginal_, moeExpertNum_,
@@ -454,12 +457,13 @@ __aicore__ inline void MoeDistributeCombineV2<TemplateMC2TypeFunc>::Init(
     // 当前win区划分为前后两半区，连续两次dispatch，切换半区
     winDataSizeOffset_ =
         static_cast<uint64_t>(dataState_) * (tilingData->moeDistributeCombineV2Info.totalWinSize / 2UL);
-    winStatusOffset_ = COMBINE_STATE_OFFSET + dataState_ * WIN_STATE_OFFSET;  // 前面的预留给dispatch使用
     epWindowGM_ = GetWinAddrByRankId(epRankIdOriginal_, EP_DOMAIN);
 #if defined(ASCENDC_OOM) && ASCENDC_OOM == 1
     for (int tempepRankId = 0; tempepRankId < epWorldSize_; tempepRankId++) {
-        OOMCheckAddrRange<XType>((__gm__ XType *)(GetWinAddrByRankId(tempepRankId, EP_DOMAIN)), totalWinSize_);
-        OOMCheckAddrRange<float>((__gm__ float *)(GetWinStateAddrByRankId(tempepRankId, EP_DOMAIN)), STATE_SIZE);
+        OOMCheckAddrRange<XType>((__gm__ XType *)(GetWinAddrByRankId(tempepRankId, EP_DOMAIN)),
+                                 totalWinSize_ / 2UL - Moe::A3WindowLayout::kDataOffset);
+        OOMCheckAddrRange<float>((__gm__ float *)(GetWinStateAddrByRankId(tempepRankId, EP_DOMAIN)),
+                                 Moe::A3WindowLayout::kV2StateSize);
     }
 #endif
     if (isShareExpertRankFlag_) {
@@ -481,9 +485,10 @@ __aicore__ inline void MoeDistributeCombineV2<TemplateMC2TypeFunc>::Init(
         tpWindowGM_ = GetWinAddrByRankId(tpRankId_, TP_DOMAIN);
 #if defined(ASCENDC_OOM) && ASCENDC_OOM == 1
         for (int temptpRankId = 0; temptpRankId < tpWorldSize_; temptpRankId++) {
-            OOMCheckAddrRange<XType>((__gm__ XType *)(GetWinAddrByRankId(temptpRankId, TP_DOMAIN)), totalWinSize_);
+            OOMCheckAddrRange<XType>((__gm__ XType *)(GetWinAddrByRankId(temptpRankId, TP_DOMAIN)),
+                                     totalWinSize_ / 2UL - Moe::A3WindowLayout::kDataOffset);
             OOMCheckAddrRange<int32_t>((__gm__ int32_t *)(GetWinStateAddrByRankId(temptpRankId, TP_DOMAIN)),
-                                       STATE_SIZE);
+                                       Moe::A3WindowLayout::kV2StateSize);
         }
 #endif
         tpStateOffsetOnWin_ = tpRankId_ * WIN_ADDR_ALIGN;

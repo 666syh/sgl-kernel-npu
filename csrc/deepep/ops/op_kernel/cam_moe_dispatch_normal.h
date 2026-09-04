@@ -19,7 +19,6 @@ constexpr uint64_t WIN_STATE_OFFSET = 500UL * 1024UL;
 constexpr uint64_t STATE_WIN_OFFSET = 950UL * 1024UL;
 constexpr uint64_t WIN_ADDR_ALIGN = 512UL;
 constexpr uint32_t EXPAND_IDX_INFO = 3U;
-constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 4UL * 1024UL * 1024UL;
 constexpr int64_t CYCLE_TO_TIME = 50;  // cycle num is converted into a fixed base unit of time, set at 50
 constexpr uint64_t ROUND_STATE_OFFSET = Moe::BASE_ROUND_STATE_OFFSET;
 constexpr uint32_t FLOAT_NUM_PER_ALIGN = 8U;
@@ -68,11 +67,11 @@ private:
     {
         uint32_t curRankId = ((ctxIdx == COMM_EP_IDX) ? epRankId : tpRankId);
         if (curRankId == rankId) {
-            return (GM_ADDR)(winContext_[ctxIdx]->localWindowsIn) + winDataSizeOffset + COMBINE_STATE_WIN_OFFSET +
-                   Moe::NOTIFY_DISPATCH_BUFF_OFFSET;
+            return (GM_ADDR)(winContext_[ctxIdx]->localWindowsIn) + winDataSizeOffset +
+                   Moe::A3WindowLayout::kDataOffset;
         }
         return (GM_ADDR)(((HcclRankRelationResV2 *)(winContext_[ctxIdx]->remoteRes[rankId].nextDevicePtr))->windowsIn) +
-               winDataSizeOffset + COMBINE_STATE_WIN_OFFSET + Moe::NOTIFY_DISPATCH_BUFF_OFFSET;
+               winDataSizeOffset + Moe::A3WindowLayout::kDataOffset;
     }
 
     __aicore__ inline GM_ADDR GetWindStateAddrByRankId(uint8_t ctxIdx, const int32_t rankId)

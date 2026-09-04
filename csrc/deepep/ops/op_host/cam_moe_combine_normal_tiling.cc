@@ -565,17 +565,16 @@ static ge::graphStatus CamMoeCombineNormalA3TilingFuncImpl(gert::TilingContext *
     // combine数据区 token首地址对齐512
     uint64_t tokenNeedSizeCombine = ((h * MAX_OUT_DTYPE_SIZE + WIN_ADDR_ALIGN - 1UL) / WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
     tokenNeedSizeCombine = maxRound > 1 ? tokenNeedSizeCombine * 2 : tokenNeedSizeCombine;
-    uint64_t actualSize = (realBs * k * tokenNeedSizeCombine + COMBINE_STATE_WIN_OFFSET + NOTIFY_DISPATCH_WIN_OFFSET) *
-                          DOUBLE_DATA_BUFFER;
+    uint64_t perHalfDataSize = realBs * k * tokenNeedSizeCombine;
+    uint64_t actualSize = (perHalfDataSize + Moe::A3WindowLayout::kPerHalfReservedSize) * DOUBLE_DATA_BUFFER;
     OP_TILING_CHECK(
         (actualSize > maxWindowSize),
         OP_LOGE(nodeName,
                 "HCCL_BUFFSIZE is too SMALL, realBs = %lu, h = %lu, epWorldSize = %lu, localMoeExpertNum = %u,"
-                " tokenNeedSizeCombine = %lu, k = %lu, NEEDED_HCCL_BUFFSIZE("
-                "((realBs * k * tokenNeedSizeCombine * 2)) + 4MB + 204MB) * 2) = %luMB, "
-                "HCCL_BUFFSIZE=%luMB.",
-                realBs, h, epWorldSize, localMoeExpertNum, tokenNeedSizeCombine, k, actualSize / MB_SIZE + 1UL,
-                maxWindowSize / MB_SIZE),
+                " tokenNeedSizeCombine = %lu, k = %lu, perHalfDataSize=%lu, perHalfReservedSize=%lu, "
+                "NEEDED_HCCL_BUFFSIZE((perHalfDataSize + perHalfReservedSize) * 2) = %luMB, HCCL_BUFFSIZE=%luMB.",
+                realBs, h, epWorldSize, localMoeExpertNum, tokenNeedSizeCombine, k, perHalfDataSize,
+                Moe::A3WindowLayout::kPerHalfReservedSize, actualSize / MB_SIZE + 1UL, maxWindowSize / MB_SIZE),
         return ge::GRAPH_FAILED);
     tilingData->camMoeCombineNormalInfo.totalWinSize = maxWindowSize;
 

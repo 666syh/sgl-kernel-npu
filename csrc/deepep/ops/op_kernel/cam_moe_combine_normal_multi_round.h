@@ -11,7 +11,7 @@ namespace CamMoeCombineNormalMultiRoundImpl {
 constexpr uint32_t RANK_ID_OFFSET_IN_SRC_INFO = 0U;
 constexpr uint32_t TOKEN_IDX_OFFSET_IN_SRC_INFO = 1U;
 constexpr uint32_t TOPK_IDX_OFFSET_IN_SRC_INFO = 2U;
-constexpr uint64_t STATE_WIN_SIZE = 4UL * 1024UL * 1024UL;
+constexpr uint64_t STATE_WIN_SIZE = Moe::A3WindowLayout::kNormalCombineStateSize;
 constexpr uint64_t STATE_WIN_SIZE_HALF = STATE_WIN_SIZE / 2;
 #ifdef __DAV_C310__
 constexpr uint64_t MAGIC_WIN_OFFSET = 1100UL * 1024UL;
@@ -81,7 +81,9 @@ private:
 
     __aicore__ GM_ADDR GetBufferAddrByRankId(const int32_t rankId)
     {
-        return GetStateAddrByRankId(rankId) + STATE_WIN_SIZE + roundMagic_ * combineDataBuffSize_;
+        return GetStateAddrByRankId(rankId) + STATE_WIN_SIZE + roundMagic_ * combineDataBuffSize_ +
+               Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize +
+               Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize;
     }
 
     __aicore__ inline GM_ADDR GetRoundStateAddrByRankId(const int32_t rankId)
