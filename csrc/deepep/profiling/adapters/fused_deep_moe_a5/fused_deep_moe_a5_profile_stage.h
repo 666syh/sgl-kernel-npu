@@ -18,7 +18,10 @@ enum class ProfileStage : uint32_t {
     WeightSumReducePermute = 9,
     WeightSumClean = 10,
     DispatchRecvNotify = 11,
-    Count = 12,
+    DispatchRecvAivSync = 12,
+    DispatchRecvFinalize = 13,
+    DispatchRecvGlobalSync = 14,
+    Count = 15,
 };
 
 constexpr uint32_t kStageCount = static_cast<uint32_t>(ProfileStage::Count);
