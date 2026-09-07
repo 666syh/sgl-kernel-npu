@@ -1194,7 +1194,14 @@ public:
         reduceSumWorkLocalTensor = resource.ubBuf.template GetBufferByByte<float>(ubOffset);
         ubOffset += REDUCE_SUM_WORK_SIZE;
 
+        uint64_t profileRecvCountStart = 0;
+        if (profile != nullptr) {
+            profileRecvCountStart = profile->Now();
+        }
         RecvCount(ubOffset);
+        if (profile != nullptr) {
+            profile->Record(FusedDeepMoeProfileStage::DispatchRecvCount, 0U, profileRecvCountStart, profile->Now());
+        }
 
         uint32_t recvExpertNum = expertCntUp;
         uint32_t recvCoreNumPerGroup = recvCoreNum;
@@ -1205,6 +1212,10 @@ public:
         uint32_t subUbOffset =
             CEIL_UP(expertCntUp * UB_BLOCK_SIZE) + CEIL_UP(UB_BLOCK_SIZE) + CEIL_UP(expertCntUp * sizeof(float));
         uint32_t preExpertToken = 0;
+        uint64_t profileRecvGroupsStart = 0;
+        if (profile != nullptr) {
+            profileRecvGroupsStart = profile->Now();
+        }
         for (uint32_t groupId = 0; groupId < localExpertNum; ++groupId) {
             uint64_t profDispatchRecvStart = 0;
             uint64_t profDispatchRecvEnd = 0;
@@ -1310,6 +1321,9 @@ public:
                 profile->Record(FusedDeepMoeProfileStage::DispatchRecvNotify, groupId, profDispatchRecvNotifyStart,
                                 profDispatchRecvNotifyEnd, dispatchRecvPayload);
             }
+        }
+        if (profile != nullptr) {
+            profile->Record(FusedDeepMoeProfileStage::DispatchRecvGroups, 0U, profileRecvGroupsStart, profile->Now());
         }
 
         uint32_t sendCountNum = expertCntUp;
@@ -1816,27 +1830,11 @@ public:
                 SendCoreFunc((GM_ADDR)params.gmX, (GM_ADDR)params.gmExpertIds, (GM_ADDR)params.gmMoeSmoothScales,
                              (GM_ADDR)params.gmExpandIdx, (GM_ADDR)params.gmXActiveMask, params.profile);
             }
-            uint64_t profileRecvCoreStart = 0;
-            if (params.profile != nullptr) {
-                profileRecvCoreStart = params.profile->Now();
-            }
             if (isRecvCore) {
                 RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount,
                              params.profile);
             }
-            if (params.profile != nullptr) {
-                params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvCore, 0U, profileRecvCoreStart,
-                                       params.profile->Now());
-            }
-            uint64_t profileRecvCleanStart = 0;
-            if (params.profile != nullptr) {
-                profileRecvCleanStart = params.profile->Now();
-            }
             CleanRoutedX2ReadyState();
-            if (params.profile != nullptr) {
-                params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvClean, 0U, profileRecvCleanStart,
-                                       params.profile->Now());
-            }
             AivOnlySync();
             uint64_t profileFinalizeStart = 0;
             if (params.profile != nullptr) {
