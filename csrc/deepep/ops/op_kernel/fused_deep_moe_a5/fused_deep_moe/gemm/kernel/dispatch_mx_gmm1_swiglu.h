@@ -1054,6 +1054,11 @@ public:
         AscendC::PipeBarrier<PIPE_ALL>();
     }
 
+    /*
+     * 等待[localExpertNum][epRankSize]的status
+     * status[0]: flag
+     * status[1]: remote rank 发给 local expert 的 token 数
+     */
     CATLASS_DEVICE
     void RecvCount(int64_t ubOffset)
     {
@@ -1208,6 +1213,14 @@ public:
         AscendC::LocalTensor<int32_t> notifyCubeTensor = resource.ubBuf.template GetBufferByByte<int32_t>(ubOffset);
 
         ubOffset += CEIL_UP((expertCntUp / recvCoreNum + 1) * sizeof(int32_t));
+        const bool activeGroupListOwner = sparseFastPath && recvCoreIdx == 0;
+        AscendC::LocalTensor<uint32_t> activeGroupIdsLocal;
+        uint32_t activeGroupCount = 0;
+        if (activeGroupListOwner) {
+            // Reuse the existing count scratch buffer; it has expertCntUp
+            // entries, which is at least localExpertNum.
+            activeGroupIdsLocal = gatherMaskOutTensor.template ReinterpretCast<uint32_t>();
+        }
         reduceSumWorkLocalTensor = resource.ubBuf.template GetBufferByByte<float>(ubOffset);
         ubOffset += REDUCE_SUM_WORK_SIZE;
 
@@ -1244,6 +1257,9 @@ public:
             uint32_t currentM = 0;
             if (sparseFastPath) {
                 currentM = GetGroupTokenCount(groupId);
+                if (activeGroupListOwner && currentM != 0) {
+                    activeGroupIdsLocal.SetValue(activeGroupCount++, groupId);
+                }
             } else {
                 GetCumSum((groupId + 1) * epRankSize - 1, recvExpertNum, ubOffset);
                 currentM = gatherMaskOutCountTensor.GetValue(0) - preExpertToken;
@@ -1339,6 +1355,22 @@ public:
                                 profDispatchRecvNotifyEnd, dispatchRecvPayload);
             }
         }
+
+        if (activeGroupListOwner) {
+            AscendC::GlobalTensor<uint32_t> activeGroupCountTensor;
+            AscendC::GlobalTensor<uint32_t> activeGroupIdsTensor;
+            activeGroupCountTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gmRoutedActiveGroupCount));
+            activeGroupIdsTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gmRoutedActiveGroupIds));
+            if (activeGroupCount != 0) {
+                AscendC::DataCopyExtParams activeIdsCopyParams = {
+                    1U, activeGroupCount * static_cast<uint32_t>(sizeof(uint32_t)), 0U, 0U, 0U};
+                AscendC::DataCopyPad(activeGroupIdsTensor, activeGroupIdsLocal, activeIdsCopyParams);
+            }
+            AscendC::PipeBarrier<PIPE_MTE3>();
+            // Publish count only after every active group id has reached GM.
+            SetValueAndFlush<uint32_t>(activeGroupCountTensor, 0, activeGroupCount);
+        }
+
         if (profile != nullptr) {
             profile->Record(FusedDeepMoeProfileStage::DispatchRecvGroups, 0U, profileRecvGroupsStart, profile->Now());
         }
@@ -1389,6 +1421,8 @@ public:
         problemCount = params.problemCount;
         gmX2ReadyState = params.gmX2ReadyState;
         gmRoutedGroupMeta = params.gmRoutedGroupMeta;
+        gmRoutedActiveGroupCount = params.gmRoutedActiveGroupCount;
+        gmRoutedActiveGroupIds = params.gmRoutedActiveGroupIds;
         sparseFastPath = params.enableRoutedSparseFastPath != 0;
         moeExpertNumPerRank = params.moeExpertNumPerRank;
 
@@ -1524,37 +1558,6 @@ public:
                                       INT32_COUNT_PER_BLOCK);
                     AscendC::PipeBarrier<PIPE_MTE3>();
                     metadataPrefix = cumulative;
-                }
-
-                // One physical AIV builds the compact list after receive counts are stable.
-                // The paired AIC/AIV SyncAll after Finalize publishes both ids and count.
-                if (aivIdx == 0 && AscendC::GetSubBlockIdx() == 0) {
-                    AscendC::PipeBarrier<PIPE_MTE3>();
-                    AscendC::GlobalTensor<uint32_t> activeGroupCountTensor;
-                    AscendC::GlobalTensor<uint32_t> activeGroupIdsTensor;
-                    activeGroupCountTensor.SetGlobalBuffer(
-                        reinterpret_cast<__gm__ uint32_t *>(params.gmRoutedActiveGroupCount));
-                    activeGroupIdsTensor.SetGlobalBuffer(
-                        reinterpret_cast<__gm__ uint32_t *>(params.gmRoutedActiveGroupIds));
-                    AscendC::LocalTensor<uint32_t> activeGroupIdsLocal =
-                        resource.ubBuf.template GetBufferByByte<uint32_t>(0);
-                    uint32_t activeGroupCount = 0;
-                    uint32_t prefix = 0;
-                    for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
-                        uint32_t cumulative =
-                            FlushAndGetValue<int32_t>(sendCountsGlobal, groupIdx * epRankSize + epRankSize - 1);
-                        if (cumulative != prefix) {
-                            activeGroupIdsLocal.SetValue(activeGroupCount++, groupIdx);
-                        }
-                        prefix = cumulative;
-                    }
-                    if (activeGroupCount != 0) {
-                        AscendC::DataCopyExtParams activeIdsCopyParams = {
-                            1U, activeGroupCount * static_cast<uint32_t>(sizeof(uint32_t)), 0U, 0U, 0U};
-                        AscendC::DataCopyPad(activeGroupIdsTensor, activeGroupIdsLocal, activeIdsCopyParams);
-                    }
-                    AscendC::PipeBarrier<PIPE_MTE3>();
-                    SetValueAndFlush<uint32_t>(activeGroupCountTensor, 0, activeGroupCount);
                 }
             }
         }
@@ -2202,6 +2205,8 @@ private:
     uint32_t problemCount{0};
     GM_ADDR gmX2ReadyState{nullptr};
     GM_ADDR gmRoutedGroupMeta{nullptr};
+    GM_ADDR gmRoutedActiveGroupCount{nullptr};
+    GM_ADDR gmRoutedActiveGroupIds{nullptr};
     bool sparseFastPath{false};
 
     // state info
