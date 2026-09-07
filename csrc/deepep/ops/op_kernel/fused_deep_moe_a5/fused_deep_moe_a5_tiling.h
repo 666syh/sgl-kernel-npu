@@ -35,7 +35,10 @@ struct WorkSpaceOffset {
     int64_t epSendCountOffset;        // 各专家从各个rank收到的token数
     int64_t routedGroupMetaOffset;    // 稀疏routed路径的group metadata
     int64_t routedGroupMetaSize;      // metadata区域大小（字节）
-    int64_t reservedOffset;           // 预留空间
+    int64_t routedActiveGroupCountOffset;
+    int64_t routedActiveGroupIdsOffset;
+    int64_t routedActiveGroupSize;
+    int64_t reservedOffset;  // 预留空间
 };
 
 struct RoutedGroupMeta {

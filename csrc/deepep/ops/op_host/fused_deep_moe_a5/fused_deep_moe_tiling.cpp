@@ -871,12 +871,21 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
     size_t routedGroupMetaSize =
         CeilUp(static_cast<size_t>(moeExpertNumPerRank) * sizeof(RoutedGroupMeta), GM_ALIGN_SIZE);
     tilingData.workSpaceOffset.routedGroupMetaSize = static_cast<int64_t>(routedGroupMetaSize);
-    tilingData.workSpaceOffset.reservedOffset = tilingData.workSpaceOffset.routedGroupMetaOffset + routedGroupMetaSize;
+    tilingData.workSpaceOffset.routedActiveGroupCountOffset =
+        tilingData.workSpaceOffset.routedGroupMetaOffset + routedGroupMetaSize;
+    tilingData.workSpaceOffset.routedActiveGroupIdsOffset =
+        CeilUp(tilingData.workSpaceOffset.routedActiveGroupCountOffset + GM_ALIGN_SIZE, GM_ALIGN_SIZE);
+    size_t routedActiveGroupSize = CeilUp(static_cast<size_t>(moeExpertNumPerRank) * sizeof(uint32_t), GM_ALIGN_SIZE);
+    tilingData.workSpaceOffset.routedActiveGroupSize = static_cast<int64_t>(routedActiveGroupSize);
+    tilingData.workSpaceOffset.reservedOffset =
+        tilingData.workSpaceOffset.routedActiveGroupIdsOffset + routedActiveGroupSize;
     OPS_ERR_IF(tilingData.workSpaceOffset.routedGroupMetaOffset <
                        tilingData.workSpaceOffset.epSendCountOffset + epSendCountSize ||
+                   tilingData.workSpaceOffset.routedActiveGroupCountOffset + GM_ALIGN_SIZE >
+                       tilingData.workSpaceOffset.routedActiveGroupIdsOffset ||
                    tilingData.workSpaceOffset.reservedOffset <
-                       tilingData.workSpaceOffset.routedGroupMetaOffset + routedGroupMetaSize,
-               OPS_LOG_E(nodeName, "routed group metadata overlaps workspace regions."), return ge::GRAPH_FAILED);
+                       tilingData.workSpaceOffset.routedActiveGroupIdsOffset + routedActiveGroupSize,
+               OPS_LOG_E(nodeName, "routed sparse metadata overlaps workspace regions."), return ge::GRAPH_FAILED);
     size_t usrSize = tilingData.workSpaceOffset.reservedOffset + reservedSize;
     workSpaces[0] = SYSTEM_NEED_WORKSPACE + usrSize;
     return ge::GRAPH_SUCCESS;

@@ -82,6 +82,8 @@ public:
         uint32_t expectedAivNum;
         GM_ADDR gmX2ReadyState;
         GM_ADDR gmRoutedGroupMeta;
+        GM_ADDR gmRoutedActiveGroupCount;
+        GM_ADDR gmRoutedActiveGroupIds;
         uint32_t enableRoutedSparseFastPath;
         uint64_t weightExpertStrideBytes;
         FusedDeepMoeProfileWriter *profile;
@@ -99,7 +101,8 @@ public:
                GM_ADDR ptrSharedMxScaleA_, LayoutMxScaleA layoutSharedMxScaleA_, GM_ADDR ptrSharedMxScaleB_,
                LayoutMxScaleB layoutSharedMxScaleB_, GM_ADDR ptrSharedC_, GM_ADDR ptrSharedD_, void *combiner_,
                uint32_t expectedAivNum_, GM_ADDR gmX2ReadyState_, GM_ADDR gmRoutedGroupMeta_,
-               uint64_t weightExpertStrideBytes_, FusedDeepMoeProfileWriter *profile_)
+               GM_ADDR gmRoutedActiveGroupCount_, GM_ADDR gmRoutedActiveGroupIds_, uint64_t weightExpertStrideBytes_,
+               FusedDeepMoeProfileWriter *profile_)
             : problemShape(problemShape_),
               problemCount(problemCount_),
               ptrGroupList(reinterpret_cast<__gm__ ElementGroupList *>(ptrGroupList_)),
@@ -129,6 +132,8 @@ public:
               expectedAivNum(expectedAivNum_),
               gmX2ReadyState(gmX2ReadyState_),
               gmRoutedGroupMeta(gmRoutedGroupMeta_),
+              gmRoutedActiveGroupCount(gmRoutedActiveGroupCount_),
+              gmRoutedActiveGroupIds(gmRoutedActiveGroupIds_),
               enableRoutedSparseFastPath(0),
               weightExpertStrideBytes(weightExpertStrideBytes_),
               profile(profile_)
@@ -268,31 +273,31 @@ public:
             auto tensorA = tla::MakeTensor(gmA, params.layoutA, Arch::PositionGM{});
             auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
             AscendC::GlobalTensor<int32_t> routedGroupMetaTensor;
+            AscendC::GlobalTensor<uint32_t> routedActiveGroupCountTensor;
+            AscendC::GlobalTensor<uint32_t> routedActiveGroupIdsTensor;
+            uint32_t activeGroupCount = params.problemCount;
             if (sparseFastPath) {
                 routedGroupMetaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+                routedActiveGroupCountTensor.SetGlobalBuffer(
+                    reinterpret_cast<__gm__ uint32_t *>(params.gmRoutedActiveGroupCount));
+                routedActiveGroupIdsTensor.SetGlobalBuffer(
+                    reinterpret_cast<__gm__ uint32_t *>(params.gmRoutedActiveGroupIds));
+                activeGroupCount = FlushAndGetValue<uint32_t>(routedActiveGroupCountTensor, 0);
+                activeGroupCount = activeGroupCount > params.problemCount ? params.problemCount : activeGroupCount;
             }
 
-            for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+            for (uint32_t activePos = 0; activePos < activeGroupCount; ++activePos) {
+                uint32_t groupIdx =
+                    sparseFastPath ? FlushAndGetValue<uint32_t>(routedActiveGroupIdsTensor, activePos) : activePos;
+                if (groupIdx >= params.problemCount) {
+                    continue;
+                }
                 uint64_t profGroupStart = 0;
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                     if (sparseFastPath) {
                         currentM = static_cast<uint32_t>(FlushAndGetValue<int32_t>(
                             routedGroupMetaTensor, groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)));
                         if (currentM == 0) {
-                            if constexpr (!(EXEC_FLAG & EXEC_FLAG_TENSOR_LIST)) {
-                                if (params.weightExpertStrideBytes == 0U) {
-                                    if constexpr (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t,
-                                                                            float4_e1m2x2_t>) {
-                                        gmGroupOffsetB +=
-                                            std::is_same_v<LayoutB, layout::ColumnMajor>
-                                                ? CeilDiv<2>(params.problemShape.k()) * params.problemShape.n()
-                                                : CeilDiv<2>(params.problemShape.n()) * params.problemShape.k();
-                                    } else {
-                                        gmGroupOffsetB += params.problemShape.k() * params.problemShape.n();
-                                    }
-                                }
-                                gmGroupOffsetMxScaleB += mxScaleAlignedK * params.problemShape.n();
-                            }
                             continue;
                         }
                         uint32_t expected = static_cast<uint32_t>(FlushAndGetValue<int32_t>(
@@ -315,10 +320,21 @@ public:
                         gmB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(
                             weightBase + static_cast<uint64_t>(groupIdx) * params.weightExpertStrideBytes));
                     } else {
-                        gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(0) + gmGroupOffsetB);
+                        int64_t weightOffset =
+                            sparseFastPath
+                                ? static_cast<int64_t>(groupIdx) *
+                                      (AscendC::Std::is_one_of_v<ElementB, float4_e2m1x2_t, float4_e1m2x2_t>
+                                           ? (std::is_same_v<LayoutB, layout::ColumnMajor>
+                                                  ? CeilDiv<2>(params.problemShape.k()) * params.problemShape.n()
+                                                  : CeilDiv<2>(params.problemShape.n()) * params.problemShape.k())
+                                           : params.problemShape.k() * params.problemShape.n())
+                                : gmGroupOffsetB;
+                        gmB.SetGlobalBuffer(gmBlistTensorDesc.GetDataPtr<ElementB>(0) + weightOffset);
                     }
-                    gmMxScaleB.SetGlobalBuffer(gmBScalelistTensorDesc.GetDataPtr<ElementMxScaleB>(0) +
-                                               gmGroupOffsetMxScaleB);
+                    gmMxScaleB.SetGlobalBuffer(
+                        gmBScalelistTensorDesc.GetDataPtr<ElementMxScaleB>(0) +
+                        (sparseFastPath ? static_cast<int64_t>(groupIdx) * mxScaleAlignedK * params.problemShape.n()
+                                        : gmGroupOffsetMxScaleB));
                 }
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                     if (!sparseFastPath) {
@@ -503,8 +519,17 @@ public:
         groupList.SetGlobalBuffer(params.ptrGroupList);
         bool sparseFastPath = params.enableRoutedSparseFastPath != 0;
         AscendC::GlobalTensor<int32_t> routedGroupMetaTensor;
+        AscendC::GlobalTensor<uint32_t> routedActiveGroupCountTensor;
+        AscendC::GlobalTensor<uint32_t> routedActiveGroupIdsTensor;
+        uint32_t activeGroupCount = params.problemCount;
         if (sparseFastPath) {
             routedGroupMetaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+            routedActiveGroupCountTensor.SetGlobalBuffer(
+                reinterpret_cast<__gm__ uint32_t *>(params.gmRoutedActiveGroupCount));
+            routedActiveGroupIdsTensor.SetGlobalBuffer(
+                reinterpret_cast<__gm__ uint32_t *>(params.gmRoutedActiveGroupIds));
+            activeGroupCount = FlushAndGetValue<uint32_t>(routedActiveGroupCountTensor, 0);
+            activeGroupCount = activeGroupCount > params.problemCount ? params.problemCount : activeGroupCount;
         }
 
         AscendC::GlobalTensor<ElementD> gmD;
@@ -529,7 +554,12 @@ public:
             auto tensorC = tla::MakeTensor(gmC, params.layoutC, Arch::PositionGM{});
             auto tensorD = tla::MakeTensor(gmD, params.layoutC, Arch::PositionGM{});
 
-            for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
+            for (uint32_t activePos = 0; activePos < activeGroupCount; ++activePos) {
+                uint32_t groupIdx =
+                    sparseFastPath ? FlushAndGetValue<uint32_t>(routedActiveGroupIdsTensor, activePos) : activePos;
+                if (groupIdx >= params.problemCount) {
+                    continue;
+                }
                 uint64_t profGroupStart = 0;
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
                     if (sparseFastPath) {
