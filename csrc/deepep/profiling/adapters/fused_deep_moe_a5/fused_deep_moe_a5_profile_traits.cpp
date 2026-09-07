@@ -67,8 +67,10 @@ const char *GetStageName(uint64_t stageId)
             return "weight_sum_clean";
         case ProfileStage::DispatchRecvNotify:
             return "dispatch_recv_notify";
-        case ProfileStage::DispatchRecvAivSync:
-            return "dispatch_recv_aiv_sync";
+        case ProfileStage::DispatchRecvCore:
+            return "dispatch_recv_core";
+        case ProfileStage::DispatchRecvClean:
+            return "dispatch_recv_clean";
         case ProfileStage::DispatchRecvFinalize:
             return "dispatch_recv_finalize";
         case ProfileStage::DispatchRecvGlobalSync:
@@ -170,8 +172,11 @@ Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
                          layout, static_cast<uint32_t>(ProfileStage::DispatchRecvNotify), groupCountCapacity),
                      "invalid dispatch receive notify occurrence capacity.");
     EP_HOST_ASSERT_S(
-        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvAivSync), 1U),
-        "invalid dispatch receive AIV sync occurrence capacity.");
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvCore), 1U),
+        "invalid dispatch receive core occurrence capacity.");
+    EP_HOST_ASSERT_S(
+        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvClean), 1U),
+        "invalid dispatch receive clean occurrence capacity.");
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvFinalize), 1U),
         "invalid dispatch receive finalize occurrence capacity.");

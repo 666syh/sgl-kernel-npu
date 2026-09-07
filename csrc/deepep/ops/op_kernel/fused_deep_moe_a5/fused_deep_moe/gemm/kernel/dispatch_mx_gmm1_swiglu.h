@@ -1816,20 +1816,28 @@ public:
                 SendCoreFunc((GM_ADDR)params.gmX, (GM_ADDR)params.gmExpertIds, (GM_ADDR)params.gmMoeSmoothScales,
                              (GM_ADDR)params.gmExpandIdx, (GM_ADDR)params.gmXActiveMask, params.profile);
             }
+            uint64_t profileRecvCoreStart = 0;
+            if (params.profile != nullptr) {
+                profileRecvCoreStart = params.profile->Now();
+            }
             if (isRecvCore) {
                 RecvCoreFunc((GM_ADDR)params.ptrA, (GM_ADDR)params.ptrMxScaleA, (GM_ADDR)params.gmEpSendCount,
                              params.profile);
             }
-            CleanRoutedX2ReadyState();
-            uint64_t profileAivSyncStart = 0;
             if (params.profile != nullptr) {
-                profileAivSyncStart = params.profile->Now();
-            }
-            AivOnlySync();
-            if (params.profile != nullptr) {
-                params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvAivSync, 0U, profileAivSyncStart,
+                params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvCore, 0U, profileRecvCoreStart,
                                        params.profile->Now());
             }
+            uint64_t profileRecvCleanStart = 0;
+            if (params.profile != nullptr) {
+                profileRecvCleanStart = params.profile->Now();
+            }
+            CleanRoutedX2ReadyState();
+            if (params.profile != nullptr) {
+                params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvClean, 0U, profileRecvCleanStart,
+                                       params.profile->Now());
+            }
+            AivOnlySync();
             uint64_t profileFinalizeStart = 0;
             if (params.profile != nullptr) {
                 profileFinalizeStart = params.profile->Now();
