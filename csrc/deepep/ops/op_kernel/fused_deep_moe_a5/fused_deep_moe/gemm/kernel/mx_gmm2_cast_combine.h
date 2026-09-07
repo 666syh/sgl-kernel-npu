@@ -501,6 +501,11 @@ public:
         gmC.SetGlobalBuffer(params.ptrC);
         AscendC::GlobalTensor<ElementGroupList> groupList;
         groupList.SetGlobalBuffer(params.ptrGroupList);
+        bool sparseFastPath = params.enableRoutedSparseFastPath != 0;
+        AscendC::GlobalTensor<int32_t> routedGroupMetaTensor;
+        if (sparseFastPath) {
+            routedGroupMetaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
+        }
 
         AscendC::GlobalTensor<ElementD> gmD;
         gmD.SetGlobalBuffer(params.ptrD);
@@ -527,9 +532,17 @@ public:
             for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
                 uint64_t profGroupStart = 0;
                 if constexpr (EXEC_FLAG & EXEC_FLAG_DEEP_FUSE) {
-                    currentM = (groupIdx == 0) ? FlushAndGetValue<ElementGroupList>(groupList, groupIdx)
-                                               : (FlushAndGetValue<ElementGroupList>(groupList, groupIdx) -
-                                                  FlushAndGetValue<ElementGroupList>(groupList, groupIdx - 1));
+                    if (sparseFastPath) {
+                        currentM = static_cast<uint32_t>(FlushAndGetValue<int32_t>(
+                            routedGroupMetaTensor, groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)));
+                        if (currentM == 0) {
+                            continue;
+                        }
+                    } else {
+                        currentM = (groupIdx == 0) ? FlushAndGetValue<ElementGroupList>(groupList, groupIdx)
+                                                   : (FlushAndGetValue<ElementGroupList>(groupList, groupIdx) -
+                                                      FlushAndGetValue<ElementGroupList>(groupList, groupIdx - 1));
+                    }
                 } else {
                     currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
