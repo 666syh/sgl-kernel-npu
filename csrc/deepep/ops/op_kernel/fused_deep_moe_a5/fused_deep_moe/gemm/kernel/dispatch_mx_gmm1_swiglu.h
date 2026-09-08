@@ -1927,29 +1927,13 @@ public:
             }
             if (params.enableRoutedSparseFastPath == 0) {
                 AivOnlySync();
-                uint64_t profileFinalizeStart = 0;
-                if (params.profile != nullptr) {
-                    profileFinalizeStart = params.profile->Now();
-                }
                 FinalizeGroupMetaAfterRecv(params, params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
-                if (params.profile != nullptr) {
-                    params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvFinalize, 0U, profileFinalizeStart,
-                                           params.profile->Now());
-                }
             }
 
             if (params.enableRoutedSparseFastPath != 0) {
-                uint64_t profileGlobalSyncStart = 0;
-                if (params.profile != nullptr) {
-                    profileGlobalSyncStart = params.profile->Now();
-                }
                 AscendC::PipeBarrier<PIPE_MTE3>();
                 AscendC::SyncAll<false>();
                 AscendC::PipeBarrier<PIPE_ALL>();
-                if (params.profile != nullptr) {
-                    params.profile->Record(FusedDeepMoeProfileStage::DispatchRecvGlobalSync, 0U, profileGlobalSyncStart,
-                                           params.profile->Now());
-                }
             } else {
                 // Preserve the legacy AIV-only finalize boundary. The sparse
                 // path replaces it with the paired AIC/AIV publication sync.

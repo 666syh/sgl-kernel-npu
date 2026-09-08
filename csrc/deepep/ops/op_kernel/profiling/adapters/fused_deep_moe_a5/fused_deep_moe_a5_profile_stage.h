@@ -20,9 +20,7 @@ enum class ProfileStage : uint32_t {
     DispatchRecvNotify = 11,
     DispatchRecvCount = 12,
     DispatchRecvGroups = 13,
-    DispatchRecvFinalize = 14,
-    DispatchRecvGlobalSync = 15,
-    Count = 16,
+    Count = 14,
 };
 
 constexpr uint32_t kStageCount = static_cast<uint32_t>(ProfileStage::Count);

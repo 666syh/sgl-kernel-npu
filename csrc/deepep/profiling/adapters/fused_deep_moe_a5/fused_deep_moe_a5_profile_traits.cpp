@@ -71,10 +71,6 @@ const char *GetStageName(uint64_t stageId)
             return "dispatch_recv_count";
         case ProfileStage::DispatchRecvGroups:
             return "dispatch_recv_groups";
-        case ProfileStage::DispatchRecvFinalize:
-            return "dispatch_recv_finalize";
-        case ProfileStage::DispatchRecvGlobalSync:
-            return "dispatch_recv_global_sync";
         default:
             return "unknown";
     }
@@ -177,12 +173,6 @@ Cam::ProfileStageLayout BuildStageLayout(uint32_t groupCountCapacity)
     EP_HOST_ASSERT_S(
         Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvGroups), 1U),
         "invalid dispatch receive groups occurrence capacity.");
-    EP_HOST_ASSERT_S(
-        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvFinalize), 1U),
-        "invalid dispatch receive finalize occurrence capacity.");
-    EP_HOST_ASSERT_S(
-        Cam::SetProfileStageOccurrenceCount(layout, static_cast<uint32_t>(ProfileStage::DispatchRecvGlobalSync), 1U),
-        "invalid dispatch receive global sync occurrence capacity.");
     return layout;
 }
 
