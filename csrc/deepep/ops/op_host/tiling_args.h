@@ -18,7 +18,7 @@ constexpr uint64_t kV2StateSize = 1UL * MB;
 constexpr uint64_t kV2StateTimeoutOffset = 1000UL * KB;
 constexpr uint64_t kV2StateTimeoutBytes = 8UL * sizeof(float);
 constexpr uint64_t kV2StateEntrySize = 32UL;
-constexpr uint64_t kV2MaxBs = 256UL;
+constexpr uint64_t kV2MaxBs = 512UL;
 constexpr uint64_t kV2MaxTopK = 16UL;
 constexpr uint64_t kV2MaxSharedExpertNum = 4UL;
 
@@ -31,6 +31,10 @@ constexpr uint64_t kPerHalfReservedSize = kDataOffset;
 
 static_assert(kV2StateTimeoutOffset + kV2StateTimeoutBytes <= kV2StateSize,
               "V2 timeout probe must remain inside its state slot");
+static_assert(kV2MaxBs * (kV2MaxTopK + kV2MaxSharedExpertNum) * kV2StateEntrySize <= kV2StateSize,
+              "V2 combine state must remain inside its state slot");
+static_assert(kV2MaxBs * (kV2MaxTopK + kV2MaxSharedExpertNum) * kV2StateEntrySize <= kV2StateTimeoutOffset,
+              "V2 combine state must not overlap the timeout probe");
 }  // namespace A3WindowLayout
 }  // namespace Moe
 
