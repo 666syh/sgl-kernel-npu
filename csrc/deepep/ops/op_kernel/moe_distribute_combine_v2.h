@@ -110,10 +110,10 @@ private:
         }
         if (domain == EP_DOMAIN) {
             return GetBaseWindAddrByRankId(epWinContext_, rankId, epRankIdOriginal_) +
-                   dataState_ * (totalWinSize_ / 2UL) + Moe::A3WindowLayout::kV2CombineStateOffset;
+                   dataState_ * (totalWinSize_ / 2UL) + Moe::A3WindowLayout::kLlCombineStateOffset;
         } else {
             return GetBaseWindAddrByRankId(tpWinContext_, rankId, tpRankId_) + dataState_ * (totalWinSize_ / 2UL) +
-                   Moe::A3WindowLayout::kV2CombineStateOffset;
+                   Moe::A3WindowLayout::kLlCombineStateOffset;
         }
     }
 
@@ -405,7 +405,7 @@ MoeDistributeCombineV2<TemplateMC2TypeFunc>::InitAttrs(const MoeDistributeCombin
     epWinContext_ = (__gm__ HcclOpParam *)contextGM0;
     statusDataSpaceGm_ =
         isHybridDeployment_ ? GetBaseWindAddrByRankId(epWinContext_, epRankIdOriginal_, epRankIdOriginal_) +
-                                  Moe::A3WindowLayout::kV2CombineSelectorOffset
+                                  Moe::A3WindowLayout::kLlCombineSelectorOffset
                             : GetStatusDataSpaceGm(epWinContext_) + Moe::A3WindowLayout::kLegacyV2CombineSelectorOffset;
     selfDataStatusGMTensor_.SetGlobalBuffer((__gm__ uint32_t *)(statusDataSpaceGm_ + coreIdx_ * WIN_ADDR_ALIGN));
     TBuf<> dataStateBuf;
@@ -479,7 +479,7 @@ __aicore__ inline void MoeDistributeCombineV2<TemplateMC2TypeFunc>::Init(
     for (int tempepRankId = 0; tempepRankId < epWorldSize_; tempepRankId++) {
         OOMCheckAddrRange<XType>((__gm__ XType *)(GetWinAddrByRankId(tempepRankId, EP_DOMAIN)), GetDataWindowSize());
         OOMCheckAddrRange<float>((__gm__ float *)(GetWinStateAddrByRankId(tempepRankId, EP_DOMAIN)),
-                                 Moe::A3WindowLayout::kV2StateSize);
+                                 Moe::A3WindowLayout::kLlStateSize);
     }
 #endif
     if (isShareExpertRankFlag_) {
@@ -504,7 +504,7 @@ __aicore__ inline void MoeDistributeCombineV2<TemplateMC2TypeFunc>::Init(
             OOMCheckAddrRange<XType>((__gm__ XType *)(GetWinAddrByRankId(temptpRankId, TP_DOMAIN)),
                                      GetDataWindowSize());
             OOMCheckAddrRange<int32_t>((__gm__ int32_t *)(GetWinStateAddrByRankId(temptpRankId, TP_DOMAIN)),
-                                       Moe::A3WindowLayout::kV2StateSize);
+                                       Moe::A3WindowLayout::kLlStateSize);
         }
 #endif
         tpStateOffsetOnWin_ = tpRankId_ * WIN_ADDR_ALIGN;

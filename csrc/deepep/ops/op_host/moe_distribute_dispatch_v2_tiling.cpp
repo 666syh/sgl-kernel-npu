@@ -1217,9 +1217,9 @@ static ge::graphStatus CheckWinSize(const gert::TilingContext *context, MoeDistr
     uint64_t k = static_cast<uint64_t>(tilingData.moeDistributeDispatchV2Info.k);
     uint64_t epWorldSize = static_cast<uint64_t>(tilingData.moeDistributeDispatchV2Info.epWorldSize);
     uint64_t maxBs = static_cast<uint64_t>(tilingData.moeDistributeDispatchV2Info.globalBs) / epWorldSize;
-    OP_TILING_CHECK(maxBs > Moe::A3WindowLayout::kV2MaxBs,
+    OP_TILING_CHECK(maxBs > Moe::A3WindowLayout::kLlMaxBs,
                     OP_LOGE(nodeName, "maxBs exceeds the A3 window layout limit, maxBs=%lu, limit=%lu.", maxBs,
-                            Moe::A3WindowLayout::kV2MaxBs),
+                            Moe::A3WindowLayout::kLlMaxBs),
                     return ge::GRAPH_FAILED);
     // combine数据区 token首地址对齐512
     uint64_t tokenNeedSizeCombine = ((h * MAX_OUT_DTYPE_SIZE + WIN_ADDR_ALIGN - 1UL) / WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
@@ -1243,10 +1243,10 @@ static ge::graphStatus CheckWinSize(const gert::TilingContext *context, MoeDistr
         (maxBs * tokenNeedSizeDispatch * epWorldSize * static_cast<uint64_t>(localMoeExpertNum)) +
         (maxBs * tokenNeedSizeCombine * (k + static_cast<uint64_t>(sharedExpertNum)));
     uint64_t dispatchStateSize = static_cast<uint64_t>(tilingData.moeDistributeDispatchV2Info.moeExpertNum) *
-                                 Moe::A3WindowLayout::kV2StateEntrySize;
-    OP_TILING_CHECK(dispatchStateSize > Moe::A3WindowLayout::kV2StateSize,
+                                 Moe::A3WindowLayout::kLlStateEntrySize;
+    OP_TILING_CHECK(dispatchStateSize > Moe::A3WindowLayout::kLlStateSize,
                     OP_LOGE(nodeName, "V2 dispatch state exceeds its slot, needed=%lu, slot=%lu.", dispatchStateSize,
-                            Moe::A3WindowLayout::kV2StateSize),
+                            Moe::A3WindowLayout::kLlStateSize),
                     return ge::GRAPH_FAILED);
     uint64_t reservedSize =
         tilingData.moeDistributeDispatchV2Info.isHybridDeployment ? Moe::A3WindowLayout::kPerHalfReservedSize : 0UL;

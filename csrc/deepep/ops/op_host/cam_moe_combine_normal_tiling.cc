@@ -563,6 +563,17 @@ static ge::graphStatus CamMoeCombineNormalA3TilingFuncImpl(gert::TilingContext *
     uint64_t realMaxBs = tilingData->camMoeCombineNormalInfo.realMaxBs;
     uint64_t realBs = std::min(perRoundTokens, realMaxBs);
     uint32_t maxRound = tilingData->camMoeCombineNormalInfo.maxRound;
+    if (tilingData->camMoeCombineNormalInfo.isHybridDeployment) {
+        uint64_t normalStateSize = realBs * k * Moe::A3WindowLayout::kNormalCombineStateEntrySize;
+        uint64_t normalStateCapacity = maxRound > 1 ? Moe::A3WindowLayout::kNormalCombineStateHalfSize
+                                                    : Moe::A3WindowLayout::kNormalCombineStateSize;
+        OP_TILING_CHECK(normalStateSize > normalStateCapacity,
+                        OP_LOGE(nodeName,
+                                "normal combine token state exceeds the hybrid slot, needed=%lu, slot=%lu, "
+                                "realBs=%lu, k=%lu, maxRound=%u.",
+                                normalStateSize, normalStateCapacity, realBs, k, maxRound),
+                        return ge::GRAPH_FAILED);
+    }
     // combine数据区 token首地址对齐512
     uint64_t tokenNeedSizeCombine = ((h * MAX_OUT_DTYPE_SIZE + WIN_ADDR_ALIGN - 1UL) / WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
     tokenNeedSizeCombine = maxRound > 1 ? tokenNeedSizeCombine * 2 : tokenNeedSizeCombine;

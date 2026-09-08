@@ -83,8 +83,8 @@ private:
     {
         uint64_t dataOffset = STATE_WIN_SIZE + roundMagic_ * combineDataBuffSize_;
         if (isHybridDeployment_) {
-            dataOffset += Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize +
-                          Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize;
+            dataOffset += Moe::A3WindowLayout::kLlSelectorMetadataSize + Moe::A3WindowLayout::kLlStateSize +
+                          Moe::A3WindowLayout::kLlSelectorMetadataSize + Moe::A3WindowLayout::kLlStateSize;
         }
         return GetStateAddrByRankId(rankId) + dataOffset;
     }

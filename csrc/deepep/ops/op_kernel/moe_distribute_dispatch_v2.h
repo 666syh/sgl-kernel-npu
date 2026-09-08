@@ -104,7 +104,7 @@ private:
                    dataState_ * Moe::A3WindowLayout::kLegacyV2StateHalfSize;
         }
         return GetBaseWindAddrByRankId(winContext_[ctxIdx], rankId, curRankId) + dataState_ * (totalWinSize_ / 2UL) +
-               Moe::A3WindowLayout::kV2DispatchStateOffset;
+               Moe::A3WindowLayout::kLlDispatchStateOffset;
     }
 
     __aicore__ inline uint64_t GetDataWindowSize()
@@ -326,7 +326,7 @@ __aicore__ inline void MoeDistributeDispatchV2<TemplateMC2TypeFunc>::Init(
     statusDataSpaceGm_ =
         isHybridDeployment_
             ? GetBaseWindAddrByRankId(winContext_[COMM_EP_IDX], epRankIdOriginal_, epRankIdOriginal_) +
-                  Moe::A3WindowLayout::kV2DispatchSelectorOffset
+                  Moe::A3WindowLayout::kLlDispatchSelectorOffset
             : GetStatusDataSpaceGm(winContext_[COMM_EP_IDX]) + Moe::A3WindowLayout::kLegacyV2DispatchSelectorOffset;
     selfDataStatusGMTensor_.SetGlobalBuffer((__gm__ uint32_t *)(statusDataSpaceGm_ + aivId_ * WIN_ADDR_ALIGN));
     TBuf<> dataStateBuf;
@@ -418,7 +418,7 @@ __aicore__ inline void MoeDistributeDispatchV2<TemplateMC2TypeFunc>::Init(
         OOMCheckAddrRange<ExpandXOutType>((__gm__ ExpandXOutType *)(GetWindAddrByRankId(COMM_EP_IDX, tempepRankId)),
                                           GetDataWindowSize());
         OOMCheckAddrRange<float>((__gm__ float *)(GetWindStateAddrByRankId(COMM_EP_IDX, tempepRankId)),
-                                 Moe::A3WindowLayout::kV2StateSize);
+                                 Moe::A3WindowLayout::kLlStateSize);
     }
 #endif
     sumTarget_ = static_cast<float>(1.0);
@@ -444,7 +444,7 @@ __aicore__ inline void MoeDistributeDispatchV2<TemplateMC2TypeFunc>::Init(
             OOMCheckAddrRange<ExpandXOutType>((__gm__ ExpandXOutType *)(GetWindAddrByRankId(COMM_TP_IDX, temptpRankId)),
                                               GetDataWindowSize());
             OOMCheckAddrRange<int32_t>((__gm__ int32_t *)(GetWindStateAddrByRankId(COMM_TP_IDX, temptpRankId)),
-                                       Moe::A3WindowLayout::kV2StateSize);
+                                       Moe::A3WindowLayout::kLlStateSize);
         }
 #endif
         tpLocalWindowGM_ = GetWindAddrByRankId(COMM_TP_IDX, tpRankId_);
