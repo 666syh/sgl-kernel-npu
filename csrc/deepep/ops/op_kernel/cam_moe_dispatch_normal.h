@@ -66,12 +66,13 @@ private:
     __aicore__ inline GM_ADDR GetWindAddrByRankId(uint8_t ctxIdx, const int32_t rankId)
     {
         uint32_t curRankId = ((ctxIdx == COMM_EP_IDX) ? epRankId : tpRankId);
+        uint64_t dataOffset =
+            isHybridDeployment ? Moe::A3WindowLayout::kDataOffset : Moe::A3WindowLayout::kLegacyNormalDataOffset;
         if (curRankId == rankId) {
-            return (GM_ADDR)(winContext_[ctxIdx]->localWindowsIn) + winDataSizeOffset +
-                   Moe::A3WindowLayout::kDataOffset;
+            return (GM_ADDR)(winContext_[ctxIdx]->localWindowsIn) + winDataSizeOffset + dataOffset;
         }
         return (GM_ADDR)(((HcclRankRelationResV2 *)(winContext_[ctxIdx]->remoteRes[rankId].nextDevicePtr))->windowsIn) +
-               winDataSizeOffset + Moe::A3WindowLayout::kDataOffset;
+               winDataSizeOffset + dataOffset;
     }
 
     __aicore__ inline GM_ADDR GetWindStateAddrByRankId(uint8_t ctxIdx, const int32_t rankId)
@@ -166,6 +167,7 @@ private:
     uint32_t moeExpertNum{0};
     uint32_t moeExpertNumPerRank{0};
     bool isEnableDiagnose{false};
+    bool isHybridDeployment{false};
 
     uint32_t hUBAlignSize{0};
     uint32_t hOutGMAlignSize{0};
@@ -228,6 +230,7 @@ __aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::Init(
     moeExpertNum = tilingData->camMoeDispatchNormalInfo.moeExpertNum;
     moeExpertNumPerRank = moeExpertNum / epRankSize;
     isEnableDiagnose = tilingData->camMoeDispatchNormalInfo.isEnableDiagnose;
+    isHybridDeployment = tilingData->camMoeDispatchNormalInfo.isHybridDeployment;
 
     xGT.SetGlobalBuffer((__gm__ XType *)x);
     expertIdsGT.SetGlobalBuffer((__gm__ int32_t *)expertIds);

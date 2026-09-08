@@ -1211,6 +1211,7 @@ static ge::graphStatus CheckWinSize(const gert::TilingContext *context, MoeDistr
                                     const char *nodeName, const bool isSetCommAlg, uint32_t &localMoeExpertNum)
 {
     uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize();
+    tilingData.moeDistributeDispatchV2Info.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment();
     uint32_t sharedExpertNum = tilingData.moeDistributeDispatchV2Info.sharedExpertNum;
     uint64_t h = static_cast<uint64_t>(tilingData.moeDistributeDispatchV2Info.h);
     uint64_t k = static_cast<uint64_t>(tilingData.moeDistributeDispatchV2Info.k);
@@ -1247,19 +1248,21 @@ static ge::graphStatus CheckWinSize(const gert::TilingContext *context, MoeDistr
                     OP_LOGE(nodeName, "V2 dispatch state exceeds its slot, needed=%lu, slot=%lu.", dispatchStateSize,
                             Moe::A3WindowLayout::kV2StateSize),
                     return ge::GRAPH_FAILED);
-    uint64_t actualSize = (perHalfDataSize + Moe::A3WindowLayout::kPerHalfReservedSize) * DOUBLE_DATA_BUFFER;
+    uint64_t reservedSize =
+        tilingData.moeDistributeDispatchV2Info.isHybridDeployment ? Moe::A3WindowLayout::kPerHalfReservedSize : 0UL;
+    uint64_t actualSize = (perHalfDataSize + reservedSize) * DOUBLE_DATA_BUFFER;
     OP_TILING_CHECK(
         (actualSize > maxWindowSize),
         OP_LOGE(
             nodeName,
             "HCCL_BUFFSIZE is too SMALL, maxBs = %lu, h = %lu, epWorldSize = %lu,"
             " localMoeExpertNum = %u, sharedExpertNum = %u, tokenNeedSizeDispatch = %lu, tokenNeedSizeCombine = %lu,"
-            " k = %lu, perHalfDataSize=%lu, perHalfReservedSize=%lu, "
+            " k = %lu, hybridDeployment=%d, perHalfDataSize=%lu, perHalfReservedSize=%lu, "
             "NEEDED_HCCL_BUFFSIZE((perHalfDataSize + perHalfReservedSize) * 2) = %luMB,"
             " HCCL_BUFFSIZE=%luMB.",
             maxBs, h, epWorldSize, localMoeExpertNum, sharedExpertNum, tokenNeedSizeDispatch, tokenNeedSizeCombine, k,
-            perHalfDataSize, Moe::A3WindowLayout::kPerHalfReservedSize, actualSize / MB_SIZE + 1UL,
-            maxWindowSize / MB_SIZE),
+            tilingData.moeDistributeDispatchV2Info.isHybridDeployment, perHalfDataSize, reservedSize,
+            actualSize / MB_SIZE + 1UL, maxWindowSize / MB_SIZE),
         return ge::GRAPH_FAILED);
     tilingData.moeDistributeDispatchV2Info.totalWinSize = maxWindowSize;
     OP_LOGD(nodeName, "windowSize = %lu", maxWindowSize);

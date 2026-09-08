@@ -1195,6 +1195,7 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
 
     // 校验win区大小
     uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize();
+    tilingData->moeDistributeCombineV2Info.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment();
     uint64_t h = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.h);
     uint64_t epWorldSize = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.epWorldSize);
     uint64_t k = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.k);
@@ -1218,19 +1219,21 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
                     OP_LOGE(nodeName, "V2 combine state exceeds its slot, needed=%lu, slot=%lu.", combineStateSize,
                             Moe::A3WindowLayout::kV2StateSize),
                     return ge::GRAPH_FAILED);
-    uint64_t actualSize = (perHalfDataSize + Moe::A3WindowLayout::kPerHalfReservedSize) * DOUBLE_DATA_BUFFER;
+    uint64_t reservedSize =
+        tilingData->moeDistributeCombineV2Info.isHybridDeployment ? Moe::A3WindowLayout::kPerHalfReservedSize : 0UL;
+    uint64_t actualSize = (perHalfDataSize + reservedSize) * DOUBLE_DATA_BUFFER;
     OP_TILING_CHECK(
         (actualSize > maxWindowSize),
         OP_LOGE(
             nodeName,
             "HCCL_BUFFSIZE is too SMALL, maxBs = %lu, h = %lu, epWorldSize = %lu,"
             " localMoeExpertNum = %u, sharedExpertNum = %u, tokenNeedSizeDispatch = %lu, tokenNeedSizeCombine = %lu,"
-            " k = %lu, perHalfDataSize=%lu, perHalfReservedSize=%lu, "
+            " k = %lu, hybridDeployment=%d, perHalfDataSize=%lu, perHalfReservedSize=%lu, "
             "NEEDED_HCCL_BUFFSIZE((perHalfDataSize + perHalfReservedSize) * 2) = %luMB,"
             " HCCL_BUFFSIZE=%luMB.",
             maxBs, h, epWorldSize, localMoeExpertNum, sharedExpertNum, tokenNeedSizeDispatch, tokenNeedSizeCombine, k,
-            perHalfDataSize, Moe::A3WindowLayout::kPerHalfReservedSize, actualSize / MB_SIZE + 1UL,
-            maxWindowSize / MB_SIZE),
+            tilingData->moeDistributeCombineV2Info.isHybridDeployment, perHalfDataSize, reservedSize,
+            actualSize / MB_SIZE + 1UL, maxWindowSize / MB_SIZE),
         return ge::GRAPH_FAILED);
     tilingData->moeDistributeCombineV2Info.totalWinSize = maxWindowSize;
 

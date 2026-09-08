@@ -22,6 +22,13 @@ constexpr uint64_t kV2MaxBs = 512UL;
 constexpr uint64_t kV2MaxTopK = 16UL;
 constexpr uint64_t kV2MaxSharedExpertNum = 4UL;
 
+// Keep these legacy values synchronized with op_kernel/window_layout.h.
+constexpr uint64_t kLegacyNormalDataOffset = kNotifyDispatchSize + kNormalCombineStateSize;
+constexpr uint64_t kLegacyV2StateHalfSize = 500UL * KB;
+constexpr uint64_t kLegacyV2CombineStateOffset = 64UL * KB;
+constexpr uint64_t kLegacyV2DispatchSelectorOffset = 950UL * KB;
+constexpr uint64_t kLegacyV2CombineSelectorOffset = 975UL * KB;
+
 constexpr uint64_t kV2DispatchSelectorOffset = kNotifyDispatchSize + kNormalCombineStateSize;
 constexpr uint64_t kV2DispatchStateOffset = kV2DispatchSelectorOffset + kV2SelectorMetadataSize;
 constexpr uint64_t kV2CombineSelectorOffset = kV2DispatchStateOffset + kV2StateSize;

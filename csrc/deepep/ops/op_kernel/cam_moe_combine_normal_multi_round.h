@@ -81,9 +81,12 @@ private:
 
     __aicore__ GM_ADDR GetBufferAddrByRankId(const int32_t rankId)
     {
-        return GetStateAddrByRankId(rankId) + STATE_WIN_SIZE + roundMagic_ * combineDataBuffSize_ +
-               Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize +
-               Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize;
+        uint64_t dataOffset = STATE_WIN_SIZE + roundMagic_ * combineDataBuffSize_;
+        if (isHybridDeployment_) {
+            dataOffset += Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize +
+                          Moe::A3WindowLayout::kV2SelectorMetadataSize + Moe::A3WindowLayout::kV2StateSize;
+        }
+        return GetStateAddrByRankId(rankId) + dataOffset;
     }
 
     __aicore__ inline GM_ADDR GetRoundStateAddrByRankId(const int32_t rankId)
@@ -154,6 +157,7 @@ private:
     uint32_t combineDataBuffSize_{0};
 
     bool isEnableDiagnose_{false};
+    bool isHybridDeployment_{false};
 
     TPipe *tpipe_{nullptr};
     TQue<QuePosition::VECIN, 1> weightedSumQueue_;
@@ -238,6 +242,7 @@ CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::InitTilingData(const CamMoeC
     epWorldSize_ = tilingData->camMoeCombineNormalInfo.epWorldSize;
     epRankId_ = tilingData->camMoeCombineNormalInfo.epRankId;
     isEnableDiagnose_ = tilingData->camMoeCombineNormalInfo.isEnableDiagnose;
+    isHybridDeployment_ = tilingData->camMoeCombineNormalInfo.isHybridDeployment;
     realMaxBs_ = tilingData->camMoeCombineNormalInfo.realMaxBs;
     maxRound_ = tilingData->camMoeCombineNormalInfo.maxRound;
     perRoundTokens_ = tilingData->camMoeCombineNormalInfo.perRoundTokens;
