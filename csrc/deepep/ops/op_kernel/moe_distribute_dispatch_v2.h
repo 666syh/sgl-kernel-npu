@@ -21,7 +21,6 @@ constexpr uint8_t COMM_TP_IDX = 1;
 constexpr uint64_t WIN_STATE_OFFSET = 500UL * 1024UL;
 constexpr uint64_t STATE_WIN_OFFSET = 950UL * 1024UL;
 constexpr uint64_t STATE_HCCL_OFFSET = 32UL;
-constexpr uint64_t STATE_CHECK_OFFSET = 1000UL * 1024UL;
 constexpr uint64_t TIMEOUT_DETECTION_THRESHOLD = 50000UL;
 constexpr uint64_t CYCLES_PER_US = 50UL;
 constexpr uint64_t TIMEOUT_DETECTION_TX_UNITS = 8UL;
@@ -105,6 +104,12 @@ private:
         }
         return GetBaseWindAddrByRankId(winContext_[ctxIdx], rankId, curRankId) + dataState_ * (totalWinSize_ / 2UL) +
                Moe::A3WindowLayout::kLlDispatchStateOffset;
+    }
+
+    __aicore__ inline uint64_t GetTimeoutProbeOffset()
+    {
+        return isHybridDeployment_ ? Moe::A3WindowLayout::kLlStateTimeoutOffset
+                                   : Moe::A3WindowLayout::kLegacyLlStateTimeoutOffset;
     }
 
     __aicore__ inline uint64_t GetDataWindowSize()
@@ -1127,7 +1132,7 @@ __aicore__ inline void MoeDistributeDispatchV2<TemplateMC2TypeFunc>::TimeOutDete
             toRankId = index % epWorldSize_;
         }
         GM_ADDR timeoutCheckGM =
-            (__gm__ uint8_t *)(GetWindStateAddrByRankId(COMM_EP_IDX, toRankId) + STATE_CHECK_OFFSET);
+            (__gm__ uint8_t *)(GetWindStateAddrByRankId(COMM_EP_IDX, toRankId) + GetTimeoutProbeOffset());
         timeoutCheckGMTensor.SetGlobalBuffer((__gm__ float *)(timeoutCheckGM));
         DataCopy<float>(timeoutCheckGMTensor, statusFp32Tensor_, TIMEOUT_DETECTION_TX_UNITS);
     }

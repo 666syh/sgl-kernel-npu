@@ -18,10 +18,10 @@ constexpr uint64_t MB = 1024UL * KB;
 //   | [0, 102MB)                | notify-dispatch state/payload               |
 //   | [102MB, 106MB)            | normal combine token-state                  |
 //   | [106MB, 106MB + 24KB)     | ll dispatch selector metadata (48 * 512B)   |
-//   | [106MB + 24KB, 107MB+24KB)| ll dispatch working state                   |
-//   | [107MB + 24KB, 107MB+48KB)| ll combine selector metadata (48 * 512B)    |
-//   | [107MB + 48KB, 108MB+48KB)| ll combine working state                    |
-//   | [108MB + 48KB, halfSize)  | unified data area for normal and ll         |
+//   | [106MB + 24KB, 106MB + 536KB)    | ll dispatch working state              |
+//   | [106MB + 536KB, 106MB + 560KB)   | ll combine selector metadata (48*512B)|
+//   | [106MB + 560KB, 107MB + 48KB)    | ll combine working state               |
+//   | [107MB + 48KB, halfSize)         | unified data area for normal and ll    |
 //   +---------------------------+---------------------------------------------+
 
 constexpr uint64_t kNotifyDispatchSize = 102UL * MB;
@@ -31,9 +31,11 @@ constexpr uint64_t kNormalCombineStateEntrySize = 32UL;
 constexpr uint64_t kAivCount = 48UL;
 constexpr uint64_t kAivMetadataStride = 512UL;
 constexpr uint64_t kLlSelectorMetadataSize = kAivCount * kAivMetadataStride;
-constexpr uint64_t kLlStateSize = 1UL * MB;
-constexpr uint64_t kLlStateTimeoutOffset = 1000UL * KB;
 constexpr uint64_t kLlStateTimeoutBytes = 8UL * sizeof(float);
+constexpr uint64_t kLlStateSize = 512UL * KB;
+// Hybrid timeout probes occupy the final 32 bytes of their owning state slot.
+// Legacy keeps its original +1000KB probe address in the V2 kernels.
+constexpr uint64_t kLlStateTimeoutOffset = kLlStateSize - kLlStateTimeoutBytes;
 constexpr uint64_t kLlStateEntrySize = 32UL;
 constexpr uint64_t kLlMaxBs = 512UL;
 constexpr uint64_t kLlMaxTopK = 16UL;
@@ -56,6 +58,7 @@ constexpr uint64_t kLegacyV2StateHalfSize = 500UL * KB;
 constexpr uint64_t kLegacyV2CombineStateOffset = 64UL * KB;
 constexpr uint64_t kLegacyV2DispatchSelectorOffset = 950UL * KB;
 constexpr uint64_t kLegacyV2CombineSelectorOffset = 975UL * KB;
+constexpr uint64_t kLegacyLlStateTimeoutOffset = 1000UL * KB;
 
 constexpr uint64_t kLlDispatchSelectorOffset = kNotifyDispatchSize + kNormalCombineStateSize;
 constexpr uint64_t kLlDispatchStateOffset = kLlDispatchSelectorOffset + kLlSelectorMetadataSize;
@@ -66,10 +69,8 @@ constexpr uint64_t kPerHalfReservedSize = kDataOffset;
 
 static_assert(kLlStateTimeoutOffset + kLlStateTimeoutBytes <= kLlStateSize,
               "V2 timeout probe must remain inside its state slot");
-static_assert(kLlMaxBs * (kLlMaxTopK + kLlMaxSharedExpertNum) * kLlStateEntrySize <= kLlStateSize,
-              "V2 combine state must remain inside its state slot");
 static_assert(kLlMaxBs * (kLlMaxTopK + kLlMaxSharedExpertNum) * kLlStateEntrySize <= kLlStateTimeoutOffset,
-              "V2 combine state must not overlap the timeout probe");
+              "V2 combine state must remain inside its state slot");
 }  // namespace A3WindowLayout
 }  // namespace Moe
 
