@@ -1261,8 +1261,6 @@ public:
         for (uint32_t groupId = 0; groupId < localExpertNum; ++groupId) {
             uint64_t profDispatchRecvStart = 0;
             uint64_t profDispatchRecvEnd = 0;
-            uint64_t profDispatchRecvNotifyStart = 0;
-            uint64_t profDispatchRecvNotifyEnd = 0;
             if (profile != nullptr) {
                 profDispatchRecvStart = profile->Now();
             }
@@ -1323,7 +1321,6 @@ public:
             AscendC::PipeBarrier<PIPE_ALL>();
             if (profile != nullptr) {
                 profDispatchRecvEnd = profile->Now();
-                profDispatchRecvNotifyStart = profile->Now();
             }
             if (sparseFastPath) {
                 preExpertToken += currentM;
@@ -1363,10 +1360,6 @@ public:
                 AscendC::SetAtomicNone();
                 AscendC::PipeBarrier<PIPE_ALL>();
             }
-            if (profile != nullptr) {
-                profDispatchRecvNotifyEnd = profile->Now();
-            }
-
             startCoreIdx = (startCoreIdx + currentM) % recvCoreNum;
             preExpertToken += currentM;
             if (profile != nullptr) {
@@ -1375,8 +1368,6 @@ public:
                     static_cast<uint64_t>(coreTokenCount)));
                 profile->Record(FusedDeepMoeProfileStage::DispatchRecv, groupId, profDispatchRecvStart,
                                 profDispatchRecvEnd, dispatchRecvPayload);
-                profile->Record(FusedDeepMoeProfileStage::DispatchRecvNotify, groupId, profDispatchRecvNotifyStart,
-                                profDispatchRecvNotifyEnd, dispatchRecvPayload);
             }
         }
 
