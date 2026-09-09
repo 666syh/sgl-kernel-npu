@@ -242,15 +242,11 @@ static ge::graphStatus CheckGmm1ScaleShape(gert::TilingContext &context, const F
         OPS_ERR_IF(gmm1ScaleListLen != localExpertNum,
                    OPS_LOG_E(nodeName, "gmm1scale listlen does not equals to localExpertNum."),
                    return ge::GRAPH_FAILED);
-        if (elementDims == 1) {
+        if (elementDims == 1 || elementDims == 2) {
             OPS_ERR_IF(n != gmm1ScaleFirstTensorElementShape.GetDim(0),
                        OPS_LOG_E(nodeName, "gmm1Scale length does not equals to gmm1 hidden size."),
                        return ge::GRAPH_FAILED);
-        } else if (elementDims == 2) {
-            OPS_ERR_IF(n != gmm1ScaleFirstTensorElementShape.GetDim(0),
-                       OPS_LOG_E(nodeName, "gmm1Scale length does not equals to gmm1 hidden size."),
-                       return ge::GRAPH_FAILED);
-        } else {
+        } else {  // for mx scale
             OPS_ERR_IF(elementDims != 3 ||
                            gmm1ScaleFirstTensorElementShape.GetDim(0) !=
                                static_cast<int64_t>(Ceil(tilingData.fusedDeepMoeInfo.h, 64)) ||
@@ -515,6 +511,7 @@ static ge::graphStatus CheckFlatFp4NzDescriptor(const char *nodeName, const gert
     OPS_ERR_IF((physicalValuesPerExpert & 1U) != 0U,
                OPS_LOG_E(nodeName, "%s flat FP4-NZ physical storage is not FP4-packable.", weightName),
                return ge::GRAPH_FAILED);
+    // padding后的 packed 矩阵大小
     expertStrideBytes = physicalValuesPerExpert / 2U;
     return ge::GRAPH_SUCCESS;
 }
@@ -529,17 +526,17 @@ static ge::graphStatus CheckWeightLayout(gert::TilingContext &context, FusedDeep
 
     const bool gmm1Nz = IsWeightNz(gmm1);
     const bool gmm2Nz = IsWeightNz(gmm2);
+    // 检查 GMM1/GMM2 是否同时使用 ND 或 NZ
     OPS_ERR_IF(gmm1Nz != gmm2Nz,
                OPS_LOG_E(nodeName, "GMM1 and GMM2 weight formats must both be ND or both be FRACTAL_NZ."),
                return ge::GRAPH_FAILED);
+    // 检查 GMM1/GMM2 dtype 一致
     OPS_ERR_IF(gmm1->GetDataType() != gmm2->GetDataType(),
                OPS_LOG_E(nodeName, "GMM1 and GMM2 weight dtypes must match, got %d and %d.",
                          static_cast<int>(gmm1->GetDataType()), static_cast<int>(gmm2->GetDataType())),
                return ge::GRAPH_FAILED);
 
-    // The kernel selects one layout at compile time for both GEMMs. Validate
-    // every dynamic-list element so a malformed list cannot mix ND/NZ storage
-    // or dtypes behind the first descriptor.
+    // 检查 GMM1/GMM2 tensor list 长度一致
     const uint32_t gmm1ListLen = CountTensorListLen(context, INPUT_GMM1_WEIGHT_INDEX);
     const uint32_t gmm2ListLen = CountTensorListLen(context, INPUT_GMM2_WEIGHT_INDEX);
     OPS_ERR_IF(
@@ -555,6 +552,7 @@ static ge::graphStatus CheckWeightLayout(gert::TilingContext &context, FusedDeep
                    return ge::GRAPH_FAILED);
     }
 
+    // 检查 shared expert 权重
     auto shareGmm1 = context.GetOptionalInputTensor(INPUT_SHARE_GMM1_WEIGHT_INDEX);
     auto shareGmm2 = context.GetOptionalInputTensor(INPUT_SHARE_GMM2_WEIGHT_INDEX);
     if (shareGmm1 != nullptr || shareGmm2 != nullptr) {
@@ -565,6 +563,7 @@ static ge::graphStatus CheckWeightLayout(gert::TilingContext &context, FusedDeep
                    return ge::GRAPH_FAILED);
     }
 
+    // 保存最终 layout 模式
     tilingData.fusedDeepMoeInfo.weightLayoutMode = gmm1Nz ? WEIGHT_LAYOUT_NZ : WEIGHT_LAYOUT_ND;
     tilingData.fusedDeepMoeInfo.gmm1WeightExpertStrideBytes = 0U;
     tilingData.fusedDeepMoeInfo.gmm2WeightExpertStrideBytes = 0U;
@@ -578,6 +577,7 @@ static ge::graphStatus CheckWeightLayout(gert::TilingContext &context, FusedDeep
                OPS_LOG_E(nodeName, "FP4-NZ requires non-unit logical GMM K/N dimensions and 128-aligned logical N."),
                return ge::GRAPH_FAILED);
 
+    // TensorList权重需要每一项是2维的tensor
     if (tilingData.fusedDeepMoeInfo.isTensorList) {
         OPS_ERR_IF(CheckFp4NzListDescriptor(nodeName, gmm1, "gmm1Weight") != ge::GRAPH_SUCCESS,
                    OPS_LOG_E(nodeName, "invalid gmm1 FP4-NZ tensor-list descriptor."), return ge::GRAPH_FAILED);
@@ -589,6 +589,7 @@ static ge::graphStatus CheckWeightLayout(gert::TilingContext &context, FusedDeep
     OPS_ERR_IF(shareGmm1 != nullptr || shareGmm2 != nullptr,
                OPS_LOG_E(nodeName, "flat FP4-NZ routed weights do not support shared expert weights."),
                return ge::GRAPH_FAILED);
+    // 校验并计算NZ格式packed大小
     OPS_ERR_IF(
         CheckFlatFp4NzDescriptor(nodeName, gmm1, tilingData.fusedDeepMoeInfo.moeExpertNumPerRank,
                                  tilingData.fusedDeepMoeInfo.h, tilingData.fusedDeepMoeInfo.gmm1HLen, "gmm1Weight",
@@ -870,13 +871,11 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext &context, const char *no
         CeilUp(tilingData.workSpaceOffset.epSendCountOffset + epSendCountSize, ROUTED_GROUP_META_ALIGN);
     size_t routedGroupMetaSize =
         CeilUp(static_cast<size_t>(moeExpertNumPerRank) * sizeof(RoutedGroupMeta), GM_ALIGN_SIZE);
-    tilingData.workSpaceOffset.routedGroupMetaSize = static_cast<int64_t>(routedGroupMetaSize);
     tilingData.workSpaceOffset.routedActiveGroupCountOffset =
         tilingData.workSpaceOffset.routedGroupMetaOffset + routedGroupMetaSize;
     tilingData.workSpaceOffset.routedActiveGroupIdsOffset =
         CeilUp(tilingData.workSpaceOffset.routedActiveGroupCountOffset + GM_ALIGN_SIZE, GM_ALIGN_SIZE);
     size_t routedActiveGroupSize = CeilUp(static_cast<size_t>(moeExpertNumPerRank) * sizeof(uint32_t), GM_ALIGN_SIZE);
-    tilingData.workSpaceOffset.routedActiveGroupSize = static_cast<int64_t>(routedActiveGroupSize);
     tilingData.workSpaceOffset.reservedOffset =
         tilingData.workSpaceOffset.routedActiveGroupIdsOffset + routedActiveGroupSize;
     OPS_ERR_IF(tilingData.workSpaceOffset.routedGroupMetaOffset <

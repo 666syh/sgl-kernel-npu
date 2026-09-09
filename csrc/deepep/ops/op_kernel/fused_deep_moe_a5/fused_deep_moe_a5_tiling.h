@@ -25,20 +25,18 @@ struct WorkSpaceOffset {
     int64_t shareX2ScaleOffset;
     int64_t x2ScaleOffset;
 
-    int64_t shareMm1SwapSpaceOffset;  // 交换空间，用于C->V数据交换
-    int64_t shareMm2SwapSpaceOffset;  // 交换空间，用于C->V数据交换
-    int64_t gmm1SwapSpaceOffset;      // 交换空间，用于C->V数据交换
-    int64_t gmm2SwapSpaceOffset;      // 交换空间，用于C->V数据交换
-    int64_t y2TokenOffset;            // 浅融合使用，已反量化无scale
-    int64_t groupListOffset;          // 各专家token数前缀和形式
-    int64_t expandIdxOffset;          // dispatch时token在远端索引
-    int64_t epSendCountOffset;        // 各专家从各个rank收到的token数
-    int64_t routedGroupMetaOffset;    // 稀疏routed路径的group metadata
-    int64_t routedGroupMetaSize;      // metadata区域大小（字节）
-    int64_t routedActiveGroupCountOffset;
-    int64_t routedActiveGroupIdsOffset;
-    int64_t routedActiveGroupSize;
-    int64_t reservedOffset;  // 预留空间
+    int64_t shareMm1SwapSpaceOffset;       // 交换空间，用于C->V数据交换
+    int64_t shareMm2SwapSpaceOffset;       // 交换空间，用于C->V数据交换
+    int64_t gmm1SwapSpaceOffset;           // 交换空间，用于C->V数据交换
+    int64_t gmm2SwapSpaceOffset;           // 交换空间，用于C->V数据交换
+    int64_t y2TokenOffset;                 // 浅融合使用，已反量化无scale
+    int64_t groupListOffset;               // 各专家token数前缀和形式
+    int64_t expandIdxOffset;               // dispatch时token在远端索引
+    int64_t epSendCountOffset;             // 各专家从各个rank收到的token数
+    int64_t routedGroupMetaOffset;         // 稀疏routed路径的group metadata
+    int64_t routedActiveGroupCountOffset;  // 稀疏routed路径的active group的数量
+    int64_t routedActiveGroupIdsOffset;    // 稀疏routed路径的active group
+    int64_t reservedOffset;                // 预留空间
 };
 
 struct RoutedGroupMeta {
