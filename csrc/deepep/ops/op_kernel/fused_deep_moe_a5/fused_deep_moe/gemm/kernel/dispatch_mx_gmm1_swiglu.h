@@ -470,8 +470,8 @@ public:
             startCoreIdx = (startCoreIdx + coreLoops) % aicNum;
         }
         if (sparseFastPath) {
-            // Pair with the AIV-side barrier after FinalizeGroupMetaAfterRecv.
-            // This is the publication point for routed metadata.
+            // Pair with the AIV-side barrier after RecvCoreFunc publishes
+            // routed metadata and active-group information.
             AscendC::PipeBarrier<PIPE_ALL>();
             AscendC::SyncAll<false>();
             AscendC::PipeBarrier<PIPE_ALL>();
@@ -1505,7 +1505,7 @@ public:
     }
 
     CATLASS_DEVICE
-    void FinalizeGroupMetaAfterRecv(const Params &params, __gm__ ElementGroupList_ *ptrGroupList, GM_ADDR gmEpSendCount,
+    void FinalizeGroupMetaAfterRecv(__gm__ ElementGroupList_ *ptrGroupList, GM_ADDR gmEpSendCount,
                                     GM_ADDR gmExpertTokenNums)
     {
         if (aivNum > 0) {
@@ -1534,11 +1534,6 @@ public:
                 resource.ubBuf.template GetBufferByByte<int64_t>(metaUbOffset);
             metaUbOffset += groupListLocalBytes;
 
-            AscendC::LocalTensor<int32_t> metaLocal =
-                resource.ubBuf.template GetBufferByByte<int32_t>(ArchTag::UB_SIZE - UB_BLOCK_SIZE);
-            AscendC::GlobalTensor<int32_t> metaTensor;
-            metaTensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(params.gmRoutedGroupMeta));
-
             uint32_t prevTokenNum = 0;
             if (expertStart > 0) {
                 prevTokenNum =
@@ -1561,35 +1556,6 @@ public:
             AscendC::DataCopyPad(expertTokenNumsOutGMTensor_[expertStart], groupListLocalTensor, copyOutParams);
             AscendC::DataCopyPad(nonCumSumExpertTokenNumsTensor[expertStart], expertTokenNumsLocalTensor,
                                  copyOutParams);
-
-            // Finalize already partitions routed experts across logical AIVs.
-            // Reuse that partition so each AIV writes its own metadata range
-            // exactly once instead of scanning every group for an owner slot.
-            if (params.enableRoutedSparseFastPath != 0) {
-                uint32_t metadataPrefix =
-                    expertStart == 0
-                        ? 0U
-                        : FlushAndGetValue<int32_t>(sendCountsGlobal, (expertStart - 1) * epRankSize + epRankSize - 1);
-                for (uint32_t expertOffset = 0; expertOffset < expertCount; ++expertOffset) {
-                    uint32_t groupIdx = expertStart + expertOffset;
-                    uint32_t cumulative = static_cast<uint32_t>(groupListLocalTensor.GetValue(expertOffset));
-                    uint32_t tokenCount = cumulative - metadataPrefix;
-                    // Only empty groups use the fast skip. Non-empty groups
-                    // preserve the legacy all-AIV ready-notification protocol.
-                    uint32_t computeActive = tokenCount == 0 ? 0U : aivNum;
-                    for (uint32_t i = 0; i < 8; ++i) {
-                        metaLocal.SetValue(i, 0);
-                    }
-                    metaLocal.SetValue(0, static_cast<int32_t>(tokenCount));
-                    metaLocal.SetValue(1, static_cast<int32_t>(computeActive));
-                    AscendC::SetFlag<AscendC::HardEvent::S_MTE3>(0);
-                    AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
-                    AscendC::DataCopy(metaTensor[groupIdx * sizeof(RoutedGroupMeta) / sizeof(int32_t)], metaLocal,
-                                      INT32_COUNT_PER_BLOCK);
-                    AscendC::PipeBarrier<PIPE_MTE3>();
-                    metadataPrefix = cumulative;
-                }
-            }
         }
     }
 
@@ -1918,17 +1884,12 @@ public:
             }
             if (params.enableRoutedSparseFastPath == 0) {
                 AivOnlySync();
-                FinalizeGroupMetaAfterRecv(params, params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
-            }
-
-            if (params.enableRoutedSparseFastPath != 0) {
+                FinalizeGroupMetaAfterRecv(params.ptrGroupList, params.gmEpSendCount, params.gmExpertTokenNums);
+                AivOnlySync();
+            } else {
                 AscendC::PipeBarrier<PIPE_MTE3>();
                 AscendC::SyncAll<false>();
                 AscendC::PipeBarrier<PIPE_ALL>();
-            } else {
-                // Preserve the legacy AIV-only finalize boundary. The sparse
-                // path replaces it with the paired AIC/AIV publication sync.
-                AivOnlySync();
             }
         }
 
