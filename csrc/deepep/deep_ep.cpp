@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
+#include <sstream>
 #include <vector>
 #include <pybind11/functional.h>
 
@@ -37,6 +38,57 @@ constexpr uint32_t MAX_ROUNDS = 256;
 constexpr uint32_t MIN_TOKENS_PER_ROUND = 32;
 constexpr uint32_t MAX_TOKENS_PER_ROUND = 8192;
 constexpr uint32_t MAX_TOTAL_TOKENS = 131072;
+
+namespace {
+
+bool IsCamMoeDispatchNormalDebugEnabled()
+{
+    // Presence is intentional so `DEEPEP_DEBUG_CAM_MOE_DISPATCH_NORMAL=` also enables tracing.
+    return 1;
+}
+
+std::string FormatCamMoeDispatchNormalTensor(const char *name, const at::Tensor &tensor)
+{
+    std::ostringstream stream;
+    stream << name << "={defined=" << tensor.defined();
+    if (tensor.defined()) {
+        stream << ", shape=" << tensor.sizes() << ", dtype=" << c10::toString(tensor.scalar_type())
+               << ", device=" << tensor.device() << ", numel=" << tensor.numel();
+    }
+    return stream.str() + "}";
+}
+
+void LogCamMoeDispatchNormalArguments(const at::Tensor &x, const at::Tensor &topk_idx, const at::Tensor &send_offset,
+                                      const at::Tensor &send_token_idx, const at::Tensor &recv_offset,
+                                      const at::Tensor &recv_count, const at::Tensor &expert_global_offset,
+                                      const at::Tensor &srcrank_in_expert_offset, const at::Tensor &r_in_srcrank_offset,
+                                      const char *group_ep, int64_t ep_world_size, int64_t ep_rank_id,
+                                      const char *group_tp, int64_t tp_world_size, int64_t tp_rank_id,
+                                      int64_t moe_expert_num, int64_t quant_mode, int64_t real_max_bs,
+                                      int64_t global_bs, int32_t round, int32_t per_round_tokens,
+                                      const at::Tensor &recv_x, const at::Tensor &recv_x_scales,
+                                      const at::Tensor &assist_info_for_combine, const at::Tensor &wait_recv_cost_stats)
+{
+    TORCH_WARN("[DEEPEP_DEBUG_CAM_MOE_DISPATCH_NORMAL][caller] group_ep=", group_ep, ", ep_world_size=", ep_world_size,
+               ", ep_rank_id=", ep_rank_id, ", group_tp=", group_tp, ", tp_world_size=", tp_world_size,
+               ", tp_rank_id=", tp_rank_id, ", moe_expert_num=", moe_expert_num, ", quant_mode=", quant_mode,
+               ", real_max_bs=", real_max_bs, ", global_bs=", global_bs, ", round=", round,
+               ", per_round_tokens=", per_round_tokens, "; ", FormatCamMoeDispatchNormalTensor("x", x), "; ",
+               FormatCamMoeDispatchNormalTensor("topk_idx", topk_idx), "; ",
+               FormatCamMoeDispatchNormalTensor("send_offset", send_offset), "; ",
+               FormatCamMoeDispatchNormalTensor("send_token_idx", send_token_idx), "; ",
+               FormatCamMoeDispatchNormalTensor("recv_offset", recv_offset), "; ",
+               FormatCamMoeDispatchNormalTensor("recv_count", recv_count), "; ",
+               FormatCamMoeDispatchNormalTensor("expert_global_offset", expert_global_offset), "; ",
+               FormatCamMoeDispatchNormalTensor("srcrank_in_expert_offset", srcrank_in_expert_offset), "; ",
+               FormatCamMoeDispatchNormalTensor("r_in_srcrank_offset", r_in_srcrank_offset), "; ",
+               FormatCamMoeDispatchNormalTensor("recv_x", recv_x), "; ",
+               FormatCamMoeDispatchNormalTensor("recv_x_scales", recv_x_scales), "; ",
+               FormatCamMoeDispatchNormalTensor("assist_info_for_combine", assist_info_for_combine), "; ",
+               FormatCamMoeDispatchNormalTensor("wait_recv_cost_stats", wait_recv_cost_stats));
+}
+
+}  // namespace
 
 Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
                std::string moe_all_to_all_group_name)
@@ -383,12 +435,23 @@ Buffer::intranode_dispatch(const at::Tensor &x, const std::optional<at::Tensor> 
         recv_topk_idx = at::empty({trt, num_topk}, topk_idx->options());
         recv_topk_weights = at::empty({trt, num_topk}, topk_weights->options());
     }
+    if (IsCamMoeDispatchNormalDebugEnabled()) {
+        LogCamMoeDispatchNormalArguments(
+            new_x, expert_ids, send_data_offset, send_token_idx_small, recv_offset, recv_count, expert_global_offset,
+            srcrank_in_expert_offset, r_in_srcrank_offset, hcom_ep_name, num_ranks, rank, hcom_ep_name, tp_size,
+            tp_rank, num_experts, quant_mode, real_max_bs, global_bs, round, per_round_tokens, expandx_out,
+            dynamic_scales_out, expand_idx_out, dispatch_wait_recv_cost_stats_out);
+    }
     EXEC_NPU_CMD(aclnnCamMoeDispatchNormal, new_x, expert_ids, send_data_offset, send_token_idx_small, recv_offset,
                  recv_count, expert_global_offset, srcrank_in_expert_offset, r_in_srcrank_offset, hcom_ep_name,
                  num_ranks,  // rankSize
                  rank,       // rankId
                  hcom_ep_name, tp_size, tp_rank, num_experts, quant_mode, real_max_bs, global_bs, round,
                  per_round_tokens, expandx_out, dynamic_scales_out, expand_idx_out, dispatch_wait_recv_cost_stats_out);
+    if (IsCamMoeDispatchNormalDebugEnabled()) {
+        TORCH_WARN("[DEEPEP_DEBUG_CAM_MOE_DISPATCH_NORMAL][caller] rank=", rank,
+                   " completed aclnnCamMoeDispatchNormal");
+    }
     const int32_t *recv_token_per_exp_ptr = header_ptr + 2;
 
     int token_cnt = 0;
