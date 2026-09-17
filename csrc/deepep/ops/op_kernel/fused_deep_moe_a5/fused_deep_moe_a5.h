@@ -34,18 +34,17 @@ using ElementC = float;
 using ElementMxScale = fp8_e8m0_t;
 using ElementGroupList = int64_t;
 
-// FP4-NZ uses the deeper L1 pipeline used by the standalone grouped-matmul
-// implementation.  Keep the selection explicit: FP4-ND must continue to use
-// the default policy, and a quantization mode alone is not sufficient to tell
-// ND from NZ.
-template <bool WeightNz, class ElementA, class ElementB>
-inline constexpr bool IsFp4NzGmm =
-    WeightNz && (std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
+// FP4 uses the deeper L1 pipeline used by the standalone grouped-matmul
+// implementation.  ND/NZ layout selection remains in LayoutTagB; the
+// pipeline parameters depend only on the FP4 element types.
+template <class ElementA, class ElementB>
+inline constexpr bool IsFp4Gmm =
+    (std::is_same_v<ElementA, float4_e2m1x2_t> || std::is_same_v<ElementA, float4_e1m2x2_t>) &&
     (std::is_same_v<ElementB, float4_e2m1x2_t> || std::is_same_v<ElementB, float4_e1m2x2_t>);
 
-template <bool WeightNz, class ElementA, class ElementB>
+template <class ElementA, class ElementB>
 using A5MmadMxDispatchPolicy =
-    std::conditional_t<IsFp4NzGmm<WeightNz, ElementA, ElementB>,
+    std::conditional_t<IsFp4Gmm<ElementA, ElementB>,
                        Catlass::Gemm::MmadMxWithCallback<Catlass::Arch::Ascend950, true, 4, 1, false, 3, 3, 2, 2>,
                        Catlass::Gemm::MmadMxWithCallback<Catlass::Arch::Ascend950, true>>;
 
@@ -122,7 +121,7 @@ CATLASS_DEVICE void DispatchMxGmm1SwigluQuantFunc(
     using LayoutTagC = Catlass::layout::RowMajor;
 
     using ArchTag = Catlass::Arch::Ascend950;
-    using DispatchPolicy = A5MmadMxDispatchPolicy<WEIGHT_NZ, ElementA, ElementB>;
+    using DispatchPolicy = A5MmadMxDispatchPolicy<ElementA, ElementB>;
 
     auto layoutA = tla::MakeLayout<ElementA, LayoutTagA>(m, k);
     auto layoutB = tla::MakeLayout<ElementB, LayoutTagB>(k, n);
@@ -235,7 +234,7 @@ CATLASS_DEVICE void MxGmm2CastCombineFunc(
     using LayoutTagC = Catlass::layout::RowMajor;
 
     using ArchTag = Catlass::Arch::Ascend950;
-    using DispatchPolicy = A5MmadMxDispatchPolicy<WEIGHT_NZ, ElementA, ElementB>;
+    using DispatchPolicy = A5MmadMxDispatchPolicy<ElementA, ElementB>;
 
     auto layoutA = tla::MakeLayout<ElementA, LayoutTagA>(m, k);
     auto layoutShareA = tla::MakeLayout<ElementA, LayoutTagA>(m, shareK);
