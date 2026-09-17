@@ -1409,6 +1409,13 @@ def run_rank(local_rank: int, num_processes: int, args: argparse.Namespace):
         avg_diff, max_diff, cosine_diff = summarize_output_diff(
             valid_small_output, valid_fused_output
         )
+        mismatch_ratio = 0.0
+        if has_valid_tokens and args.activation == "situ":
+            small_cpu = valid_small_output.float().cpu()
+            fused_cpu = valid_fused_output.float().cpu()
+            abs_error = (small_cpu - fused_cpu).abs()
+            tolerance = ACCURACY_ATOL + ACCURACY_RTOL * fused_cpu.abs()
+            mismatch_ratio = (abs_error > tolerance).float().mean().item()
         small_absmax, small_mean = summarize_tensor_stats(valid_small_output)
         fused_absmax, fused_mean = summarize_tensor_stats(valid_fused_output)
         diag_tensor = torch.tensor(
