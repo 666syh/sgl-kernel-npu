@@ -1000,10 +1000,11 @@ static ge::graphStatus FusedDeepMoeTilingFuncImpl(gert::TilingContext &context)
     if (tilingData->fusedDeepMoeInfo.moeExpertNumPerRank != 1) {
         tilingKey |= EXEC_FLAG_DEEP_FUSE;
     }
+    // factor = 0.75 = 3 / 4
     tilingData->fusedDeepMoeInfo.enableRoutedSparseFastPath =
         (tilingData->fusedDeepMoeInfo.moeExpertNumPerRank > 1 &&
-         static_cast<uint64_t>(tilingData->fusedDeepMoeInfo.bs) * tilingData->fusedDeepMoeInfo.k <
-             tilingData->fusedDeepMoeInfo.moeExpertNumPerRank)
+         static_cast<uint64_t>(tilingData->fusedDeepMoeInfo.bs) * tilingData->fusedDeepMoeInfo.k * 4U <
+             static_cast<uint64_t>(tilingData->fusedDeepMoeInfo.moeExpertNumPerRank) * 3U)
             ? 1U
             : 0U;
     if (tilingData->fusedDeepMoeInfo.isTensorList) {
