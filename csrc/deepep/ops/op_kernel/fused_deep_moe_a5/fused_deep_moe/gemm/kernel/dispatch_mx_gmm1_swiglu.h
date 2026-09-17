@@ -796,7 +796,50 @@ public:
     }
 
     CATLASS_DEVICE
-    uint32_t SendToMoeExpert(GM_ADDR gmX, GM_ADDR gmExpandIdx, GM_ADDR gmMoeSmoothScales)
+    void SendOneMoeToken(int32_t dstExpertId, uint32_t tokenIndex, uint32_t startTokenId, uint32_t &sendValidTokenIndex,
+                         AscendC::GlobalTensor<XType> &srcWinGMTensor,
+                         AscendC::GlobalTensor<float> &moeSmoothScaleGMTensor,
+                         AscendC::GlobalTensor<ElementA> &dstWinGMTensor)
+    {
+        uint32_t index = (sendValidTokenIndex & 1) ? 0 : 1;
+        int32_t eventId = (sendValidTokenIndex & 1) ? 0 : 1;
+        sendValidTokenIndex += 1;
+        int32_t curExpertCnt = 0;
+        CalExpandxIdx(dstExpertId, tokenIndex, curExpertCnt, ubOffset);
+        expertCountTensor(tokenIndex - startTokenId) = curExpertCnt;
+        uint32_t tempRankId = dstExpertId / moeExpertNumPerRank;
+        GM_ADDR rankGM = (__gm__ uint8_t *)(GetWindAddrByRankId(tempRankId) +
+                                            (expertPerSizeOnWin *
+                                             (epRankId * moeExpertNumPerRank + dstExpertId % moeExpertNumPerRank)) +
+                                            hCommuSize * curExpertCnt);
+        dstWinGMTensor.SetGlobalBuffer((__gm__ ElementA *)rankGM);
+
+        AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventId);
+        AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(eventId);
+        AscendC::DataCopy(xInTensor[index], srcWinGMTensor[tokenIndex / axisK * tokenLength], tokenLength);
+        if constexpr (EXEC_FLAG & EXEC_FLAG_SMOOTH_QUANT) {
+            AscendC::PipeBarrier<PIPE_MTE2>();
+            AscendC::DataCopy(moeSmoothScaleTensor[index], moeSmoothScaleGMTensor[dstExpertId * tokenLength],
+                              tokenLength);
+        }
+        AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(eventId);
+        AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(eventId);
+        QuantToken(xInTensor[index], moeSmoothScaleTensor[index], yInt8Tensor[index], ubOffset);
+        AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(eventId);
+
+        AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
+        AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(eventId);
+
+        AscendC::DataCopy(dstWinGMTensor, yInt8Tensor[index], tokenLength);
+        AscendC::PipeBarrier<PIPE_MTE3>();
+        AscendC::DataCopy(dstWinGMTensor[tokenLength], yInt8Tensor[index][tokenLength],
+                          MxByte2Count<ElementA>(scaleFlagSize));
+        AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(eventId);
+        AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(eventId);
+    }
+
+    CATLASS_DEVICE
+    uint32_t SendToMoeExpert(GM_ADDR gmX, GM_ADDR gmExpandIdx, GM_ADDR gmMoeSmoothScales, bool sparseFastPath)
     {
         uint32_t sendTokenNum = expertIdsCnt / sendToMoeAivNum;
         uint32_t remainderTokenNum = expertIdsCnt % sendToMoeAivNum;
@@ -828,51 +871,25 @@ public:
         AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(0);
         AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(1);
         uint32_t sendValidTokenIndex = 0;
-        for (uint32_t sendGroupIndex = 0; sendGroupIndex < moeExpertNumPerRank; ++sendGroupIndex) {
+        if (sparseFastPath) {
             for (uint32_t tokenIndex = startTokenId; tokenIndex < endTokenId; ++tokenIndex) {
                 int32_t dstExpertId = expertIdsTensor_(tokenIndex);
                 if (dstExpertId < 0) {
                     continue;
                 }
-                // Send to preferentically to the specicied expert
-                if ((dstExpertId % moeExpertNumPerRank) != sendGroupIndex) {
-                    continue;
+                SendOneMoeToken(dstExpertId, tokenIndex, startTokenId, sendValidTokenIndex, srcWinGMTensor,
+                                moeSmoothScaleGMTensor, dstWinGMTensor);
+            }
+        } else {
+            for (uint32_t sendGroupIndex = 0; sendGroupIndex < moeExpertNumPerRank; ++sendGroupIndex) {
+                for (uint32_t tokenIndex = startTokenId; tokenIndex < endTokenId; ++tokenIndex) {
+                    int32_t dstExpertId = expertIdsTensor_(tokenIndex);
+                    if (dstExpertId < 0 || (dstExpertId % moeExpertNumPerRank) != sendGroupIndex) {
+                        continue;
+                    }
+                    SendOneMoeToken(dstExpertId, tokenIndex, startTokenId, sendValidTokenIndex, srcWinGMTensor,
+                                    moeSmoothScaleGMTensor, dstWinGMTensor);
                 }
-                uint32_t index = (sendValidTokenIndex & 1) ? 0 : 1;
-                int32_t eventId = (sendValidTokenIndex & 1) ? 0 : 1;
-                sendValidTokenIndex += 1;
-                int32_t curExpertCnt = 0;
-                CalExpandxIdx(dstExpertId, tokenIndex, curExpertCnt, ubOffset);
-                expertCountTensor(tokenIndex - startTokenId) = curExpertCnt;
-                uint32_t tempRankId = dstExpertId / moeExpertNumPerRank;
-                GM_ADDR rankGM = (__gm__ uint8_t *)(GetWindAddrByRankId(tempRankId) +
-                                                    (expertPerSizeOnWin * (epRankId * moeExpertNumPerRank +
-                                                                           dstExpertId % moeExpertNumPerRank)) +
-                                                    hCommuSize * curExpertCnt);
-                dstWinGMTensor.SetGlobalBuffer((__gm__ ElementA *)rankGM);
-
-                AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(eventId);
-                AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(eventId);
-                AscendC::DataCopy(xInTensor[index], srcWinGMTensor[tokenIndex / axisK * tokenLength], tokenLength);
-                if constexpr (EXEC_FLAG & EXEC_FLAG_SMOOTH_QUANT) {
-                    AscendC::PipeBarrier<PIPE_MTE2>();
-                    AscendC::DataCopy(moeSmoothScaleTensor[index], moeSmoothScaleGMTensor[dstExpertId * tokenLength],
-                                      tokenLength);
-                }
-                AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(eventId);
-                AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(eventId);
-                QuantToken(xInTensor[index], moeSmoothScaleTensor[index], yInt8Tensor[index], ubOffset);
-                AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(eventId);
-
-                AscendC::WaitFlag<AscendC::HardEvent::S_MTE3>(0);
-                AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(eventId);
-
-                AscendC::DataCopy(dstWinGMTensor, yInt8Tensor[index], tokenLength);
-                AscendC::PipeBarrier<PIPE_MTE3>();
-                AscendC::DataCopy(dstWinGMTensor[tokenLength], yInt8Tensor[index][tokenLength],
-                                  MxByte2Count<ElementA>(scaleFlagSize));
-                AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(eventId);
-                AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(eventId);
             }
         }
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(0);
@@ -891,7 +908,7 @@ public:
     }
 
     CATLASS_DEVICE void SendCoreFunc(GM_ADDR gmX, GM_ADDR gmExpertIds, GM_ADDR gmMoeSmoothScales, GM_ADDR gmExpandIdx,
-                                     GM_ADDR gmXActiveMask, FusedDeepMoeProfileWriter *profile)
+                                     GM_ADDR gmXActiveMask, bool sparseFastPath, FusedDeepMoeProfileWriter *profile)
     {
         uint64_t profDispatchSendStart = 0;
         if (profile != nullptr) {
@@ -953,7 +970,7 @@ public:
         CalAndSendTokenCount();
         AscendC::PipeBarrier<PIPE_ALL>();
         sendToMoeAivNum = sendCoreNum;
-        uint32_t sendValidTokenCount = SendToMoeExpert(gmX, gmExpandIdx, gmMoeSmoothScales);
+        uint32_t sendValidTokenCount = SendToMoeExpert(gmX, gmExpandIdx, gmMoeSmoothScales, sparseFastPath);
         AscendC::PipeBarrier<PIPE_ALL>();
         if (profile != nullptr) {
             auto dispatchSendPayload = Cam::ToProfilePrivatePayloadRaw(Cam::MakeDispatchSendPrivatePayloadV1(
@@ -1878,7 +1895,8 @@ public:
             }
             if (isSendCore) {
                 SendCoreFunc((GM_ADDR)params.gmX, (GM_ADDR)params.gmExpertIds, (GM_ADDR)params.gmMoeSmoothScales,
-                             (GM_ADDR)params.gmExpandIdx, (GM_ADDR)params.gmXActiveMask, params.profile);
+                             (GM_ADDR)params.gmExpandIdx, (GM_ADDR)params.gmXActiveMask,
+                             params.enableRoutedSparseFastPath != 0, params.profile);
                 CleanRoutedX2ReadyState();
             }
             if (isRecvCore) {
