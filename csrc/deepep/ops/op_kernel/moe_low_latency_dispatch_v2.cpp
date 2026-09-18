@@ -63,14 +63,6 @@ extern "C" __global__ __aicore__ void moe_low_latency_dispatch_v2(
         op.Process();
         return;
     }
-    if (TILING_KEY_IS(50100)) {
-        GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, false, false, false, true> op;
-        op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
-                assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
-        op.Process();
-        return;
-    }
 #ifdef __DAV_C310__
     if (TILING_KEY_IS(60000)) {
         GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
@@ -138,14 +130,6 @@ extern "C" __global__ __aicore__ void moe_low_latency_dispatch_v2(
         op.Process();
         return;
     }
-    if (TILING_KEY_IS(50102)) {
-        GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, false, false, true> op;
-        op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
-                assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
-        op.Process();
-        return;
-    }
 #ifdef __DAV_C310__
     if (TILING_KEY_IS(60002)) {
         GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
@@ -167,26 +151,10 @@ extern "C" __global__ __aicore__ void moe_low_latency_dispatch_v2(
         op.Process();
         return;
     }
-    if (TILING_KEY_IS(50105)) {
-        GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, false, false, true> op;
-        op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
-                assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
-        op.Process();
-        return;
-    }
 #endif
     if (TILING_KEY_IS(50003)) {
         GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
         MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, true, false, false> op;
-        op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
-                assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
-        op.Process();
-        return;
-    }
-    if (TILING_KEY_IS(50103)) {
-        GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, true, false, true> op;
         op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
                 assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
         op.Process();
@@ -198,14 +166,6 @@ extern "C" __global__ __aicore__ void moe_low_latency_dispatch_v2(
     if (TILING_KEY_IS(50004)) {
         GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
         MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, true, false, false> op;
-        op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
-                assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
-        op.Process();
-        return;
-    }
-    if (TILING_KEY_IS(50104)) {
-        GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, true, false, true> op;
         op.Init(x, expertIds, scales, xActiveMask, elasticInfo, profileBuffer, expandXOut, dynamicScalesOut,
                 assistInfoOut, expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
         op.Process();
