@@ -1297,9 +1297,31 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext *context, const char *no
     OP_TILING_CHECK(workSpaces == nullptr, OP_LOGE(nodeName, "workSpaces is nullptr."), return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint32_t aivNum = ascendcPlatform.GetCoreNumAiv();
-    // The final aligned block publishes the last active AIV's gather count so
-    // expert-token metadata can be written by multiple AIVs.
-    workSpaces[0] = SYSTEM_NEED_WORKSPACE + static_cast<size_t>(WORKSPACE_ELEMENT_OFFSET * (aivNum * aivNum + 1));
+    auto attrs = context->GetAttrs();
+    auto epWorldSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_EP_WORLD_SIZE_INDEX);
+    auto sharedExpertRankNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_SHARED_EXPERT_RANK_NUM_INDEX);
+    auto moeExpertNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_MOE_EXPERT_NUM_INDEX);
+    OP_TILING_CHECK(epWorldSizePtr == nullptr || sharedExpertRankNumPtr == nullptr || moeExpertNumPtr == nullptr,
+                    OP_LOGE(nodeName, "expert workspace attributes are missing."), return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(*epWorldSizePtr <= 0 || *sharedExpertRankNumPtr < 0 || *moeExpertNumPtr <= 0 ||
+                        *sharedExpertRankNumPtr >= *epWorldSizePtr || *moeExpertNumPtr > MOE_EXPERT_MAX_NUM,
+                    OP_LOGE(nodeName, "invalid expert workspace attributes."), return ge::GRAPH_FAILED);
+
+    uint32_t epWorldSize = static_cast<uint32_t>(*epWorldSizePtr);
+    uint32_t sharedExpertRankNum = static_cast<uint32_t>(*sharedExpertRankNumPtr);
+    uint32_t moeExpertNum = static_cast<uint32_t>(*moeExpertNumPtr);
+    uint32_t moeRankNum = epWorldSize - sharedExpertRankNum;
+    uint32_t localMoeExpertNum = (moeRankNum == 0U) ? 0U : moeExpertNum / moeRankNum;
+    uint64_t recvWorkspaceBytes = static_cast<uint64_t>(WORKSPACE_ELEMENT_OFFSET) * aivNum * aivNum;
+    // One 512B cacheline-isolated slot is reserved for every local expert.
+    // The kernel compacts these slots into expertTokenNumsOut with two 2D DMAs.
+    uint64_t tokenMetaBytes = static_cast<uint64_t>(WORKSPACE_ELEMENT_OFFSET) * localMoeExpertNum;
+    uint64_t gatherMetaBytes = WORKSPACE_ELEMENT_OFFSET;
+    // The kernel aligns the metadata base from the actual workspace address.
+    // Reserve the worst-case gap between recvWorkspaceBytes and that aligned base.
+    uint64_t tokenMetaAlignSlack = WORKSPACE_ELEMENT_OFFSET - 1U;
+    workSpaces[0] = SYSTEM_NEED_WORKSPACE +
+                    static_cast<size_t>(recvWorkspaceBytes + tokenMetaAlignSlack + tokenMetaBytes + gatherMetaBytes);
     return ge::GRAPH_SUCCESS;
 }
 
