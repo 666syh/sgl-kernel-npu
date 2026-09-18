@@ -1644,6 +1644,8 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::UpdateTok
                         tokenNum += effectiveGatherCount;
                     }
                 }
+                AscendC::printf("[A5][UpdateTokenNumsOut] aiv=%u expert=%u token=%u\n", aivId_, localMoeIndex,
+                                tokenNum);
                 expertTokenNumsOutGMTensor_.SetValue(localMoeIndex, tokenNum);
                 DataCacheCleanAndInvalid<int64_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
                     expertTokenNumsOutGMTensor_[localMoeIndex]);
