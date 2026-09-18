@@ -808,10 +808,11 @@ template <TemplateMC2TypeClass>
 __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::SetWaitTpStatusAndDisPatch()
 {
     PipeBarrier<PIPE_ALL>();
-    if ((aivId_ >= tpRemoteSendCnt_) &&
-        (aivId_ >= selfSendCnt_)) {  // 所有核tpRemoteSendCnt_==0，rank 1所有核的selfSendCnt_==24。rank1只有0~23核往下走
-        return;
-    }
+    // 注意：发送分核已改为按 epSendCount 数据分核（rank-major），核号与 token 数不再相关，
+    // 因此不能用 aivId_ >= selfSendCnt_ 判定空闲核：被误判的核所在的 rank 组会整体不发送，
+    // 其 token 的 flag 永不写入，对端 WaitDispatch 收不满而卡死。
+    // 空闲核改由子区间为空（sendCntNum_ == 0）自行返回。
+    // tp 握手按 aivId_ 与对端一一配对，参与集合必须两卡对称，故统一由所有核参与。
     if constexpr (IsNeedReduceScatter) {
         uint32_t tpToRankId = 1U - tpRankId_;  // 当前适配按tpWorldSize_==2来写
         PipeBarrier<PIPE_ALL>();
@@ -838,8 +839,8 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::SetWaitTpS
         DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(selfStatusWinTensor);
     }
 
-    // Copy win gm->ub add ->alltoall send
-    ExpertAlltoAllDispatchCopyAdd();  // 除了rank 1 都会直接return；rank1 的 aivId_>=24直接return
+    // Copy win gm->ub add ->alltoall send（所有核都进入，空闲核由子区间为空返回）
+    ExpertAlltoAllDispatchCopyAdd();
     SyncFunc<AscendC::HardEvent::MTE3_S>();
 }
 
