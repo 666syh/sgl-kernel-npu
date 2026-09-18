@@ -1,5 +1,7 @@
 #include "profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_traits.hpp"
 
+#include <sstream>
+
 #include "exception.hpp"
 
 namespace deep_ep::profiling::moe_low_latency_dispatch_v2_a5 {
