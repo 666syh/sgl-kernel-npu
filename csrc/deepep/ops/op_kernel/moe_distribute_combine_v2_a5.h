@@ -37,6 +37,7 @@ constexpr uint8_t MOE_NUM_IDX = 3U;
 constexpr uint32_t DIM_NUM = 2;
 constexpr size_t MASK_CALC_NEED_WORKSPACE = 10UL * 1024UL;
 constexpr uint32_t BLOCK_NUM = ALIGNED_LEN / UB_ALIGN;  // blockReduceMax中，最多支持连续256字节数据参与计算
+constexpr uint32_t BATCH_SRC_INFO_CNT = 128U;           // expandIdx 分批搬运的 token 数
 
 // related to FP8 and INT8 quantization
 constexpr float FP8_E5M2_MAX_VALUE = 57344.0f;
@@ -84,6 +85,8 @@ private:
     __aicore__ inline void ExpertAlltoAllDispatchInnerCopyAdd(uint32_t toRankId, uint32_t tokenId, uint32_t topkId,
                                                               uint32_t tkIndex);
     __aicore__ inline void ExpertAlltoAllDispatchCopyAdd();
+    __aicore__ inline void InitRankMajorSendRange();
+    __aicore__ inline void ProcessSendRange(uint32_t lo, uint32_t cnt, LocalTensor<float> &statusTensor);
     __aicore__ inline void Int8QuantProcess();
     __aicore__ inline void Int8DequantProcess(LocalTensor<XType> &src);
     __aicore__ inline void ProcessConstantExpert(uint32_t tokenIndex, uint32_t const_expert_idx, float scaleVal);
@@ -183,6 +186,7 @@ private:
     uint32_t startTokenId_{0};
     uint32_t endTokenId_{0};
     uint32_t sendCntNum_{0};
+    uint32_t sendRangeNum_{0};  // 本核待发送的子区间个数（rank-major 分核后为多个段）
     uint32_t ubSize_{0};
     uint32_t dataState_{0};
     uint32_t stateOffset_{0};
@@ -232,6 +236,9 @@ private:
     TBuf<> stateResetBuf_;
     TBuf<> expertMaskBuf_;
     TBuf<> elasticInfoBuf_;
+    TBuf<> epSendCountBuf_;      // epSendCount（expert-major/rank-minor 全前缀和）拷入 UB，用于 rank-major 分核
+    TBuf<> sendRangeOffsetBuf_;  // 本核子区间列表：起始 token 偏移
+    TBuf<> sendRangeCntBuf_;     // 本核子区间列表：token 数
     bool isInputTokenMaskFlag_ = false;
     bool isInputExpertMaskFlag_ = false;
     bool hasSharedExpertX_ = false;
@@ -485,7 +492,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::Init(
             epSendCountGM_[moeSendNum_ - 1]);
         selfSendCnt_ = epSendCountGM_(moeSendNum_ - 1);
     }
-    SplitCoreCal();
+    // 发送分核推迟到 ExpertAlltoAllDispatchCopyAdd（rank-major 两级分核，需要 epSendCount 全量前缀和）
     if constexpr (IsNeedReduceScatter) {
         auto contextGM1 = AscendC::GetHcclContext<1>();
         tpWinContext_ = (__gm__ HcclOpParam *)contextGM1;
@@ -561,7 +568,16 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::BuffInit()
             InitElasticInfoTensor();
         }
     }
-    tpipe_->InitBuffer(indexCountsBuf_, sendCntNum_ * EXPAND_IDX_INFO * sizeof(int32_t));
+    // 发送侧 rank-major 分核用：epSendCount 整块拷入 UB + 本核子区间列表
+    // 共享专家卡的 epSendCount 按源 rank 排布（每 rank 一块），MoE 专家卡为 expert-major/rank-minor 前缀和
+    uint32_t expertBlkNum = isShareExpertRankFlag_ ? 1U : moeExpertPerRankNum_;
+    uint32_t countBlkAlignLen = Ceil(expertBlkNum * epWorldSize_ * sizeof(int32_t), UB_ALIGN) * UB_ALIGN;
+    uint32_t rangeCntAlignLen = Ceil(expertBlkNum * sizeof(int32_t), UB_ALIGN) * UB_ALIGN;
+    tpipe_->InitBuffer(epSendCountBuf_, countBlkAlignLen);
+    tpipe_->InitBuffer(sendRangeOffsetBuf_, rangeCntAlignLen);
+    tpipe_->InitBuffer(sendRangeCntBuf_, rangeCntAlignLen);
+    // expandIdx 按 BATCH_SRC_INFO_CNT 分批搬运，UB 占用与单核 token 数解耦
+    tpipe_->InitBuffer(indexCountsBuf_, BATCH_SRC_INFO_CNT * EXPAND_IDX_INFO * sizeof(int32_t));
 }
 
 template <TemplateMC2TypeClass>
@@ -830,36 +846,150 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::SetWaitTpS
 template <TemplateMC2TypeClass>
 __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ExpertAlltoAllDispatchCopyAdd()
 {
+    // 分核：rank-major 两级分核（一级按目标 rank 分组，二级组内按该 rank 的 token 总数均衡），
+    // 使每核只写一个目标 rank 的 window/state，提升远端写局部性
+    InitRankMajorSendRange();
     if (sendCntNum_ == 0U) {  // 空闲核，直接返回
         return;
     }
 
-    LocalTensor<ExpandIdxType> expandIdxLocal = indexCountsBuf_.Get<ExpandIdxType>();
-    const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(sendCntNum_ * EXPAND_IDX_INFO * sizeof(uint32_t)), 0U,
-                                      0U, 0U};
-    const DataCopyPadExtParams<ExpandIdxType> copyPadParams{false, 0U, 0U, 0U};
-    DataCopyPad(expandIdxLocal, expandIdxGM_[startTokenId_ * EXPAND_IDX_INFO], bskParams, copyPadParams);
     LocalTensor<float> statusTensor = readStateBuf_.Get<float>();
     Duplicate<float>(statusTensor, (float)1.0, FLOAT_PER_UB_ALIGN);
     SyncFunc<AscendC::HardEvent::V_MTE3>();
+
+    LocalTensor<uint32_t> sendRangeOffsetLT = sendRangeOffsetBuf_.Get<uint32_t>();
+    LocalTensor<uint32_t> sendRangeCntLT = sendRangeCntBuf_.Get<uint32_t>();
+    for (uint32_t si = 0U; si < sendRangeNum_; ++si) {
+        ProcessSendRange(sendRangeOffsetLT(si), sendRangeCntLT(si), statusTensor);
+    }
+}
+
+template <TemplateMC2TypeClass>
+__aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::InitRankMajorSendRange()
+{
+    LocalTensor<ExpandIdxType> sendCountLocal = epSendCountBuf_.Get<ExpandIdxType>();
+    LocalTensor<uint32_t> sendRangeOffsetLT = sendRangeOffsetBuf_.Get<uint32_t>();
+    LocalTensor<uint32_t> sendRangeCntLT = sendRangeCntBuf_.Get<uint32_t>();
+
+    // 共享专家卡：epSendCount 按源 rank 排布，第 r 块即去往 rank r 的 token 数（等价 expert 维度为 1）；
+    // MoE 专家卡：块 (e, r) 位于 e * epWorldSize_ + r，块计数 = P[e*W+r] - P[e*W+r-1]
+    uint32_t expertBlkNum = isShareExpertRankFlag_ ? 1U : moeExpertPerRankNum_;
+    uint32_t countBlkNum = expertBlkNum * epWorldSize_;
+    const DataCopyExtParams countDp{1U, static_cast<uint32_t>(countBlkNum * sizeof(int32_t)), 0U, 0U, 0U};
+    const DataCopyPadExtParams<ExpandIdxType> countPad{false, 0U, 0U, 0U};
+    DataCopyPad(sendCountLocal, epSendCountGM_[0], countDp, countPad);
     SyncFunc<AscendC::HardEvent::MTE2_S>();
-    for (uint32_t loop = 0; loop < sendCntNum_; loop++) {
-        uint32_t tkIndex = startTokenId_ + ((loop + epRankId_) % sendCntNum_);  // 错位发送
-        uint32_t baseOffset = (tkIndex - startTokenId_) * EXPAND_IDX_INFO;
-        uint32_t rankIdExpandIdx = static_cast<uint32_t>(expandIdxLocal(baseOffset));  // 位置0是rank_id
-        uint32_t toRankId = rankIdExpandIdx;                                           // 位置0是rank_id
-        uint32_t tokenId = static_cast<uint32_t>(expandIdxLocal(baseOffset + 1));      // 位置1是token_id
-        uint32_t topkId = static_cast<uint32_t>(expandIdxLocal(baseOffset + 2));       // 位置2是topk_id
-        if (isScalingDownFlag_) {
-            toRankId = elasticInfoTensor_.GetValue(ELASTIC_INFO_OFFSET + epWorldSizeOriginal_ + rankIdExpandIdx);
+
+    uint32_t perRankCore = aivNum_ / epWorldSize_;
+    if (perRankCore == 0U) {
+        // A < W（核数少于卡数）：退化为按 token 总数切连续段（与改造前一致）
+        sendRangeNum_ = 0U;
+        SplitCoreCal();
+        if (sendCntNum_ == 0U) {
+            return;
         }
-        ExpertAlltoAllDispatchInnerCopyAdd(toRankId, tokenId, topkId, tkIndex);
-        PipeBarrier<PIPE_MTE3>();
-        GM_ADDR stateGM = GetWinStateAddrByRankId(toRankId, EP_DOMAIN) + tokenId * flagRcvCount_ * stateOffset_ +
-                          topkId * stateOffset_;  // 计算地址偏移
-        GlobalTensor<float> stateGMTensor;
-        stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
-        DataCopy<float>(stateGMTensor, statusTensor, FLOAT_PER_UB_ALIGN);  // 8是数据大小，按32对齐拷贝
+        sendRangeOffsetLT(0U) = startTokenId_;
+        sendRangeCntLT(0U) = sendCntNum_;
+        sendRangeNum_ = 1U;
+        return;
+    }
+
+    // 一级：按目标 rank 分核组，rank r 的核组 = [r*perRankCore + min(r, remRankCore),
+    //                                         + perRankCore + (r < remRankCore ? 1 : 0))
+    uint32_t remRankCore = aivNum_ % epWorldSize_;
+    uint32_t myRank = 0U;
+    uint32_t groupStart = 0U;
+    uint32_t groupSize = 0U;
+    for (uint32_t r = 0U; r < epWorldSize_; ++r) {
+        uint32_t gStart = r * perRankCore + (r < remRankCore ? r : remRankCore);
+        uint32_t gEnd = gStart + perRankCore + (r < remRankCore ? 1U : 0U);
+        if (aivId_ >= gStart && aivId_ < gEnd) {
+            myRank = r;
+            groupStart = gStart;
+            groupSize = gEnd - gStart;
+            break;
+        }
+    }
+    uint32_t k = aivId_ - groupStart;
+
+    // 目标 rank 的 token 总数 T_r = Σ_e blockCount(e, r)，与下面子区间映射使用同一套块计数，
+    // 保证 [tStart, tEnd) 落在 [0, T_r) 内
+    uint32_t rankTotal = 0U;
+    for (uint32_t e = 0U; e < expertBlkNum; ++e) {
+        uint32_t blockIdx = e * epWorldSize_ + myRank;
+        uint32_t hi = static_cast<uint32_t>(sendCountLocal(blockIdx));
+        uint32_t lo = (blockIdx == 0U) ? 0U : static_cast<uint32_t>(sendCountLocal(blockIdx - 1));
+        rankTotal += hi - lo;
+    }
+
+    // 二级：组内按 token 数均分，得到本核的 token 区间 [tStart, tEnd)
+    uint32_t perCoreToken = rankTotal / groupSize;
+    uint32_t remToken = rankTotal % groupSize;
+    uint32_t tStart = perCoreToken * k + (k < remToken ? k : remToken);
+    uint32_t tEnd = tStart + perCoreToken + (k < remToken ? 1U : 0U);
+    sendCntNum_ = tEnd - tStart;
+    sendRangeNum_ = 0U;
+    if (tStart == tEnd) {
+        return;
+    }
+
+    // 把 [tStart, tEnd) 映射回目标 rank 各 expert 块内的子区间（块内为全局 token 序号，按 e 递增累加块计数）
+    uint32_t consumed = 0U;
+    for (uint32_t e = 0U; e < expertBlkNum; ++e) {
+        if (consumed >= tEnd) {
+            break;
+        }
+        uint32_t blockIdx = e * epWorldSize_ + myRank;
+        uint32_t hi = static_cast<uint32_t>(sendCountLocal(blockIdx));
+        uint32_t lo = (blockIdx == 0U) ? 0U : static_cast<uint32_t>(sendCountLocal(blockIdx - 1));
+        uint32_t cnt = hi - lo;
+        if (consumed + cnt <= tStart) {
+            consumed += cnt;
+            continue;
+        }
+        uint32_t subLo = lo + ((consumed < tStart) ? (tStart - consumed) : 0U);
+        uint32_t subHi = lo + ((consumed + cnt > tEnd) ? (tEnd - consumed) : cnt);
+        if (subHi > subLo) {
+            sendRangeOffsetLT(sendRangeNum_) = subLo;
+            sendRangeCntLT(sendRangeNum_) = subHi - subLo;
+            ++sendRangeNum_;
+        }
+        consumed += cnt;
+    }
+}
+
+template <TemplateMC2TypeClass>
+__aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ProcessSendRange(
+    uint32_t lo, uint32_t cnt, LocalTensor<float> &statusTensor)
+{
+    LocalTensor<ExpandIdxType> expandIdxLocal = indexCountsBuf_.Get<ExpandIdxType>();
+    const DataCopyPadExtParams<ExpandIdxType> copyPadParams{false, 0U, 0U, 0U};
+    for (uint32_t batchStart = 0U; batchStart < cnt; batchStart += BATCH_SRC_INFO_CNT) {
+        uint32_t batchCnt = (cnt - batchStart) < BATCH_SRC_INFO_CNT ? (cnt - batchStart) : BATCH_SRC_INFO_CNT;
+        const DataCopyExtParams bskParams{1U,
+                                          static_cast<uint32_t>(batchCnt * EXPAND_IDX_INFO * sizeof(uint32_t)), 0U, 0U,
+                                          0U};
+        DataCopyPad(expandIdxLocal, expandIdxGM_[(lo + batchStart) * EXPAND_IDX_INFO], bskParams, copyPadParams);
+        SyncFunc<AscendC::HardEvent::MTE2_S>();
+
+        for (uint32_t j = 0U; j < batchCnt; ++j) {
+            uint32_t baseOffset = j * EXPAND_IDX_INFO;
+            uint32_t tkIndex = lo + batchStart + j;
+            uint32_t rankIdExpandIdx = static_cast<uint32_t>(expandIdxLocal(baseOffset));  // 位置0是rank_id
+            uint32_t toRankId = rankIdExpandIdx;                                           // 位置0是rank_id
+            uint32_t tokenId = static_cast<uint32_t>(expandIdxLocal(baseOffset + 1));      // 位置1是token_id
+            uint32_t topkId = static_cast<uint32_t>(expandIdxLocal(baseOffset + 2));       // 位置2是topk_id
+            if (isScalingDownFlag_) {
+                toRankId = elasticInfoTensor_.GetValue(ELASTIC_INFO_OFFSET + epWorldSizeOriginal_ + rankIdExpandIdx);
+            }
+            ExpertAlltoAllDispatchInnerCopyAdd(toRankId, tokenId, topkId, tkIndex);
+            PipeBarrier<PIPE_MTE3>();
+            GM_ADDR stateGM = GetWinStateAddrByRankId(toRankId, EP_DOMAIN) + tokenId * flagRcvCount_ * stateOffset_ +
+                              topkId * stateOffset_;  // 计算地址偏移
+            GlobalTensor<float> stateGMTensor;
+            stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
+            DataCopy<float>(stateGMTensor, statusTensor, FLOAT_PER_UB_ALIGN);  // 8是数据大小，按32对齐拷贝
+        }
     }
 }
 
