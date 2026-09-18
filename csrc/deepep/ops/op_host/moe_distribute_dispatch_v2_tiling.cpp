@@ -1297,7 +1297,9 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext *context, const char *no
     OP_TILING_CHECK(workSpaces == nullptr, OP_LOGE(nodeName, "workSpaces is nullptr."), return ge::GRAPH_FAILED);
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     uint32_t aivNum = ascendcPlatform.GetCoreNumAiv();
-    workSpaces[0] = SYSTEM_NEED_WORKSPACE + static_cast<size_t>(WORKSPACE_ELEMENT_OFFSET * aivNum * aivNum);
+    // The final aligned block publishes the last active AIV's gather count so
+    // expert-token metadata can be written by multiple AIVs.
+    workSpaces[0] = SYSTEM_NEED_WORKSPACE + static_cast<size_t>(WORKSPACE_ELEMENT_OFFSET * (aivNum * aivNum + 1));
     return ge::GRAPH_SUCCESS;
 }
 

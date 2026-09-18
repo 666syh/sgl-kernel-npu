@@ -1590,12 +1590,85 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::UpdateTok
         }
     }
 
+    uint32_t effectiveGatherCount = 0;
+    if constexpr (IsNeedAllgather) {
+        // Keep the historical value (the value observed by lastCore_) while
+        // allowing every writer AIV to use the same gather count.
+        GM_ADDR gatherCountAddr =
+            (__gm__ uint8_t *)(recvCntWorkspaceGM_) + WORKSPACE_ELEMENT_OFFSET * aivNum_ * aivNum_;
+        GlobalTensor<int32_t> gatherCountGlobal;
+        gatherCountGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(gatherCountAddr));
+        if (aivId_ == lastCore_) {
+            gatherCountGlobal.SetValue(0, static_cast<int32_t>(gatherCount_));
+            DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(gatherCountGlobal);
+        }
+        SyncAll<true>();
+        DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(gatherCountGlobal);
+        effectiveGatherCount = static_cast<uint32_t>(gatherCountGlobal.GetValue(0));
+    }
+
+    if (!isShareExpertRankFlag_ && moeExpertNumPerRank_ > 1) {
+        // Split only the metadata writeback. The dispatch/status ownership and
+        // all token copies remain unchanged.
+        uint32_t activeAivNum = MIN(rscvStatusNum_, aivNum_);
+        if (aivId_ < activeAivNum) {
+            uint32_t expertBase = moeExpertNumPerRank_ / activeAivNum;
+            uint32_t expertRemainder = moeExpertNumPerRank_ % activeAivNum;
+            uint32_t writeStartExpert = expertBase * aivId_ + MIN(aivId_, expertRemainder);
+            uint32_t writeExpertCount = expertBase + (aivId_ < expertRemainder ? 1 : 0);
+            uint32_t writeEndExpert = writeStartExpert + writeExpertCount;
+
+            GlobalTensor<int32_t> sendCountsGlobal;
+            sendCountsGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(sendCountsOutGM_));
+            for (uint32_t localMoeIndex = writeStartExpert; localMoeIndex < writeEndExpert; ++localMoeIndex) {
+                uint32_t curOffset = epWorldSize_ * (localMoeIndex + 1) - 1;
+                uint32_t preOffset = (localMoeIndex == 0) ? 0 : epWorldSize_ * localMoeIndex - 1;
+                DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+                    sendCountsGlobal[curOffset]);
+                uint32_t curCnt = sendCountsGlobal.GetValue(curOffset);
+                uint32_t tokenNum;
+                if (expertTokenNumsType_ == 0) {
+                    tokenNum = curCnt;
+                    if constexpr (IsNeedAllgather) {
+                        tokenNum += (localMoeIndex + 1) * effectiveGatherCount;
+                    }
+                } else {
+                    uint32_t prevCnt = 0;
+                    if (localMoeIndex != 0) {
+                        DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+                            sendCountsGlobal[preOffset]);
+                        prevCnt = sendCountsGlobal.GetValue(preOffset);
+                    }
+                    tokenNum = curCnt - prevCnt;
+                    if constexpr (IsNeedAllgather) {
+                        tokenNum += effectiveGatherCount;
+                    }
+                }
+                expertTokenNumsOutGMTensor_.SetValue(localMoeIndex, tokenNum);
+                DataCacheCleanAndInvalid<int64_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+                    expertTokenNumsOutGMTensor_[localMoeIndex]);
+            }
+
+            if (aivId_ == lastCore_) {
+                if constexpr (IsNeedAllgather) {
+                    GlobalTensor<int32_t> sendTpCountsGlobal;
+                    sendTpCountsGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(sendTpCountOutGM_));
+                    sendTpCountsGlobal.SetValue(tpRankId_, totalCnt_);
+                    sendTpCountsGlobal.SetValue(tpGatherRankId_, effectiveGatherCount + preCnt_);
+                    DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+                        sendTpCountsGlobal);
+                }
+            }
+        }
+        return;
+    }
+
     if (aivId_ == lastCore_) {
         // Moe专家token总数在Cumsum内计算得出
         uint32_t tokenNum = totalCnt_;
         if constexpr (IsNeedAllgather) {
             tokenNum += preCnt_;
-            tokenNum += gatherCount_;
+            tokenNum += effectiveGatherCount;
         }
         expertTokenNumsOutGMTensor_.SetValue(0, tokenNum);
         DataCacheCleanAndInvalid<int64_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
@@ -1611,7 +1684,7 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::UpdateTok
                     sendCountsGlobal[epWorldSize_ - 1]);
 
                 uint32_t firstMoeCnt = sendCountsGlobal.GetValue(epWorldSize_ - 1);
-                tokenSums = firstMoeCnt + gatherCount_;
+                tokenSums = firstMoeCnt + effectiveGatherCount;
                 expertTokenNumsOutGMTensor_.SetValue(0, tokenSums);
                 DataCacheCleanAndInvalid<int64_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
                     expertTokenNumsOutGMTensor_[0]);
@@ -1625,7 +1698,7 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::UpdateTok
                     uint32_t preMoeIndexCnt = sendCountsGlobal.GetValue(preOffset);
                     uint32_t curMoeIndexCnt = sendCountsGlobal.GetValue(curOffset);
                     tokenSums = ((expertTokenNumsType_ == 0) ? tokenSums : 0) + (curMoeIndexCnt - preMoeIndexCnt) +
-                                gatherCount_;
+                                effectiveGatherCount;
                     expertTokenNumsOutGMTensor_.SetValue(localMoeIndex, tokenSums);
                     DataCacheCleanAndInvalid<int64_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
                         expertTokenNumsOutGMTensor_[localMoeIndex]);
@@ -1638,7 +1711,7 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::UpdateTok
             GlobalTensor<int32_t> sendTpCountsGlobal;
             sendTpCountsGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(sendTpCountOutGM_));
             sendTpCountsGlobal.SetValue(tpRankId_, totalCnt_);
-            sendTpCountsGlobal.SetValue(tpGatherRankId_, gatherCount_ + preCnt_);
+            sendTpCountsGlobal.SetValue(tpGatherRankId_, effectiveGatherCount + preCnt_);
             DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(sendTpCountsGlobal);
         }
     }
