@@ -29,6 +29,9 @@ struct MoeDistributeDispatchV2Info {
     uint64_t scalesCol;
     uint32_t scalesTypeSize;
     uint64_t scalesCount;
+    uint32_t profileEnable;
+    uint32_t profileLaunchId;
+    uint64_t profileBufferBytes;
 };
 
 struct MoeDistributeDispatchV2TilingData {

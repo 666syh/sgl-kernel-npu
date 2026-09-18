@@ -50,12 +50,13 @@ extern "C" {
  */
 __attribute__((visibility("default"))) aclnnStatus aclnnMoeLowLatencyDispatchV2GetWorkspaceSize(
     const aclTensor *x, const aclTensor *expertIds, const aclTensor *scalesOptional,
-    const aclTensor *xActiveMaskOptional, char *groupEp, int64_t epWorldSize, int64_t epRankId, int64_t moeExpertNum,
-    char *groupTp, int64_t tpWorldSize, int64_t tpRankId, int64_t expertShardType, int64_t sharedExpertNum,
-    int64_t sharedExpertRankNum, int64_t quantMode, int64_t globalBs, int64_t expertTokenNumsType, char *commAlg,
-    const aclTensor *expandXOut, const aclTensor *dynamicScalesOut, const aclTensor *assistInfoForCombineOut,
-    const aclTensor *expertTokenNumsOut, const aclTensor *epRecvCountsOut, const aclTensor *tpRecvCountsOut,
-    uint64_t *workspaceSize, aclOpExecutor **executor);
+    const aclTensor *xActiveMaskOptional, const aclTensor *profileBufferOptional, char *groupEp, int64_t epWorldSize,
+    int64_t epRankId, int64_t moeExpertNum, char *groupTp, int64_t tpWorldSize, int64_t tpRankId,
+    int64_t expertShardType, int64_t sharedExpertNum, int64_t sharedExpertRankNum, int64_t quantMode, int64_t globalBs,
+    int64_t expertTokenNumsType, char *commAlg, int64_t profileEnable, int64_t profileBufferBytes,
+    int64_t profileLaunchId, const aclTensor *expandXOut, const aclTensor *dynamicScalesOut,
+    const aclTensor *assistInfoForCombineOut, const aclTensor *expertTokenNumsOut, const aclTensor *epRecvCountsOut,
+    const aclTensor *tpRecvCountsOut, uint64_t *workspaceSize, aclOpExecutor **executor);
 
 /**
  * @brief aclnnMoeDistributeDispatchV2的第二段接口，用于执行计算。

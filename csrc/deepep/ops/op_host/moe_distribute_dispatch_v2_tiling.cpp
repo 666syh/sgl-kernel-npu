@@ -56,6 +56,9 @@ constexpr uint32_t ATTR_COMM_ALG_INDEX = 13;
 constexpr uint32_t ATTR_ZERO_EXPERT_NUM_INDEX = 14;
 constexpr uint32_t ATTR_COPY_EXPERT_NUM_INDEX = 15;
 constexpr uint32_t ATTR_CONST_EXPERT_NUM_INDEX = 16;
+constexpr uint32_t ATTR_PROFILE_ENABLE_INDEX = 17;
+constexpr uint32_t ATTR_PROFILE_BUFFER_BYTES_INDEX = 18;
+constexpr uint32_t ATTR_PROFILE_LAUNCH_ID_INDEX = 19;
 
 constexpr uint32_t TWO_DIMS = 2;
 constexpr uint32_t ONE_DIM = 1;
@@ -785,6 +788,21 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext *contex
     OP_TILING_CHECK(CheckAndSetSpecialExpertInfo(context, nodeName, tilingData, isSetCommAlg) != ge::GRAPH_SUCCESS,
                     OP_LOGE(nodeName, "Get special expert, commAlg attr and set tiling data failed."),
                     return ge::GRAPH_FAILED);
+
+    auto profileEnablePtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_ENABLE_INDEX);
+    auto profileBufferBytesPtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_BUFFER_BYTES_INDEX);
+    auto profileLaunchIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_PROFILE_LAUNCH_ID_INDEX);
+    OP_TILING_CHECK(profileEnablePtr == nullptr, OP_LOGE(nodeName, "profileEnablePtr is nullptr."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(profileBufferBytesPtr == nullptr, OP_LOGE(nodeName, "profileBufferBytesPtr is nullptr."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(profileLaunchIdPtr == nullptr, OP_LOGE(nodeName, "profileLaunchIdPtr is nullptr."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(*profileEnablePtr < 0 || *profileBufferBytesPtr < 0 || *profileLaunchIdPtr < 0,
+                    OP_LOGE(nodeName, "profile attrs must be non-negative."), return ge::GRAPH_FAILED);
+    tilingData.moeDistributeDispatchV2Info.profileEnable = static_cast<uint32_t>(*profileEnablePtr);
+    tilingData.moeDistributeDispatchV2Info.profileBufferBytes = static_cast<uint64_t>(*profileBufferBytesPtr);
+    tilingData.moeDistributeDispatchV2Info.profileLaunchId = static_cast<uint32_t>(*profileLaunchIdPtr);
 
     auto epWorldSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_EP_WORLD_SIZE_INDEX);
     auto sharedExpertRankNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_SHARED_EXPERT_RANK_NUM_INDEX);

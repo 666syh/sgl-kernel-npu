@@ -81,6 +81,7 @@ class Buffer:
             low_latency_mode,
             moe_all_to_all_group_name,
         )
+        self._profile_active = False
 
         # set strategy by env
         deep_mode = os.getenv("DEEP_USE_MODE")
@@ -122,6 +123,7 @@ class Buffer:
         }
         if strategy == "ops":
             init_kwargs["comm_alg"] = comm_alg
+            init_kwargs["is_profile_active"] = lambda: self._profile_active
 
         self.low_latency_strategy = strategy_cls(**init_kwargs)
 
@@ -762,9 +764,13 @@ class Buffer:
             num_profile_active_launches,
             profile_trace_dir or "",
         )
+        self._profile_active = True
 
     def end_profile(self) -> None:
-        self.runtime.end_profile()
+        try:
+            self.runtime.end_profile()
+        finally:
+            self._profile_active = False
 
     def fused_deep_moe(
         self,

@@ -6,6 +6,7 @@
 #include "moe_distribute_base.h"
 #include "moe_distribute_v2_base.h"
 #include "moe_distribute_dispatch_v2_tiling.h"
+#include "moe_low_latency_dispatch_v2_a5_profile.h"
 #include "check_winsize.h"
 #include "common.h"
 #ifdef __DAV_C310__
@@ -76,9 +77,10 @@ public:
 
     __aicore__ inline MoeDistributeDispatchV2A5(){};
     __aicore__ inline void Init(GM_ADDR x, GM_ADDR expertIds, GM_ADDR scales, GM_ADDR xActiveMask, GM_ADDR elasticInfo,
-                                GM_ADDR expandXOut, GM_ADDR dynamicScalesOut, GM_ADDR expandIdxOut,
-                                GM_ADDR expertTokenNumsOut, GM_ADDR sendCountsOut, GM_ADDR tpSendCountsOut,
-                                GM_ADDR workspaceGM, TPipe *pipe, const MoeDistributeDispatchV2TilingData *tilingData);
+                                GM_ADDR profileBuffer, GM_ADDR expandXOut, GM_ADDR dynamicScalesOut,
+                                GM_ADDR expandIdxOut, GM_ADDR expertTokenNumsOut, GM_ADDR sendCountsOut,
+                                GM_ADDR tpSendCountsOut, GM_ADDR workspaceGM, TPipe *pipe,
+                                const MoeDistributeDispatchV2TilingData *tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -222,6 +224,7 @@ private:
     GM_ADDR tpLocalStatusWindowGM_;
     GM_ADDR recvCntWorkspaceGM_;
     GM_ADDR statusDataSpaceGm_;
+    GM_ADDR profileBufferGM_;
 
     // tiling侧已确保数据上限，相乘不会越界，因此统一采用uint32_t进行处理
     uint16_t axisHCommu_{0};
@@ -293,8 +296,11 @@ private:
     uint32_t maxSize_{0};
     uint32_t bufferNum_{0};
     uint64_t baseWindSize_{0};
+    uint64_t profileBufferBytes_{0};
     uint32_t copyInAxisH_{0};
     uint32_t copyOutAxisH_{0};
+    uint32_t profileLaunchId_{0};
+    bool profileEnable_{false};
     __gm__ HcclOpParam *winContext_[COMM_NUM]{nullptr, nullptr};
 
     DataCopyExtParams floatDataCopyParams_;
@@ -331,14 +337,19 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::InitElast
 
 template <TemplateMC2TypeClass>
 __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Init(
-    GM_ADDR x, GM_ADDR expertIds, GM_ADDR scales, GM_ADDR xActiveMask, GM_ADDR elasticInfo, GM_ADDR expandXOut,
-    GM_ADDR dynamicScalesOut, GM_ADDR expandIdxOut, GM_ADDR expertTokenNumsOut, GM_ADDR sendCountsOut,
-    GM_ADDR tpSendCountsOut, GM_ADDR workspaceGM, TPipe *pipe, const MoeDistributeDispatchV2TilingData *tilingData)
+    GM_ADDR x, GM_ADDR expertIds, GM_ADDR scales, GM_ADDR xActiveMask, GM_ADDR elasticInfo, GM_ADDR profileBuffer,
+    GM_ADDR expandXOut, GM_ADDR dynamicScalesOut, GM_ADDR expandIdxOut, GM_ADDR expertTokenNumsOut,
+    GM_ADDR sendCountsOut, GM_ADDR tpSendCountsOut, GM_ADDR workspaceGM, TPipe *pipe,
+    const MoeDistributeDispatchV2TilingData *tilingData)
 {
 #ifdef __DAV_C310__  // A3不支持MX量化，无需使能饱和模式
     AscendC::SetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>(0);
 #endif
     tpipe_ = pipe;
+    profileBufferGM_ = profileBuffer;
+    profileEnable_ = tilingData->moeDistributeDispatchV2Info.profileEnable != 0U;
+    profileLaunchId_ = tilingData->moeDistributeDispatchV2Info.profileLaunchId;
+    profileBufferBytes_ = tilingData->moeDistributeDispatchV2Info.profileBufferBytes;
     aivId_ = GetBlockIdx();
     epRankId_ = tilingData->moeDistributeDispatchV2Info.epRankId;
     epRankIdOriginal_ = tilingData->moeDistributeDispatchV2Info.epRankId;
@@ -1644,15 +1655,60 @@ template <TemplateMC2TypeClass>
 __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Process()
 {
     if ASCEND_IS_AIV {  // 全aiv处理
+        Cam::MoeLowLatencyDispatchV2A5ProfileWriter profileWriter;
+        profileWriter.Init(profileBufferGM_, profileEnable_, profileLaunchId_, Cam::PROFILE_CORE_TYPE_AIV,
+                           profileBufferBytes_);
+
+        uint64_t stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
         AlltoAllDispatch();
-        SetStatus();
-        WaitDispatch();
-        LocalWindowCopy();
-        if constexpr (IsNeedAllgather) {
-            AllGatherSetStatusAndWait();
-            AllgatherProcessOut();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::AlltoallDispatch, stageStart,
+                                 profileWriter.Now());
         }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
+        SetStatus();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::SetStatus, stageStart,
+                                 profileWriter.Now());
+        }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
+        WaitDispatch();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::WaitDispatch, stageStart,
+                                 profileWriter.Now());
+        }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
+        LocalWindowCopy();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::LocalWindowCopy, stageStart,
+                                 profileWriter.Now());
+        }
+
+        if constexpr (IsNeedAllgather) {
+            stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
+            AllGatherSetStatusAndWait();
+            if (profileWriter.enabled) {
+                profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::AllgatherSetStatusAndWait, stageStart,
+                                     profileWriter.Now());
+            }
+
+            stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
+            AllgatherProcessOut();
+            if (profileWriter.enabled) {
+                profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::AllgatherProcessOut, stageStart,
+                                     profileWriter.Now());
+            }
+        }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
         UpdateTokenNumsOut();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyDispatchV2A5ProfileStage::UpdateTokenNumsOut, stageStart,
+                                 profileWriter.Now());
+        }
     }
 }
 

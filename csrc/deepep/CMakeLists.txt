@@ -29,6 +29,8 @@ list(APPEND SOURCES_DEEPEP
     profiling/core/profile_session.cpp
     profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_traits.cpp
     profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.cpp
+    profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_traits.cpp
+    profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_adapter.cpp
 )
 
 pybind11_add_module(deep_ep_cpp pybind_extension.cpp ${SOURCES_DEEPEP})

@@ -10,6 +10,7 @@
 #include "exception.hpp"
 #include "deep_ep.hpp"
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.hpp"
+#include "profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_adapter.hpp"
 #include "pytorch_npu_helper.hpp"
 
 namespace deep_ep {
@@ -991,31 +992,38 @@ Buffer::low_latency_dispatch(const at::Tensor &x, const at::Tensor &topk_idx,
         EP_HOST_ASSERT(isLayered == false);
         active_mask = (topk_idx >= 0).to(torch::kBool);
     }
-    EXEC_NPU_CMD(aclnnMoeLowLatencyDispatchV2,
-                 x,                       // x
-                 topk_idx,                // expertIds
-                 scales,                  // scalesOptional
-                 active_mask,             // xActiveMaskOptional
-                 hcom_ep_name,            // groupEp
-                 num_ranks,               // epWorldSize
-                 rank,                    // epRankId
-                 num_experts,             // moeExpertNum
-                 hcom_tp_name,            // groupTp
-                 tp_size,                 // tpWorldSize
-                 tp_rank,                 // tpRankId
-                 expert_shard_type,       // expert_shard_type
-                 shared_expert_num,       // shared_expert_num
-                 shared_expert_rank_num,  // shared_expert_rank_num
-                 quant_mode,
-                 global_bs,               // global_bs
-                 expert_token_nums_type,  // expert_token_nums_type
-                 comm_alg,
-                 packed_recv_x,         // expandXOut
-                 packed_recv_x_scales,  // dynamicScalesOut
-                 expandIdx,             // assistInfoForCombineOut
-                 packed_recv_count,     // expertTokenNumsOut
-                 ep_recv_count,         // epRecvCountsOut
-                 tp_recv_count);        // tpRecvCountsOut
+    profiling::moe_low_latency_dispatch_v2_a5::LaunchContext profile_ctx{};
+    const bool profile_session_active = profiling::runtime::IsSessionActive();
+#if defined(__DAV_C310__)
+    if (profile_session_active) {
+        TORCH_CHECK(isCcu == 0, "Low-latency dispatch profiling does not support the A5 CCU path.");
+        profile_ctx = profiling::moe_low_latency_dispatch_v2_a5::PrepareLaunch(true);
+    }
+#else
+    TORCH_CHECK(!profile_session_active, "Low-latency dispatch profiling requires an A5 build.");
+#endif
+    const bool use_profile = profile_ctx.enabled;
+    const int64_t profile_enable_i64 = static_cast<int64_t>(use_profile);
+    const int64_t profile_buffer_bytes_i64 = profile_ctx.profileBufferBytes;
+    const int64_t profile_launch_id_i64 = profile_ctx.launchId;
+
+    if (use_profile) {
+        TORCH_CHECK(profile_ctx.profileBuffer != nullptr,
+                    "Low-latency dispatch profiling requires a valid profile buffer.");
+        EXEC_NPU_CMD(aclnnMoeLowLatencyDispatchV2, x, topk_idx, scales, active_mask, *profile_ctx.profileBuffer,
+                     hcom_ep_name, num_ranks, rank, num_experts, hcom_tp_name, tp_size, tp_rank, expert_shard_type,
+                     shared_expert_num, shared_expert_rank_num, quant_mode, global_bs, expert_token_nums_type, comm_alg,
+                     profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, packed_recv_x,
+                     packed_recv_x_scales, expandIdx, packed_recv_count, ep_recv_count, tp_recv_count);
+        profiling::moe_low_latency_dispatch_v2_a5::CompleteLaunch(profile_ctx, rank);
+    } else {
+        EXEC_NPU_CMD(aclnnMoeLowLatencyDispatchV2, x, topk_idx, scales, active_mask,
+                     static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank, num_experts,
+                     hcom_tp_name, tp_size, tp_rank, expert_shard_type, shared_expert_num, shared_expert_rank_num,
+                     quant_mode, global_bs, expert_token_nums_type, comm_alg, profile_enable_i64,
+                     profile_buffer_bytes_i64, profile_launch_id_i64, packed_recv_x, packed_recv_x_scales, expandIdx,
+                     packed_recv_count, ep_recv_count, tp_recv_count);
+    }
 
     // Return values
     return {packed_recv_x, packed_recv_x_scales,        packed_recv_count, expandIdx, ep_recv_count,

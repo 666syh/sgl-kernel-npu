@@ -3,6 +3,7 @@ import os
 import random
 import time
 from functools import partial
+from pathlib import Path
 
 import torch
 import torch.distributed as dist
@@ -41,6 +42,9 @@ def test(
     use_mxfp4: bool = False,
     use_mxfp8: bool = False,
     local_rank: int = 0,
+    kernel_trace_dir: str = None,
+    profile_warmups: int = 0,
+    profile_num_tests: int = 0,
 ):
     torch.manual_seed(seed + rank)
     random.seed(seed + rank)
@@ -104,6 +108,27 @@ def test(
     topk_weights = torch.randn(
         (num_tokens, num_topk), dtype=torch.float32, device="npu"
     ).abs()
+
+    if kernel_trace_dir is not None:
+        total_profile_launches = profile_warmups + profile_num_tests
+        buffer.begin_profile(profile_warmups, profile_num_tests, kernel_trace_dir)
+        for _ in range(total_profile_launches):
+            buffer.low_latency_dispatch(
+                x_pure_rand,
+                topk_idx,
+                aligned_num_tokens,
+                num_experts,
+                round_scale=False,
+                cumulative_local_expert_recv_stats=None,
+                async_finish=False,
+                return_recv_hook=False,
+                topk_weights=topk_weights,
+                **quant_dispatch_kwargs,
+            )
+        torch_npu.npu.synchronize()
+        buffer.end_profile()
+        trace_path = Path(kernel_trace_dir) / f"rank{rank}" / "trace_view.json"
+        assert trace_path.is_file(), f"Missing low-latency profile trace: {trace_path}"
 
     # Check dispatch correctness
     do_check = True
@@ -445,6 +470,16 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
         low_latency_strategy=args.low_latency_strategy,
     )
 
+    if args.kernel_trace_dir is not None:
+        if buffer.low_latency_strategy.get_name() != "default":
+            raise ValueError(
+                "Low-latency profiling only supports --low-latency-strategy=default"
+            )
+        if DEVICE_VERSION_TABLE.get(get_device_version()) != "A5":
+            raise ValueError("Low-latency profiling only supports A5 devices")
+        if int(os.getenv("MOE_ENABLE_CCU", "0")) != 0:
+            raise ValueError("Low-latency profiling does not support MOE_ENABLE_CCU=1")
+
     test(
         aligned_num_tokens,
         raw_num_tokens,
@@ -461,6 +496,9 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
         use_mxfp4=args.use_mxfp4,
         use_mxfp8=args.use_mxfp8,
         local_rank=local_rank,
+        kernel_trace_dir=args.kernel_trace_dir,
+        profile_warmups=args.profile_warmups,
+        profile_num_tests=args.profile_num_tests,
     )
 
     do_pressure_test = args.pressure_test
@@ -571,7 +609,28 @@ if __name__ == "__main__":
         help="Use use_mxfp8=True for default low-latency dispatch. "
         "A5 -> mx_fp8_e4m3; A2/A3 is not supported.",
     )
+    parser.add_argument(
+        "--kernel-trace-dir",
+        help="Optional directory for A5 low-latency dispatch kernel traces.",
+    )
+    parser.add_argument(
+        "--profile-warmups",
+        type=int,
+        default=1,
+        help="Number of profile-only warmup dispatches.",
+    )
+    parser.add_argument(
+        "--profile-num-tests",
+        type=int,
+        default=3,
+        help="Number of active dispatches captured in the kernel trace.",
+    )
     args = parser.parse_args()
+
+    if args.profile_warmups < 0:
+        parser.error("--profile-warmups must be non-negative")
+    if args.profile_num_tests <= 0:
+        parser.error("--profile-num-tests must be positive")
 
     num_processes = args.num_processes
     torch.multiprocessing.spawn(

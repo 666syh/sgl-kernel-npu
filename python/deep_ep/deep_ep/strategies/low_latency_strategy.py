@@ -184,7 +184,13 @@ class OpsLowLatencyCommStrategy(LowLatencyEPCommStrategy):
     This strategy uses the ops-transformer op for A3 RoCE.
     """
 
-    def __init__(self, runtime, group: dist.ProcessGroup, comm_alg: str = "hierarchy"):
+    def __init__(
+        self,
+        runtime,
+        group: dist.ProcessGroup,
+        comm_alg: str = "hierarchy",
+        is_profile_active: Optional[Callable[[], bool]] = None,
+    ):
         super().__init__(group)
         comm_alg_support_list = ["hierarchy", "fullmesh_v1", "fullmesh_v2", "ccu", ""]
         torch._check(
@@ -194,6 +200,7 @@ class OpsLowLatencyCommStrategy(LowLatencyEPCommStrategy):
             ),
         )
         self.comm_alg = comm_alg
+        self._is_profile_active = is_profile_active or (lambda: False)
 
     def get_name(self) -> str:
         return "ops"
@@ -223,6 +230,11 @@ class OpsLowLatencyCommStrategy(LowLatencyEPCommStrategy):
         EventOverlap,
         Callable,
     ]:
+        if self._is_profile_active():
+            raise RuntimeError(
+                "Low-latency dispatch profiling does not support DEEP_USE_MODE=ops. "
+                "Use the default deep_ep_cpp strategy."
+            )
 
         topk_ids = topk_idx.int()
         x_active_mask = torch.zeros(
