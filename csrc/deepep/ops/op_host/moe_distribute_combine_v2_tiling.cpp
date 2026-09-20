@@ -123,6 +123,9 @@ constexpr uint64_t MXFP8_DATA_ALIGN = 256UL;
 constexpr uint64_t MXFP8_SCALE_BLOCK = 32UL;
 constexpr uint64_t MXFP8_SCALE_ALIGN = 2UL;
 constexpr uint64_t EXPAND_IDX_BATCH = 128UL;
+// Keep host UB accounting independent from op_kernel namespace constants.
+constexpr uint64_t A5_COMBINE_STATE_UB_BYTES_PER_FLAG = 32UL;
+constexpr uint64_t A5_COMBINE_REDUCE_ALIGN = 256UL;
 
 }  // namespace
 
@@ -166,7 +169,7 @@ static uint64_t CalcA5Mxfp8CombinePeakUb(const MoeDistributeCombineV2Info &info,
 
     const uint64_t hExpandBytes = AlignUpForMxCombine(h * kElementBytes, UB_ALIGN);
     const uint64_t hFloatBytes = AlignUpForMxCombine(h * sizeof(float), UB_ALIGN);
-    const uint64_t hFloat256Bytes = AlignUpForMxCombine(h * sizeof(float), ALIGNED_LEN_256);
+    const uint64_t hFloat256Bytes = AlignUpForMxCombine(h * sizeof(float), A5_COMBINE_REDUCE_ALIGN);
     const uint64_t activeMaskBytes = bs * AlignUpForMxCombine(k * sizeof(bool), UB_ALIGN);
     uint64_t tokenBufBytes = hExpandBytes;
     uint64_t rowTmpBytes = hFloatBytes;
@@ -178,7 +181,7 @@ static uint64_t CalcA5Mxfp8CombinePeakUb(const MoeDistributeCombineV2Info &info,
     uint64_t receivePeak = AlignUpForMxCombine(bs * k * sizeof(float), UB_ALIGN);  // expertScalesBuf_
     receivePeak += tokenBufBytes + rowTmpBytes + hFloat256Bytes + hFloatBytes;
     receivePeak += queueBufferNum * packetBytes;  // moeSumQueue_
-    receivePeak += 2UL * AlignUpForMxCombine(k * STATE_OFFSET, UB_ALIGN) + UB_ALIGN;
+    receivePeak += 2UL * AlignUpForMxCombine(k * A5_COMBINE_STATE_UB_BYTES_PER_FLAG, UB_ALIGN) + UB_ALIGN;
     receivePeak += AlignUpForMxCombine(scaleCount * 2UL * kElementBytes, UB_ALIGN);
     receivePeak += AlignUpForMxCombine(scaleCount * 4UL * sizeof(float), UB_ALIGN);
     if (info.isTokenMask) {
