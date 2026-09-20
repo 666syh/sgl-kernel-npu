@@ -1034,10 +1034,11 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
     const at::Tensor &x, const at::Tensor &topk_idx, const at::Tensor &topk_weights, const at::Tensor &src_info,
     const at::Tensor &layout_range, int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
     const at::Tensor &packed_recv_count, bool zero_copy, bool async, bool return_recv_hook,
-    const std::optional<at::Tensor> &out)
+    const std::optional<at::Tensor> &out, bool use_mxfp8)
 {
     // Tensor checks
-    EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous() and x.scalar_type() == at::kBFloat16);
+    EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous() &&
+                   (x.scalar_type() == at::kBFloat16 || x.scalar_type() == at::kHalf));
     EP_HOST_ASSERT(num_max_dispatch_tokens_per_rank >= topk_idx.size(0));
 
     // get ep & tp name
@@ -1064,7 +1065,18 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
     int64_t expert_shared_type = 0;
     int64_t global_bs = num_max_dispatch_tokens_per_rank * num_ranks;
     int64_t out_dtype = 0;
-    int64_t comm_quant_mode = 0;
+    constexpr int64_t MXFP8_E4M3_COMM_QUANT = 3;
+    if (use_mxfp8) {
+        EP_HOST_ASSERT_S(soc_version == op::SocVersion::ASCEND950,
+                         "MXFP8 low-latency combine is only supported on Ascend950/A5.");
+        EP_HOST_ASSERT_S(isCcu == 0, "MXFP8 low-latency combine does not support MOE_ENABLE_CCU=1.");
+        EP_HOST_ASSERT_S(tp_world_size <= 1, "MXFP8 low-latency combine does not support TP reduce-scatter.");
+        // The public Buffer defaults shared_expert_num to 1 even when there are no shared-expert ranks;
+        // shared_expert_rank_num is the topology switch consumed by the operator tiling.
+        EP_HOST_ASSERT_S(shared_expert_rank_num == 0,
+                         "MXFP8 low-latency combine does not support shared-expert ranks.");
+    }
+    int64_t comm_quant_mode = use_mxfp8 ? MXFP8_E4M3_COMM_QUANT : 0;
     int64_t group_list_type = 0;
     bool isLayered = false;
     char *comm_alg;

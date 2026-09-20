@@ -7,6 +7,9 @@
 #include "moe_distribute_v2_base.h"
 #include "moe_distribute_combine_v2_tiling.h"
 #include "check_winsize.h"
+#ifdef __DAV_C310__
+#include "moe_mxfp8_utils.h"
+#endif
 namespace MoeDistributeCombineV2A5Impl {
 using namespace MoeDistributeV2Base;
 constexpr uint8_t BUFFER_NUM = 2;                       // 多buf
@@ -45,9 +48,17 @@ constexpr float FP8_E4M3_MAX_VALUE = 448.0f;
 constexpr float HIFP8_MAX_VALUE = 32768.0f;
 constexpr float INT8_MAX_VALUE = 127.0f;
 
-#define TemplateMC2TypeClass \
-    typename ExpandXType, typename XType, typename ExpandIdxType, bool IsNeedReduceScatter, bool IsInt8Quant
-#define TemplateMC2TypeFunc ExpandXType, XType, ExpandIdxType, IsNeedReduceScatter, IsInt8Quant
+// The generic A3 combine header uses the TemplateMC2* macro names with five
+// arguments.  Keep the A5 extension private and restore the generic names at
+// the end of this header so the include order cannot change A3 instantiation.
+#define A5CombineTemplateClass                                                                                \
+    typename ExpandXType, typename XType, typename ExpandIdxType, bool IsNeedReduceScatter, bool IsInt8Quant, \
+        bool IsMxfp8Quant
+#define A5CombineTemplateArgs ExpandXType, XType, ExpandIdxType, IsNeedReduceScatter, IsInt8Quant, IsMxfp8Quant
+#undef TemplateMC2TypeClass
+#undef TemplateMC2TypeFunc
+#define TemplateMC2TypeClass A5CombineTemplateClass
+#define TemplateMC2TypeFunc A5CombineTemplateArgs
 
 using namespace AscendC;
 template <TemplateMC2TypeClass>
@@ -89,6 +100,10 @@ private:
     __aicore__ inline void ProcessSendRange(uint32_t lo, uint32_t cnt, LocalTensor<float> &statusTensor);
     __aicore__ inline void Int8QuantProcess();
     __aicore__ inline void Int8DequantProcess(LocalTensor<XType> &src);
+#ifdef __DAV_C310__
+    __aicore__ inline void Mxfp8QuantProcess(LocalTensor<XType> &packet, LocalTensor<ExpandXType> &input);
+    __aicore__ inline void Mxfp8DequantProcess(LocalTensor<XType> &packet);
+#endif
     __aicore__ inline void ProcessConstantExpert(uint32_t tokenIndex, uint32_t const_expert_idx, float scaleVal);
     __aicore__ inline void ProcessCopyExpert(uint32_t tokenIndex, float scaleVal);
     __aicore__ inline void ProcessMoeExpert(uint32_t tokenIndexOffset, uint32_t topkId, float scaleVal);
@@ -204,6 +219,11 @@ private:
     uint32_t hExpandXAlign32Size_{0};
     uint32_t hAlignWinSize_{0};
     uint32_t hAlignWinCnt_{0};
+    uint32_t mxPacketBytes_{0};
+    uint32_t mxPacketAlign32Bytes_{0};
+    uint32_t mxInputAlignBytes_{0};
+    uint32_t mxScaleCount_{0};
+    uint32_t bufferNum_{BUFFER_NUM};
     uint32_t tokenScaleCnt_{0};
     uint32_t scaleNumAlignSize_{0};
     uint32_t flagRcvCount_{0};
@@ -236,9 +256,12 @@ private:
     TBuf<> stateResetBuf_;
     TBuf<> expertMaskBuf_;
     TBuf<> elasticInfoBuf_;
-    TBuf<> epSendCountBuf_;      // epSendCount（expert-major/rank-minor 全前缀和）拷入 UB，用于 rank-major 分核
+    TBuf<> epSendCountBuf_;  // epSendCount（expert-major/rank-minor 全前缀和）拷入 UB，用于 rank-major 分核
     TBuf<> sendRangeOffsetBuf_;  // 本核子区间列表：起始 token 偏移
     TBuf<> sendRangeCntBuf_;     // 本核子区间列表：token 数
+    TBuf<> mxScratchBuf_;
+    TBuf<> mxScaleBf16Buf_;
+    TBuf<> mxScaleFloatBuf_;
     bool isInputTokenMaskFlag_ = false;
     bool isInputExpertMaskFlag_ = false;
     bool hasSharedExpertX_ = false;
@@ -386,6 +409,9 @@ MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::InitTilingAttrs(const MoeDistribu
     tpWorldSize_ = tilingData->moeDistributeCombineV2Info.tpWorldSize;
     tpRankId_ = tilingData->moeDistributeCombineV2Info.tpRankId;
     totalWinSize_ = tilingData->moeDistributeCombineV2Info.totalWinSize;
+    if constexpr (IsMxfp8Quant) {
+        bufferNum_ = tilingData->moeDistributeCombineV2Info.a5MxCombineBufferNum;
+    }
     isInputTokenMaskFlag_ = tilingData->moeDistributeCombineV2Info.isTokenMask;
     isInputExpertMaskFlag_ = tilingData->moeDistributeCombineV2Info.isExpertMask;
     hasSharedExpertX_ = tilingData->moeDistributeCombineV2Info.hasSharedExpertX;
@@ -427,7 +453,17 @@ MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::InitAttrs(const MoeDistributeComb
     hFloatAlign256Size_ = Ceil(hFloatSize, ALIGNED_LEN) * ALIGNED_LEN;
     hExpandXTypeSize_ = axisH_ * sizeof(ExpandXType);
     hExpandXAlign32Size_ = Ceil(hExpandXTypeSize_, UB_ALIGN) * UB_ALIGN;
-    hAlignWinSize_ = Ceil(hExpandXTypeSize_, WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+    if constexpr (IsMxfp8Quant) {
+#ifdef __DAV_C310__
+        mxScaleCount_ = MoeMxfp8::ScaleCount(axisH_);
+        mxInputAlignBytes_ = Align128(axisH_) * sizeof(ExpandXType);
+        mxPacketBytes_ = MoeMxfp8::AlignUp(axisH_, MoeMxfp8::MX_DATA_ALIGN) + mxScaleCount_ * sizeof(fp8_e8m0_t);
+        mxPacketAlign32Bytes_ = Ceil(mxPacketBytes_, UB_ALIGN) * UB_ALIGN;
+        hAlignWinSize_ = Ceil(mxPacketBytes_, WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+#endif
+    } else {
+        hAlignWinSize_ = Ceil(hExpandXTypeSize_, WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+    }
     hAlignWinCnt_ = hAlignWinSize_ / sizeof(ExpandXType);
     bsKNum_ = axisBS_ * axisK_;
 }
@@ -511,7 +547,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::Init(
         tpRankWindow_.SetGlobalBuffer((__gm__ XType *)tpWindowGM_);
         tpRemoteSendCnt_ = tpSendCountGM_(1 - tpRankId_);
     }
-    tpipe_->InitBuffer(moeQueue_, BUFFER_NUM, hExpandXAlign32Size_);
+    tpipe_->InitBuffer(moeQueue_, bufferNum_, hExpandXAlign32Size_);
     flagRcvCount_ = axisK_ + sharedExpertNum_;
 }
 
@@ -547,8 +583,18 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::BuffInit()
             gmTpSendCountFloatTensor_ = gmTpSendCountFloatBuf_.Get<float>();
         }
     } else {
-        tpipe_->InitBuffer(gmTpSendCountQueue_, BUFFER_NUM, hExpandXAlign32Size_);  // 28K 存储搬入token
-        if constexpr (IsInt8Quant) {
+        uint32_t sendInputUbBytes = hExpandXAlign32Size_;
+        if constexpr (IsMxfp8Quant) {
+            sendInputUbBytes = mxInputAlignBytes_;
+        }
+        uint32_t queueBufferNum = IsMxfp8Quant ? bufferNum_ : BUFFER_NUM;
+        tpipe_->InitBuffer(gmTpSendCountQueue_, queueBufferNum, sendInputUbBytes);  // source token staging
+        if constexpr (IsMxfp8Quant) {
+            tpipe_->InitBuffer(xOutQueue_, queueBufferNum, mxPacketAlign32Bytes_);
+            tpipe_->InitBuffer(
+                mxScratchBuf_,
+                Ceil((Align128(axisH_) * sizeof(ExpandXType)) + 2U * Align32(mxScaleCount_), UB_ALIGN) * UB_ALIGN);
+        } else if constexpr (IsInt8Quant) {
             uint32_t tokenScaleAlign32Size = Ceil(tokenScaleCnt_ * sizeof(ExpandXType), UB_ALIGN) * UB_ALIGN;
             tpipe_->InitBuffer(xOutQueue_, BUFFER_NUM, tokenScaleAlign32Size);  // 28K 输出token搬运
             tpipe_->InitBuffer(xAbsBuf_, hFloatAlign256Size_);  // 28K blockReduceMax计算及后续Cast计算，256对齐
@@ -697,8 +743,16 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::AlltoAllBu
     tpipe_->InitBuffer(tokenBuf_, maxSizeRowTmpFloatBuf);                    // 16K 用于搬入输入token
     tpipe_->InitBuffer(rowTmpFloatBuf_, maxSizeRowTmpFloatBuf);  // 32K 用于存储cast之后的fp32 token数据
     tpipe_->InitBuffer(mulBuf_, hFloatAlign256Size_);  // 32K buffer复用， 最大用于存储Brcb之后的token，需要256对齐
-    tpipe_->InitBuffer(sumFloatBuf_, hFloatAlign32Size_);                // 32K add
-    tpipe_->InitBuffer(moeSumQueue_, BUFFER_NUM, hExpandXAlign32Size_);  // 32K 搬入
+    tpipe_->InitBuffer(sumFloatBuf_, hFloatAlign32Size_);  // 32K add
+    uint32_t moePacketUbBytes = hExpandXAlign32Size_;
+    if constexpr (IsMxfp8Quant) {
+        moePacketUbBytes = mxPacketAlign32Bytes_;
+        tpipe_->InitBuffer(mxScaleBf16Buf_, Ceil(mxScaleCount_ * 2U * sizeof(bfloat16_t), UB_ALIGN) * UB_ALIGN);
+        // E8M0 scales expand to two BF16 lanes and then four FP32 lanes.
+        tpipe_->InitBuffer(mxScaleFloatBuf_, Ceil(mxScaleCount_ * 4U * sizeof(float), UB_ALIGN) * UB_ALIGN);
+    }
+    uint32_t receiveQueueBufferNum = IsMxfp8Quant ? bufferNum_ : BUFFER_NUM;
+    tpipe_->InitBuffer(moeSumQueue_, receiveQueueBufferNum, moePacketUbBytes);  // receive packet / normal token
     tpipe_->InitBuffer(stateBuf_, (flagRcvCount_)*STATE_OFFSET);
     tpipe_->InitBuffer(stateSumBuf_, UB_ALIGN);
     tpipe_->InitBuffer(stateResetBuf_, (flagRcvCount_)*STATE_OFFSET);  // 清理状态区
@@ -960,16 +1014,15 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::InitRankMa
 }
 
 template <TemplateMC2TypeClass>
-__aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ProcessSendRange(
-    uint32_t lo, uint32_t cnt, LocalTensor<float> &statusTensor)
+__aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ProcessSendRange(uint32_t lo, uint32_t cnt,
+                                                                                       LocalTensor<float> &statusTensor)
 {
     LocalTensor<ExpandIdxType> expandIdxLocal = indexCountsBuf_.Get<ExpandIdxType>();
     const DataCopyPadExtParams<ExpandIdxType> copyPadParams{false, 0U, 0U, 0U};
     for (uint32_t batchStart = 0U; batchStart < cnt; batchStart += BATCH_SRC_INFO_CNT) {
         uint32_t batchCnt = (cnt - batchStart) < BATCH_SRC_INFO_CNT ? (cnt - batchStart) : BATCH_SRC_INFO_CNT;
-        const DataCopyExtParams bskParams{1U,
-                                          static_cast<uint32_t>(batchCnt * EXPAND_IDX_INFO * sizeof(uint32_t)), 0U, 0U,
-                                          0U};
+        const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(batchCnt * EXPAND_IDX_INFO * sizeof(uint32_t)), 0U,
+                                          0U, 0U};
         DataCopyPad(expandIdxLocal, expandIdxGM_[(lo + batchStart) * EXPAND_IDX_INFO], bskParams, copyPadParams);
         SyncFunc<AscendC::HardEvent::MTE2_S>();
 
@@ -1034,6 +1087,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ExpertAllt
     DataCopyPadExtParams<ExpandXType> copyPadExtParams{false, 0U, 0U, 0U};
     DataCopyExtParams expandXCopyParams{1U, static_cast<uint32_t>(hExpandXTypeSize_), 0U, 0U, 0U};
     DataCopyExtParams xScaleCopyParams{1U, static_cast<uint32_t>(tokenScaleCnt_ * sizeof(ExpandXType)), 0U, 0U, 0U};
+    DataCopyExtParams mxPacketCopyParams{1U, mxPacketBytes_, 0U, 0U, 0U};
     if constexpr (IsNeedReduceScatter) {
         gmTpSendCountTensor_ = gmTpSendCountInQueue_.AllocTensor<ExpandXType>();
         DataCopyPad(gmTpSendCountTensor_, expandXGM_[tokenGMOffset], expandXCopyParams, copyPadExtParams);
@@ -1052,7 +1106,24 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ExpertAllt
         DataCopyPad(rankWindow_, outTensor_, expandXCopyParams);
         xOutQueue_.FreeTensor<ExpandXType>(outTensor_);
     } else {
-        if constexpr (IsInt8Quant) {
+        if constexpr (IsMxfp8Quant) {
+            gmTpSendCountTensor_ = gmTpSendCountQueue_.AllocTensor<ExpandXType>();
+            LocalTensor<uint8_t> inputBytes = gmTpSendCountTensor_.template ReinterpretCast<uint8_t>();
+            Duplicate(inputBytes, static_cast<uint8_t>(0), mxInputAlignBytes_);
+            SyncFunc<AscendC::HardEvent::V_MTE2>();
+            DataCopyPad(gmTpSendCountTensor_, expandXGM_[tokenGMOffset], expandXCopyParams, copyPadExtParams);
+            gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
+            gmTpSendCountTensor_ = gmTpSendCountQueue_.DeQue<ExpandXType>();
+            LocalTensor<XType> packet = xOutQueue_.AllocTensor<XType>();
+#ifdef __DAV_C310__
+            Mxfp8QuantProcess(packet, gmTpSendCountTensor_);
+#endif
+            xOutQueue_.EnQue(packet);
+            packet = xOutQueue_.DeQue<XType>();
+            DataCopyPad(rankWindow_, packet, mxPacketCopyParams);
+            gmTpSendCountQueue_.FreeTensor<ExpandXType>(gmTpSendCountTensor_);
+            xOutQueue_.FreeTensor<XType>(packet);
+        } else if constexpr (IsInt8Quant) {
             gmTpSendCountTensor_ = gmTpSendCountQueue_.AllocTensor<ExpandXType>();
             DataCopyPad(gmTpSendCountTensor_, expandXGM_[tokenGMOffset], expandXCopyParams, copyPadExtParams);
             gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
@@ -1151,6 +1222,30 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::Int8Dequan
     PipeBarrier<PIPE_V>();
 }
 
+#ifdef __DAV_C310__
+template <TemplateMC2TypeClass>
+__aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::Mxfp8QuantProcess(LocalTensor<XType> &packet,
+                                                                                        LocalTensor<ExpandXType> &input)
+{
+    SyncFunc<AscendC::HardEvent::MTE2_V>();
+    LocalTensor<uint8_t> packetBytes = packet.template ReinterpretCast<uint8_t>();
+    Duplicate(packetBytes, static_cast<uint8_t>(0), mxPacketAlign32Bytes_);
+    PipeBarrier<PIPE_V>();
+    LocalTensor<float> scratch = mxScratchBuf_.Get<float>();
+    MoeMxfp8::QuantizeE4M3(packet, input, scratch, axisH_);
+    SyncFunc<AscendC::HardEvent::V_MTE3>();
+}
+
+template <TemplateMC2TypeClass>
+__aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::Mxfp8DequantProcess(LocalTensor<XType> &packet)
+{
+    SyncFunc<AscendC::HardEvent::MTE2_V>();
+    LocalTensor<bfloat16_t> scaleBf16 = mxScaleBf16Buf_.Get<bfloat16_t>();
+    LocalTensor<float> scaleFloat = mxScaleFloatBuf_.Get<float>();
+    MoeMxfp8::DequantizeE4M3ToFloat(packet, rowTmpFloatLocal_, scaleBf16, scaleFloat, axisH_);
+}
+#endif
+
 // 处理常量专家
 template <TemplateMC2TypeClass>
 __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ProcessConstantExpert(uint32_t tokenIndex,
@@ -1235,23 +1330,33 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::ProcessMoe
     const DataCopyExtParams xScaleCopyParams{1U, static_cast<uint32_t>(tokenScaleCnt_ * sizeof(ExpandXType)), 0U, 0U,
                                              0U};
     const DataCopyExtParams expandXCopyParams{1U, static_cast<uint32_t>(hExpandXTypeSize_), 0U, 0U, 0U};
+    const DataCopyExtParams mxPacketCopyParams{1U, mxPacketBytes_, 0U, 0U, 0U};
     const DataCopyPadExtParams<ExpandXType> copyPadExtParams{false, 0U, 0U, 0U};
 
     GM_ADDR wAddr = (__gm__ uint8_t *)(epWindowGM_) + (tokenIndexOffset + topkId) * hAlignWinSize_;
     rowTmpGlobal_.SetGlobalBuffer((__gm__ XType *)wAddr);
     LocalTensor<XType> tmpUb = moeSumQueue_.AllocTensor<XType>();
-    if constexpr (IsInt8Quant) {
+    if constexpr (IsMxfp8Quant) {
+        DataCopyPad(tmpUb, rowTmpGlobal_, mxPacketCopyParams, copyPadExtParams);
+    } else if constexpr (IsInt8Quant) {
         DataCopyPad(tmpUb, rowTmpGlobal_, xScaleCopyParams, copyPadExtParams);
     } else {
         DataCopyPad(tmpUb, rowTmpGlobal_, expandXCopyParams, copyPadExtParams);
     }
     moeSumQueue_.EnQue(tmpUb);
     tmpUb = moeSumQueue_.DeQue<XType>();
-    if constexpr (IsInt8Quant) {
+    if constexpr (IsMxfp8Quant) {
+#ifdef __DAV_C310__
+        Mxfp8DequantProcess(tmpUb);
+        PipeBarrier<PIPE_V>();
+#endif
+    } else if constexpr (IsInt8Quant) {
         Int8DequantProcess(tmpUb);
     }
-    Cast(rowTmpFloatLocal_, tmpUb, AscendC::RoundMode::CAST_NONE, processLen);
-    PipeBarrier<PIPE_V>();
+    if constexpr (!IsMxfp8Quant) {
+        Cast(rowTmpFloatLocal_, tmpUb, AscendC::RoundMode::CAST_NONE, processLen);
+        PipeBarrier<PIPE_V>();
+    }
     AscendC::Muls(mulBufLocal_, rowTmpFloatLocal_, scaleVal, processLen);
     PipeBarrier<PIPE_V>();
     AscendC::Add(sumFloatBufLocal_, sumFloatBufLocal_, mulBufLocal_, processLen);
@@ -1470,4 +1575,12 @@ __aicore__ inline void MoeDistributeCombineV2A5<TemplateMC2TypeFunc>::Process()
 }
 
 }  // namespace MoeDistributeCombineV2A5Impl
+#undef TemplateMC2TypeClass
+#undef TemplateMC2TypeFunc
+#undef A5CombineTemplateClass
+#undef A5CombineTemplateArgs
+// Restore the generic A3 macro contract declared by moe_distribute_combine_v2.h.
+#define TemplateMC2TypeClass \
+    typename ExpandXType, typename XType, typename ExpandIdxType, bool IsNeedReduceScatter, bool IsInt8Quant
+#define TemplateMC2TypeFunc ExpandXType, XType, ExpandIdxType, IsNeedReduceScatter, IsInt8Quant
 #endif  // MOE_DISTRIBUTE_COMBINE_V2_A5_H
