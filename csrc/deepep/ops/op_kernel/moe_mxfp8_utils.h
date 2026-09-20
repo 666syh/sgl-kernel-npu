@@ -62,6 +62,11 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
     const uint16_t scaleRepeat = (scaleCount + bf16Vl - 1U) / bf16Vl;
     const uint16_t scaleFloatRepeat = (scaleCount * 2U + fp32Vl - 1U) / fp32Vl;
     const uint16_t tokenRepeat = (tokenLen + fp32Vl - 1U) / fp32Vl;
+    // MicroAPI::UpdateMask consumes and updates the remaining element count;
+    // it therefore requires mutable lvalues rather than tail expressions.
+    uint32_t remainingScale = scaleCount;
+    uint32_t remainingScaleBf16 = scaleCount * 2U;
+    uint32_t remainingToken = tokenLen;
 
     __VEC_SCOPE__
     {
@@ -79,7 +84,7 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
                                                            MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
 
         for (uint16_t i = 0; i < scaleRepeat; ++i) {
-            mask = MicroAPI::UpdateMask<bfloat16_t>(scaleCount - i * bf16Vl);
+            mask = MicroAPI::UpdateMask<bfloat16_t>(remainingScale);
             MicroAPI::DataCopy<fp8_e8m0_t, MicroAPI::LoadDist::DIST_UNPACK_B8>(scaleReg, scale + i * bf16Vl);
             MicroAPI::Cast<bfloat16_t, fp8_e8m0_t, fp8ToBf16>(convertedScaleBf16Reg, scaleReg, mask);
             MicroAPI::DataCopy<bfloat16_t, MicroAPI::StoreDist::DIST_INTLV_B16>(
@@ -87,7 +92,7 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
         }
         MicroAPI::LocalMemBar<MicroAPI::MemType::VEC_STORE, MicroAPI::MemType::VEC_LOAD>();
         for (uint16_t i = 0; i < scaleFloatRepeat; ++i) {
-            mask = MicroAPI::UpdateMask<float>(scaleCount * 2U - i * fp32Vl);
+            mask = MicroAPI::UpdateMask<float>(remainingScaleBf16);
             MicroAPI::DataCopy<bfloat16_t, MicroAPI::LoadDist::DIST_UNPACK_B16>(scaleBf16Reg,
                                                                                 scaleBf16Ptr + i * fp32Vl);
             MicroAPI::Cast<float, bfloat16_t, bf16ToFp32>(scaleFloatReg, scaleBf16Reg, mask);
@@ -96,7 +101,7 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
         }
         MicroAPI::LocalMemBar<MicroAPI::MemType::VEC_STORE, MicroAPI::MemType::VEC_LOAD>();
         for (uint16_t i = 0; i < tokenRepeat; ++i) {
-            mask = MicroAPI::UpdateMask<float>(tokenLen - i * fp32Vl);
+            mask = MicroAPI::UpdateMask<float>(remainingToken);
             MicroAPI::DataCopy<float, MicroAPI::LoadDist::DIST_E2B_B32>(scaleFloatReg, scaleFloatPtr + i * 8U);
             MicroAPI::DataCopy<fp8_e4m3fn_t, MicroAPI::LoadDist::DIST_UNPACK4_B8>(tokenReg, token + i * fp32Vl);
             MicroAPI::Cast<float, fp8_e4m3fn_t, fp8ToBf16>(tokenFloatReg, tokenReg, mask);
