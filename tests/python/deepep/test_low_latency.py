@@ -331,9 +331,7 @@ def test(
                     .view(-1, 1),
                     combined_x,
                 )
-                nan_count = torch.isnan(combined_x).sum().item()
-                print(f"[rank {rank}] combined_x nan_count={nan_count}", flush=True)
-                assert nan_count == 0
+                assert torch.isnan(combined_x).sum().item() == 0
                 assert torch.isinf(combined_x).sum().item() == 0
                 if baseline_combined_x is not None:
                     baseline_diff = calc_diff(baseline_combined_x, combined_x)
