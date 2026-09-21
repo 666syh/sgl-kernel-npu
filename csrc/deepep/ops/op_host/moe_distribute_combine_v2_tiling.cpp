@@ -182,7 +182,6 @@ static uint64_t CalcA5Mxfp8CombinePeakUb(const MoeDistributeCombineV2Info &info,
     receivePeak += tokenBufBytes + rowTmpBytes + hFloat256Bytes + hFloatBytes;
     receivePeak += queueBufferNum * packetBytes;  // moeSumQueue_
     receivePeak += 2UL * AlignUpForMxCombine(k * A5_COMBINE_STATE_UB_BYTES_PER_FLAG, UB_ALIGN) + UB_ALIGN;
-    receivePeak += AlignUpForMxCombine(scaleCount * 2UL * kElementBytes, UB_ALIGN);
     receivePeak += AlignUpForMxCombine(scaleCount * 4UL * sizeof(float), UB_ALIGN);
     if (info.isTokenMask) {
         const uint64_t tokenMaskBytes = AlignUpForMxCombine(bs * sizeof(bool), UB_ALIGN);

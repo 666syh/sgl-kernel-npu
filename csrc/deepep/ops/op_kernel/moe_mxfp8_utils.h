@@ -41,72 +41,63 @@ __aicore__ inline void QuantizeE4M3(LocalTensor<PacketType> &packet, LocalTensor
 }
 
 // Decode one packed [FP8 E4M3 data | E8M0 scales] token directly into FP32.
-// The scale conversion is E8M0 -> 2 BF16 lanes -> 4 FP32 lanes, so callers
-// must reserve scaleCount * 2 BF16 elements and scaleCount * 4 FP32 elements.
+// E8M0 is an exponent-only format. Decode it by constructing the FP32
+// exponent bits, matching the A5 combine implementation used by MC2.
 template <typename PacketType>
 __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, LocalTensor<float> &output,
-                                             LocalTensor<bfloat16_t> &scaleBf16, LocalTensor<float> &scaleFloat,
-                                             uint32_t tokenLen)
+                                             LocalTensor<float> &scaleFloat, uint32_t tokenLen)
 {
     const uint32_t scaleCount = ScaleCount(tokenLen);
     LocalTensor<fp8_e4m3fn_t> fp8Packet = packet.template ReinterpretCast<fp8_e4m3fn_t>();
     LocalTensor<fp8_e8m0_t> scales = fp8Packet[AlignUp(tokenLen, MX_DATA_ALIGN)].template ReinterpretCast<fp8_e8m0_t>();
     __ubuf__ fp8_e4m3fn_t *token = (__ubuf__ fp8_e4m3fn_t *)fp8Packet.GetPhyAddr();
     __ubuf__ fp8_e8m0_t *scale = (__ubuf__ fp8_e8m0_t *)scales.GetPhyAddr();
-    __ubuf__ bfloat16_t *scaleBf16Ptr = (__ubuf__ bfloat16_t *)scaleBf16.GetPhyAddr();
     __ubuf__ float *scaleFloatPtr = (__ubuf__ float *)scaleFloat.GetPhyAddr();
     __ubuf__ float *out = (__ubuf__ float *)output.GetPhyAddr();
 
-    const uint32_t bf16Vl = quant::GetVRegSizeDispatch() / sizeof(bfloat16_t);
     const uint32_t fp32Vl = quant::GetVRegSizeDispatch() / sizeof(float);
-    const uint16_t scaleRepeat = (scaleCount + bf16Vl - 1U) / bf16Vl;
-    const uint16_t scaleFloatRepeat = (scaleCount * 2U + fp32Vl - 1U) / fp32Vl;
-    const uint16_t tokenRepeat = (tokenLen + fp32Vl - 1U) / fp32Vl;
-    // MicroAPI::UpdateMask consumes and updates the remaining element count;
-    // it therefore requires mutable lvalues rather than tail expressions.
+    const uint16_t scaleRepeat = (scaleCount + fp32Vl - 1U) / fp32Vl;
+    const uint16_t tokenRepeat = (tokenLen + fp32Vl * 2U - 1U) / (fp32Vl * 2U);
     uint32_t remainingScale = scaleCount;
-    uint32_t remainingScaleBf16 = scaleCount * 2U;
     uint32_t remainingToken = tokenLen;
+    uint32_t remainingTokenBytes = tokenLen * 4U;
 
     __VEC_SCOPE__
     {
         MicroAPI::RegTensor<fp8_e8m0_t> scaleReg;
         MicroAPI::RegTensor<fp8_e4m3fn_t> tokenReg;
-        MicroAPI::RegTensor<float> tokenFloatReg;
-        MicroAPI::RegTensor<bfloat16_t> scaleBf16Reg;
-        MicroAPI::RegTensor<bfloat16_t> convertedScaleBf16Reg;
+        MicroAPI::RegTensor<float> tokenFloatReg0;
+        MicroAPI::RegTensor<float> tokenFloatReg1;
         MicroAPI::RegTensor<float> scaleFloatReg;
-        MicroAPI::RegTensor<float> outReg;
-        MicroAPI::MaskReg mask;
-        static constexpr MicroAPI::CastTrait fp8ToBf16 = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::UNKNOWN,
-                                                          MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
-        static constexpr MicroAPI::CastTrait bf16ToFp32 = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::UNKNOWN,
-                                                           MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+        MicroAPI::RegTensor<float> outReg0;
+        MicroAPI::RegTensor<float> outReg1;
+        MicroAPI::MaskReg scaleMask;
+        MicroAPI::MaskReg tokenMask;
+        static constexpr MicroAPI::CastTrait castTraitZero = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::UNKNOWN,
+                                                              MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+        static constexpr MicroAPI::CastTrait castTraitTwo = {MicroAPI::RegLayout::TWO, MicroAPI::SatMode::UNKNOWN,
+                                                             MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
 
         for (uint16_t i = 0; i < scaleRepeat; ++i) {
-            mask = MicroAPI::UpdateMask<bfloat16_t>(remainingScale);
-            MicroAPI::DataCopy<fp8_e8m0_t, MicroAPI::LoadDist::DIST_UNPACK_B8>(scaleReg, scale + i * bf16Vl);
-            MicroAPI::Cast<bfloat16_t, fp8_e8m0_t, fp8ToBf16>(convertedScaleBf16Reg, scaleReg, mask);
-            MicroAPI::DataCopy<bfloat16_t, MicroAPI::StoreDist::DIST_INTLV_B16>(
-                scaleBf16Ptr + i * bf16Vl * 2U, convertedScaleBf16Reg, convertedScaleBf16Reg, mask);
-        }
-        MicroAPI::LocalMemBar<MicroAPI::MemType::VEC_STORE, MicroAPI::MemType::VEC_LOAD>();
-        for (uint16_t i = 0; i < scaleFloatRepeat; ++i) {
-            mask = MicroAPI::UpdateMask<float>(remainingScaleBf16);
-            MicroAPI::DataCopy<bfloat16_t, MicroAPI::LoadDist::DIST_UNPACK_B16>(scaleBf16Reg,
-                                                                                scaleBf16Ptr + i * fp32Vl);
-            MicroAPI::Cast<float, bfloat16_t, bf16ToFp32>(scaleFloatReg, scaleBf16Reg, mask);
+            scaleMask = MicroAPI::UpdateMask<float>(remainingScale);
+            MicroAPI::DataCopy<fp8_e8m0_t, MicroAPI::LoadDist::DIST_UNPACK_B8>(scaleReg, scale + i * fp32Vl);
+            MicroAPI::ShiftLefts((MicroAPI::RegTensor<uint32_t> &)scaleFloatReg,
+                                 (MicroAPI::RegTensor<uint32_t> &)scaleReg, static_cast<int16_t>(23), scaleMask);
             MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_INTLV_B32>(scaleFloatPtr + i * fp32Vl * 2U,
-                                                                           scaleFloatReg, scaleFloatReg, mask);
+                                                                           scaleFloatReg, scaleFloatReg, scaleMask);
         }
         MicroAPI::LocalMemBar<MicroAPI::MemType::VEC_STORE, MicroAPI::MemType::VEC_LOAD>();
         for (uint16_t i = 0; i < tokenRepeat; ++i) {
-            mask = MicroAPI::UpdateMask<float>(remainingToken);
+            tokenMask = MicroAPI::UpdateMask<fp8_e4m3fn_t>(remainingTokenBytes);
+            MicroAPI::MaskReg outputMask = MicroAPI::UpdateMask<float>(remainingToken);
             MicroAPI::DataCopy<float, MicroAPI::LoadDist::DIST_E2B_B32>(scaleFloatReg, scaleFloatPtr + i * 8U);
-            MicroAPI::DataCopy<fp8_e4m3fn_t, MicroAPI::LoadDist::DIST_UNPACK4_B8>(tokenReg, token + i * fp32Vl);
-            MicroAPI::Cast<float, fp8_e4m3fn_t, fp8ToBf16>(tokenFloatReg, tokenReg, mask);
-            MicroAPI::Mul(outReg, scaleFloatReg, tokenFloatReg, mask);
-            MicroAPI::DataCopy(out + i * fp32Vl, outReg, mask);
+            MicroAPI::DataCopy<fp8_e4m3fn_t, MicroAPI::LoadDist::DIST_UNPACK_B8>(tokenReg, token + i * fp32Vl * 2U);
+            MicroAPI::Cast<float, fp8_e4m3fn_t, castTraitZero>(tokenFloatReg0, tokenReg, tokenMask);
+            MicroAPI::Cast<float, fp8_e4m3fn_t, castTraitTwo>(tokenFloatReg1, tokenReg, tokenMask);
+            MicroAPI::Mul(outReg0, scaleFloatReg, tokenFloatReg0, outputMask);
+            MicroAPI::Mul(outReg1, scaleFloatReg, tokenFloatReg1, outputMask);
+            MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_INTLV_B32>(out + i * fp32Vl * 2U, outReg0, outReg1,
+                                                                           outputMask);
         }
     }
 }

@@ -257,7 +257,6 @@ private:
     TBuf<> sendRangeOffsetBuf_;  // 本核子区间列表：起始 token 偏移
     TBuf<> sendRangeCntBuf_;     // 本核子区间列表：token 数
     TBuf<> mxScratchBuf_;
-    TBuf<> mxScaleBf16Buf_;
     TBuf<> mxScaleFloatBuf_;
     bool isInputTokenMaskFlag_ = false;
     bool isInputExpertMaskFlag_ = false;
@@ -744,8 +743,6 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::AlltoAll
     uint32_t moePacketUbBytes = hExpandXAlign32Size_;
     if constexpr (IsMxfp8Quant) {
         moePacketUbBytes = mxPacketAlign32Bytes_;
-        tpipe_->InitBuffer(mxScaleBf16Buf_, Ceil(mxScaleCount_ * 2U * sizeof(bfloat16_t), UB_ALIGN) * UB_ALIGN);
-        // E8M0 scales expand to two BF16 lanes and then four FP32 lanes.
         tpipe_->InitBuffer(mxScaleFloatBuf_, Ceil(mxScaleCount_ * 4U * sizeof(float), UB_ALIGN) * UB_ALIGN);
     }
     uint32_t receiveQueueBufferNum = IsMxfp8Quant ? bufferNum_ : BUFFER_NUM;
@@ -1237,9 +1234,8 @@ template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8DequantProcess(LocalTensor<XType> &packet)
 {
     SyncFunc<AscendC::HardEvent::MTE2_V>();
-    LocalTensor<bfloat16_t> scaleBf16 = mxScaleBf16Buf_.Get<bfloat16_t>();
     LocalTensor<float> scaleFloat = mxScaleFloatBuf_.Get<float>();
-    MoeMxfp8::DequantizeE4M3ToFloat(packet, rowTmpFloatLocal_, scaleBf16, scaleFloat, axisH_);
+    MoeMxfp8::DequantizeE4M3ToFloat(packet, rowTmpFloatLocal_, scaleFloat, axisH_);
 }
 #endif
 
