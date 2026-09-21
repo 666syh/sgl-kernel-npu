@@ -44,8 +44,8 @@ __aicore__ inline void QuantizeE4M3(LocalTensor<PacketType> &packet, LocalTensor
 // E8M0 is an exponent-only format. Decode it by constructing the FP32
 // exponent bits, matching the A5 combine implementation used by MC2.
 template <typename PacketType>
-__aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, LocalTensor<float> &output,
-                                             LocalTensor<float> &scaleFloat, uint32_t tokenLen)
+__aicore__ inline void DequantizeE4M3AndAccumulate(LocalTensor<PacketType> &packet, LocalTensor<float> &sum,
+                                                   LocalTensor<float> &scaleFloat, float expertScale, uint32_t tokenLen)
 {
     const uint32_t scaleCount = ScaleCount(tokenLen);
     LocalTensor<fp8_e4m3fn_t> fp8Packet = packet.template ReinterpretCast<fp8_e4m3fn_t>();
@@ -53,7 +53,7 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
     __ubuf__ fp8_e4m3fn_t *token = (__ubuf__ fp8_e4m3fn_t *)fp8Packet.GetPhyAddr();
     __ubuf__ fp8_e8m0_t *scale = (__ubuf__ fp8_e8m0_t *)scales.GetPhyAddr();
     __ubuf__ float *scaleFloatPtr = (__ubuf__ float *)scaleFloat.GetPhyAddr();
-    __ubuf__ float *out = (__ubuf__ float *)output.GetPhyAddr();
+    __ubuf__ float *sumPtr = (__ubuf__ float *)sum.GetPhyAddr();
 
     const uint32_t fp32Vl = quant::GetVRegSizeDispatch() / sizeof(float);
     const uint16_t scaleRepeat = (scaleCount + fp32Vl - 1U) / fp32Vl;
@@ -71,6 +71,8 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
         MicroAPI::RegTensor<float> scaleFloatReg;
         MicroAPI::RegTensor<float> outReg0;
         MicroAPI::RegTensor<float> outReg1;
+        MicroAPI::RegTensor<float> sumReg0;
+        MicroAPI::RegTensor<float> sumReg1;
         MicroAPI::MaskReg scaleMask;
         MicroAPI::MaskReg tokenMask;
         static constexpr MicroAPI::CastTrait castTraitZero = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::UNKNOWN,
@@ -80,7 +82,7 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
 
         for (uint16_t i = 0; i < scaleRepeat; ++i) {
             scaleMask = MicroAPI::UpdateMask<float>(remainingScale);
-            MicroAPI::DataCopy<fp8_e8m0_t, MicroAPI::LoadDist::DIST_UNPACK_B8>(scaleReg, scale + i * fp32Vl);
+            MicroAPI::DataCopy<fp8_e8m0_t, MicroAPI::LoadDist::DIST_UNPACK4_B8>(scaleReg, scale + i * fp32Vl);
             MicroAPI::ShiftLefts((MicroAPI::RegTensor<uint32_t> &)scaleFloatReg,
                                  (MicroAPI::RegTensor<uint32_t> &)scaleReg, static_cast<int16_t>(23), scaleMask);
             MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_INTLV_B32>(scaleFloatPtr + i * fp32Vl * 2U,
@@ -94,9 +96,14 @@ __aicore__ inline void DequantizeE4M3ToFloat(LocalTensor<PacketType> &packet, Lo
             MicroAPI::DataCopy<fp8_e4m3fn_t, MicroAPI::LoadDist::DIST_UNPACK_B8>(tokenReg, token + i * fp32Vl * 2U);
             MicroAPI::Cast<float, fp8_e4m3fn_t, castTraitZero>(tokenFloatReg0, tokenReg, tokenMask);
             MicroAPI::Cast<float, fp8_e4m3fn_t, castTraitTwo>(tokenFloatReg1, tokenReg, tokenMask);
+            MicroAPI::DataCopy<float, MicroAPI::LoadDist::DIST_DINTLV_B32>(sumReg0, sumReg1, sumPtr + i * fp32Vl * 2U);
             MicroAPI::Mul(outReg0, scaleFloatReg, tokenFloatReg0, outputMask);
             MicroAPI::Mul(outReg1, scaleFloatReg, tokenFloatReg1, outputMask);
-            MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_INTLV_B32>(out + i * fp32Vl * 2U, outReg0, outReg1,
+            MicroAPI::Muls(outReg0, outReg0, expertScale, outputMask);
+            MicroAPI::Muls(outReg1, outReg1, expertScale, outputMask);
+            MicroAPI::Add(sumReg0, sumReg0, outReg0, outputMask);
+            MicroAPI::Add(sumReg1, sumReg1, outReg1, outputMask);
+            MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_INTLV_B32>(sumPtr + i * fp32Vl * 2U, sumReg0, sumReg1,
                                                                            outputMask);
         }
     }

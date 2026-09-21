@@ -99,7 +99,7 @@ private:
     __aicore__ inline void Int8DequantProcess(LocalTensor<XType> &src);
 #ifdef __DAV_C310__
     __aicore__ inline void Mxfp8QuantProcess(LocalTensor<XType> &packet, LocalTensor<ExpandXType> &input);
-    __aicore__ inline void Mxfp8DequantProcess(LocalTensor<XType> &packet);
+    __aicore__ inline void Mxfp8DequantProcess(LocalTensor<XType> &packet, float expertScale);
 #endif
     __aicore__ inline void ProcessConstantExpert(uint32_t tokenIndex, uint32_t const_expert_idx, float scaleVal);
     __aicore__ inline void ProcessCopyExpert(uint32_t tokenIndex, float scaleVal);
@@ -1231,11 +1231,12 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8Qua
 }
 
 template <A5CombineTemplateClass>
-__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8DequantProcess(LocalTensor<XType> &packet)
+__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8DequantProcess(LocalTensor<XType> &packet,
+                                                                                            float expertScale)
 {
     SyncFunc<AscendC::HardEvent::MTE2_V>();
     LocalTensor<float> scaleFloat = mxScaleFloatBuf_.Get<float>();
-    MoeMxfp8::DequantizeE4M3ToFloat(packet, rowTmpFloatLocal_, scaleFloat, axisH_);
+    MoeMxfp8::DequantizeE4M3AndAccumulate(packet, sumFloatBufLocal_, scaleFloat, expertScale, axisH_);
 }
 #endif
 
@@ -1341,7 +1342,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessM
     tmpUb = moeSumQueue_.DeQue<XType>();
     if constexpr (IsMxfp8Quant) {
 #ifdef __DAV_C310__
-        Mxfp8DequantProcess(tmpUb);
+        Mxfp8DequantProcess(tmpUb, scaleVal);
         PipeBarrier<PIPE_V>();
 #endif
     } else if constexpr (IsInt8Quant) {
@@ -1351,9 +1352,11 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessM
         Cast(rowTmpFloatLocal_, tmpUb, AscendC::RoundMode::CAST_NONE, processLen);
         PipeBarrier<PIPE_V>();
     }
-    AscendC::Muls(mulBufLocal_, rowTmpFloatLocal_, scaleVal, processLen);
-    PipeBarrier<PIPE_V>();
-    AscendC::Add(sumFloatBufLocal_, sumFloatBufLocal_, mulBufLocal_, processLen);
+    if constexpr (!IsMxfp8Quant) {
+        AscendC::Muls(mulBufLocal_, rowTmpFloatLocal_, scaleVal, processLen);
+        PipeBarrier<PIPE_V>();
+        AscendC::Add(sumFloatBufLocal_, sumFloatBufLocal_, mulBufLocal_, processLen);
+    }
     moeSumQueue_.FreeTensor<XType>(tmpUb);
 }
 
