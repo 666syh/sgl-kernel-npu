@@ -53,6 +53,10 @@ extern "C" __global__ __aicore__ void moe_low_latency_combine_v2(
     REGISTER_TILING_DEFAULT(MoeDistributeCombineV2TilingData);
     TPipe pipe;
 
+#ifdef __DAV_C310__
+    int64_t oriOverflowMode = AscendC::GetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>();
+#endif
+
 #if (ORIG_DTYPE_EXPAND_X == DT_BF16 || ORIG_DTYPE_EXPAND_X == DT_FLOAT16)
     if (TILING_KEY_IS(30100)) {  // A3 tp=2 IsInt8Quant=0
         ExecMoeDistributeCombineV2<DTYPE_EXPAND_X, DTYPE_X, int32_t, true, false>(
@@ -94,5 +98,9 @@ extern "C" __global__ __aicore__ void moe_low_latency_combine_v2(
         op.Process();
     }
 #endif
+#endif
+
+#ifdef __DAV_C310__
+    AscendC::SetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>(oriOverflowMode);
 #endif
 }

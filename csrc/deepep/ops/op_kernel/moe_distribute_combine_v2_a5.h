@@ -42,6 +42,8 @@ constexpr size_t MASK_CALC_NEED_WORKSPACE = 10UL * 1024UL;
 constexpr uint32_t BLOCK_NUM = ALIGNED_LEN / UB_ALIGN;  // blockReduceMax中，最多支持连续256字节数据参与计算
 constexpr uint32_t BATCH_SRC_INFO_CNT = 128U;           // expandIdx 分批搬运的 token 数
 
+#define FLOAT_OVERFLOW_MODE_CTRL 60
+
 // related to FP8 and INT8 quantization
 constexpr float FP8_E5M2_MAX_VALUE = 57344.0f;
 constexpr float FP8_E4M3_MAX_VALUE = 448.0f;
@@ -573,6 +575,12 @@ template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::BuffInit()
 {
     tpipe_->Reset();
+#ifdef __DAV_C310__
+    if constexpr (IsMxfp8Quant) {
+        // TPipe::Reset restores CTRL[60]; MXFP8 conversion requires saturation mode.
+        AscendC::SetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>(0);
+    }
+#endif
     tpipe_->InitBuffer(readStateBuf_, UB_ALIGN);  // 32
     if constexpr (IsNeedReduceScatter) {
         tpipe_->InitBuffer(gmTpSendCountInQueue_, BUFFER_NUM, hExpandXAlign32Size_);  // 28K 存储输入拷过来的token
@@ -731,6 +739,12 @@ template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::AlltoAllBuffInitAndMaskCal()
 {
     tpipe_->Reset();
+#ifdef __DAV_C310__
+    if constexpr (IsMxfp8Quant) {
+        // Keep the conversion control state after the second pipeline reset.
+        AscendC::SetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>(0);
+    }
+#endif
     activeMaskBsCnt_ = axisBS_;
     uint32_t maxSizeTokenBuf = hExpandXAlign32Size_;
     uint32_t maxSizeRowTmpFloatBuf = hFloatAlign32Size_;
