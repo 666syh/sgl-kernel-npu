@@ -1262,6 +1262,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::DebugDum
     uint32_t stage, uint32_t sourceRank, uint32_t targetRank, uint32_t tokenId, uint32_t topkId, uint32_t windowOffset,
     LocalTensor<uint8_t> tokenBytes, LocalTensor<uint32_t> record, uint32_t scaleOffset, bool dumpScale)
 {
+    return;
     if (sourceRank > 1U || targetRank > 1U || sourceRank == targetRank) {
         return;
     }
