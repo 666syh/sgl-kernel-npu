@@ -276,6 +276,40 @@ def test(
             out = torch.empty(
                 (aligned_num_tokens, hidden), dtype=torch.bfloat16, device="npu"
             )
+            baseline_combined_x = None
+            if combine_use_mxfp8:
+                # Build an independent BF16 handle for the one-shot MXFP8
+                # debug comparison. A combine handle is consumed by the
+                # kernel, so it must not be reused for the baseline call.
+                torch_npu.npu.synchronize()
+                baseline_recv_x, _, baseline_handle, _, _ = buffer.low_latency_dispatch(
+                    current_x,
+                    topk_idx,
+                    aligned_num_tokens,
+                    num_experts,
+                    round_scale=False,
+                    cumulative_local_expert_recv_stats=None,
+                    async_finish=False,
+                    return_recv_hook=False,
+                    topk_weights=topk_weights,
+                    **quant_dispatch_kwargs,
+                )
+                baseline_simulated_x = (
+                    per_token_cast_back(*baseline_recv_x)
+                    if dispatch_use_fp8
+                    else baseline_recv_x
+                )
+                baseline_combined_x, _, _ = buffer.low_latency_combine(
+                    baseline_simulated_x,
+                    topk_idx,
+                    topk_weights,
+                    baseline_handle,
+                    async_finish=False,
+                    zero_copy=False,
+                    return_recv_hook=False,
+                    use_mxfp8=False,
+                )
+                torch_npu.npu.synchronize()
             combined_x, event, hook = buffer.low_latency_combine(
                 simulated_gemm_x,
                 topk_idx,
@@ -298,6 +332,12 @@ def test(
                     combined_x,
                 )
                 assert torch.isnan(combined_x).sum().item() == 0
+                assert torch.isinf(combined_x).sum().item() == 0
+                if baseline_combined_x is not None:
+                    baseline_diff = calc_diff(baseline_combined_x, combined_x)
+                    assert baseline_diff < get_diff_threshold(
+                        "mx_fp8_e4m3"
+                    ), f"MXFP8/BF16 baseline mismatch: {baseline_diff=}"
                 golden = ref_x * topk_weights.masked_fill(topk_idx == -1, 0).sum(
                     dim=1
                 ).view(-1, 1)
@@ -321,6 +361,13 @@ def test(
                     print(" passed", flush=True)
         if local_rank == 0:
             print("", flush=True)
+
+    # MXFP8 kernel debugging is intentionally a single correctness launch.
+    # Avoid the benchmark and repeated launches so DumpTensor records remain
+    # small enough to correlate across rank 0 and rank 1.
+    if combine_use_mxfp8:
+        torch_npu.npu.synchronize()
+        return hash_value
 
     # noinspection PyShadowingNames
     def test_func(zero_copy: bool, return_recv_hook: bool):
@@ -478,6 +525,10 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
     )
 
     if args.kernel_trace_dir is not None:
+        if args.combine_use_mxfp8:
+            raise ValueError(
+                "Kernel trace mode is incompatible with one-shot MXFP8 debug mode"
+            )
         if buffer.low_latency_strategy.get_name() != "default":
             raise ValueError(
                 "Low-latency profiling only supports --low-latency-strategy=default"

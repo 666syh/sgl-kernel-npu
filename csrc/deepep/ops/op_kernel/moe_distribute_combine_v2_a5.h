@@ -103,7 +103,13 @@ private:
 #endif
     __aicore__ inline void ProcessConstantExpert(uint32_t tokenIndex, uint32_t const_expert_idx, float scaleVal);
     __aicore__ inline void ProcessCopyExpert(uint32_t tokenIndex, float scaleVal);
-    __aicore__ inline void ProcessMoeExpert(uint32_t tokenIndexOffset, uint32_t topkId, float scaleVal);
+    __aicore__ inline void ProcessMoeExpert(uint32_t tokenIndexOffset, uint32_t topkId, float scaleVal,
+                                            uint32_t sourceRank);
+#ifdef __DAV_C310__
+    __aicore__ inline void DebugDumpMxfp8(uint32_t stage, uint32_t sourceRank, uint32_t targetRank, uint32_t tokenId,
+                                          uint32_t topkId, uint32_t windowOffset, LocalTensor<uint8_t> &tokenBytes,
+                                          LocalTensor<uint32_t> &record, uint32_t scaleOffset, bool dumpScale);
+#endif
     __aicore__ inline void ProcessExpert(uint32_t tokenIndex, uint32_t processLen);
     __aicore__ inline void ExpertScaleCopy(const uint32_t beginIndex, const uint32_t endIndex,
                                            const uint32_t tokenPerAivNum);
@@ -1109,9 +1115,8 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ExpertAl
             gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
             gmTpSendCountTensor_ = gmTpSendCountQueue_.DeQue<ExpandXType>();
 #ifdef __DAV_C310__
-            AscendC::printf("[MXDBG][SRC_PRE] rank=%u dst=%u aiv=%u token=%u topk=%u tk=%u\n", epRankId_, toRankId,
-                            aivId_, tokenId, topkId, tkIndex);
-            AscendC::DumpTensor(inputBytes, 510U, 64U);
+            DebugDumpMxfp8(1U, epRankId_, toRankId, tokenId, topkId, epOffset * hAlignWinSize_, inputBytes,
+                           mxScratchBuf_.Get<uint32_t>(), 0U, false);
 #endif
             LocalTensor<XType> packet = xOutQueue_.AllocTensor<XType>();
 #ifdef __DAV_C310__
@@ -1119,11 +1124,8 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ExpertAl
             PipeBarrier<PIPE_ALL>();
             LocalTensor<uint8_t> packetBytes = packet.template ReinterpretCast<uint8_t>();
             uint32_t scaleOffset = MoeMxfp8::AlignUp(axisH_, 256U);
-            AscendC::printf(
-                "[MXDBG][SRC_POST] rank=%u dst=%u aiv=%u token=%u topk=%u tk=%u packet_bytes=%u scale_offset=%u\n",
-                epRankId_, toRankId, aivId_, tokenId, topkId, tkIndex, mxPacketBytes_, scaleOffset);
-            AscendC::DumpTensor(packetBytes, 520U, 64U);
-            AscendC::DumpTensor(packetBytes[scaleOffset], 521U, 16U);
+            DebugDumpMxfp8(2U, epRankId_, toRankId, tokenId, topkId, epOffset * hAlignWinSize_, packetBytes,
+                           mxScratchBuf_.Get<uint32_t>(), scaleOffset, true);
 #endif
             xOutQueue_.EnQue(packet);
             packet = xOutQueue_.DeQue<XType>();
@@ -1252,6 +1254,39 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8Deq
     MoeMxfp8::DequantizeE4M3AndAccumulate(packet, sumFloatBufLocal_, scaleFloat, rowTmpFloatLocal_, expertScale,
                                           axisH_);
 }
+
+#ifdef __DAV_C310__
+template <A5CombineTemplateClass>
+__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::DebugDumpMxfp8(
+    uint32_t stage, uint32_t sourceRank, uint32_t targetRank, uint32_t tokenId, uint32_t topkId, uint32_t windowOffset,
+    LocalTensor<uint8_t> &tokenBytes, LocalTensor<uint32_t> &record, uint32_t scaleOffset, bool dumpScale)
+{
+    if (sourceRank > 1U || targetRank > 1U || sourceRank == targetRank) {
+        return;
+    }
+    // The caller supplies a phase-local private record buffer.
+    Duplicate(record, 0U, 32U);
+    record.SetValue(0U, 0x4D584442U);  // MXDB
+    record.SetValue(1U, stage);
+    record.SetValue(2U, sourceRank);
+    record.SetValue(3U, targetRank);
+    record.SetValue(4U, aivId_);
+    record.SetValue(5U, tokenId);
+    record.SetValue(6U, topkId);
+    record.SetValue(7U, windowOffset);
+    record.SetValue(8U, axisH_);
+    record.SetValue(9U, scaleOffset);
+    LocalTensor<uint32_t> tokenWords = tokenBytes.template ReinterpretCast<uint32_t>();
+    // Keep the temporary dump compact: 16 token bytes and 4 scale bytes.
+    DataCopy(record[10], tokenWords, 4U);
+    if (dumpScale) {
+        LocalTensor<uint32_t> scaleWords = tokenBytes[scaleOffset].template ReinterpretCast<uint32_t>();
+        DataCopy(record[14], scaleWords, 1U);
+    }
+    PipeBarrier<PIPE_ALL>();
+    AscendC::DumpTensor(record, 500U + stage, 16U);
+}
+#endif
 #endif
 
 // 处理常量专家
@@ -1333,7 +1368,8 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessC
 template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessMoeExpert(uint32_t tokenIndexOffset,
                                                                                          uint32_t topkId,
-                                                                                         float scaleVal)
+                                                                                         float scaleVal,
+                                                                                         uint32_t sourceRank)
 {
     uint32_t processLen = axisH_;
     const DataCopyExtParams xScaleCopyParams{1U, static_cast<uint32_t>(tokenScaleCnt_ * sizeof(ExpandXType)), 0U, 0U,
@@ -1358,21 +1394,15 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessM
 #ifdef __DAV_C310__
         uint32_t localToken = tokenIndexOffset / (axisK_ + sharedExpertNum_);
         uint32_t windowOffset = (tokenIndexOffset + topkId) * hAlignWinSize_;
-        AscendC::printf(
-            "[MXDBG][DST_PRE] rank=%u aiv=%u token=%u topk=%u window_offset=%u packet_bytes=%u scale_offset=%u\n",
-            epRankId_, aivId_, localToken, topkId, windowOffset, mxPacketBytes_, MoeMxfp8::AlignUp(axisH_, 256U));
         LocalTensor<uint8_t> recvBytes = tmpUb.template ReinterpretCast<uint8_t>();
         uint32_t scaleOffset = MoeMxfp8::AlignUp(axisH_, 256U);
-        AscendC::DumpTensor(recvBytes, 610U, 64U);
-        AscendC::DumpTensor(recvBytes[scaleOffset], 611U, 16U);
+        DebugDumpMxfp8(3U, sourceRank, epRankId_, localToken, topkId, windowOffset, recvBytes, mulBuf_.Get<uint32_t>(),
+                       scaleOffset, true);
         Mxfp8DequantProcess(tmpUb, scaleVal);
         PipeBarrier<PIPE_ALL>();
-        AscendC::printf(
-            "[MXDBG][DST_POST] rank=%u aiv=%u token=%u topk=%u window_offset=%u packet_bytes=%u scale_offset=%u\n",
-            epRankId_, aivId_, localToken, topkId, windowOffset, mxPacketBytes_, scaleOffset);
-        LocalTensor<float> scaleFloat = mxScaleFloatBuf_.Get<float>();
-        AscendC::DumpTensor(rowTmpFloatLocal_, 620U, 16U);
-        AscendC::DumpTensor(scaleFloat, 621U, 4U);
+        LocalTensor<uint8_t> dequantBytes = rowTmpFloatLocal_.template ReinterpretCast<uint8_t>();
+        DebugDumpMxfp8(4U, sourceRank, epRankId_, localToken, topkId, windowOffset, dequantBytes,
+                       mulBuf_.Get<uint32_t>(), 0U, false);
         PipeBarrier<PIPE_V>();
 #endif
     } else if constexpr (IsInt8Quant) {
@@ -1439,7 +1469,16 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessE
                 }
             }
             scaleVal = expertScalesLocal_.GetValue(index);
-            ProcessMoeExpert(tokenIndexOffset, topkId, scaleVal);
+            uint32_t sourceRank = 0U;
+#ifdef __DAV_C310__
+            if constexpr (IsMxfp8Quant) {
+                DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+                    expertIdsGM_[tokenIndex * axisK_ + topkId]);
+                uint32_t expertId = static_cast<uint32_t>(expertIdsGM_.GetValue(tokenIndex * axisK_ + topkId));
+                sourceRank = (moeExpertPerRankNum_ == 0U) ? 0U : expertId / moeExpertPerRankNum_;
+            }
+#endif
+            ProcessMoeExpert(tokenIndexOffset, topkId, scaleVal, sourceRank);
             index++;
         }
     } else {
@@ -1458,7 +1497,8 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessE
             scaleVal = expertScalesLocal_.GetValue(index);
 
             if (expert_id < moeExpertNum_) {
-                ProcessMoeExpert(tokenIndexOffset, topkId, scaleVal);
+                uint32_t sourceRank = (moeExpertPerRankNum_ == 0U) ? 0U : expert_id / moeExpertPerRankNum_;
+                ProcessMoeExpert(tokenIndexOffset, topkId, scaleVal, sourceRank);
                 index++;
             } else if (expert_id < moeExpertNum_ + zeroExpertNum_) {
                 // 零专家不需要任何操作
