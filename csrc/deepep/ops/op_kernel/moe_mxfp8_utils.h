@@ -45,7 +45,8 @@ __aicore__ inline void QuantizeE4M3(LocalTensor<PacketType> &packet, LocalTensor
 // exponent bits, matching the A5 combine implementation used by MC2.
 template <typename PacketType>
 __aicore__ inline void DequantizeE4M3AndAccumulate(LocalTensor<PacketType> &packet, LocalTensor<float> &sum,
-                                                   LocalTensor<float> &scaleFloat, float expertScale, uint32_t tokenLen)
+                                                   LocalTensor<float> &scaleFloat, LocalTensor<float> &debugToken,
+                                                   float expertScale, uint32_t tokenLen)
 {
     const uint32_t scaleCount = ScaleCount(tokenLen);
     LocalTensor<fp8_e4m3fn_t> fp8Packet = packet.template ReinterpretCast<fp8_e4m3fn_t>();
@@ -53,6 +54,7 @@ __aicore__ inline void DequantizeE4M3AndAccumulate(LocalTensor<PacketType> &pack
     __ubuf__ fp8_e4m3fn_t *token = (__ubuf__ fp8_e4m3fn_t *)fp8Packet.GetPhyAddr();
     __ubuf__ fp8_e8m0_t *scale = (__ubuf__ fp8_e8m0_t *)scales.GetPhyAddr();
     __ubuf__ float *scaleFloatPtr = (__ubuf__ float *)scaleFloat.GetPhyAddr();
+    __ubuf__ float *debugTokenPtr = (__ubuf__ float *)debugToken.GetPhyAddr();
     __ubuf__ float *sumPtr = (__ubuf__ float *)sum.GetPhyAddr();
 
     const uint32_t fp32Vl = quant::GetVRegSizeDispatch() / sizeof(float);
@@ -99,6 +101,10 @@ __aicore__ inline void DequantizeE4M3AndAccumulate(LocalTensor<PacketType> &pack
             MicroAPI::DataCopy<float, MicroAPI::LoadDist::DIST_DINTLV_B32>(sumReg0, sumReg1, sumPtr + i * fp32Vl * 2U);
             MicroAPI::Mul(outReg0, scaleFloatReg, tokenFloatReg0, outputMask);
             MicroAPI::Mul(outReg1, scaleFloatReg, tokenFloatReg1, outputMask);
+            // Temporary debug staging: keep the pure dequantized token before
+            // expert weighting so the dump can distinguish decode from reduce.
+            MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_INTLV_B32>(debugTokenPtr + i * fp32Vl * 2U, outReg0,
+                                                                           outReg1, outputMask);
             MicroAPI::Muls(outReg0, outReg0, expertScale, outputMask);
             MicroAPI::Muls(outReg1, outReg1, expertScale, outputMask);
             MicroAPI::Add(sumReg0, sumReg0, outReg0, outputMask);

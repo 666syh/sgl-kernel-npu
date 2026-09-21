@@ -1108,9 +1108,22 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ExpertAl
             DataCopyPad(gmTpSendCountTensor_, expandXGM_[tokenGMOffset], expandXCopyParams, copyPadExtParams);
             gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
             gmTpSendCountTensor_ = gmTpSendCountQueue_.DeQue<ExpandXType>();
+#ifdef __DAV_C310__
+            AscendC::printf("[MXDBG][SRC_PRE] rank=%u dst=%u aiv=%u token=%u topk=%u tk=%u\n", epRankId_, toRankId,
+                            aivId_, tokenId, topkId, tkIndex);
+            AscendC::DumpTensor(inputBytes, 510U, 64U);
+#endif
             LocalTensor<XType> packet = xOutQueue_.AllocTensor<XType>();
 #ifdef __DAV_C310__
             Mxfp8QuantProcess(packet, gmTpSendCountTensor_);
+            PipeBarrier<PIPE_ALL>();
+            LocalTensor<uint8_t> packetBytes = packet.template ReinterpretCast<uint8_t>();
+            uint32_t scaleOffset = MoeMxfp8::AlignUp(axisH_, 256U);
+            AscendC::printf(
+                "[MXDBG][SRC_POST] rank=%u dst=%u aiv=%u token=%u topk=%u tk=%u packet_bytes=%u scale_offset=%u\n",
+                epRankId_, toRankId, aivId_, tokenId, topkId, tkIndex, mxPacketBytes_, scaleOffset);
+            AscendC::DumpTensor(packetBytes, 520U, 64U);
+            AscendC::DumpTensor(packetBytes[scaleOffset], 521U, 16U);
 #endif
             xOutQueue_.EnQue(packet);
             packet = xOutQueue_.DeQue<XType>();
@@ -1236,7 +1249,8 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8Deq
 {
     SyncFunc<AscendC::HardEvent::MTE2_V>();
     LocalTensor<float> scaleFloat = mxScaleFloatBuf_.Get<float>();
-    MoeMxfp8::DequantizeE4M3AndAccumulate(packet, sumFloatBufLocal_, scaleFloat, expertScale, axisH_);
+    MoeMxfp8::DequantizeE4M3AndAccumulate(packet, sumFloatBufLocal_, scaleFloat, rowTmpFloatLocal_, expertScale,
+                                          axisH_);
 }
 #endif
 
@@ -1342,7 +1356,23 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessM
     tmpUb = moeSumQueue_.DeQue<XType>();
     if constexpr (IsMxfp8Quant) {
 #ifdef __DAV_C310__
+        uint32_t localToken = tokenIndexOffset / (axisK_ + sharedExpertNum_);
+        uint32_t windowOffset = (tokenIndexOffset + topkId) * hAlignWinSize_;
+        AscendC::printf(
+            "[MXDBG][DST_PRE] rank=%u aiv=%u token=%u topk=%u window_offset=%u packet_bytes=%u scale_offset=%u\n",
+            epRankId_, aivId_, localToken, topkId, windowOffset, mxPacketBytes_, MoeMxfp8::AlignUp(axisH_, 256U));
+        LocalTensor<uint8_t> recvBytes = tmpUb.template ReinterpretCast<uint8_t>();
+        uint32_t scaleOffset = MoeMxfp8::AlignUp(axisH_, 256U);
+        AscendC::DumpTensor(recvBytes, 610U, 64U);
+        AscendC::DumpTensor(recvBytes[scaleOffset], 611U, 16U);
         Mxfp8DequantProcess(tmpUb, scaleVal);
+        PipeBarrier<PIPE_ALL>();
+        AscendC::printf(
+            "[MXDBG][DST_POST] rank=%u aiv=%u token=%u topk=%u window_offset=%u packet_bytes=%u scale_offset=%u\n",
+            epRankId_, aivId_, localToken, topkId, windowOffset, mxPacketBytes_, scaleOffset);
+        LocalTensor<float> scaleFloat = mxScaleFloatBuf_.Get<float>();
+        AscendC::DumpTensor(rowTmpFloatLocal_, 620U, 16U);
+        AscendC::DumpTensor(scaleFloat, 621U, 4U);
         PipeBarrier<PIPE_V>();
 #endif
     } else if constexpr (IsInt8Quant) {
