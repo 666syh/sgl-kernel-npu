@@ -110,27 +110,6 @@ def test(
         (num_tokens, num_topk), dtype=torch.float32, device="npu"
     ).abs()
 
-    if kernel_trace_dir is not None:
-        total_profile_launches = profile_warmups + profile_num_tests
-        buffer.begin_profile(profile_warmups, profile_num_tests, kernel_trace_dir)
-        for _ in range(total_profile_launches):
-            buffer.low_latency_dispatch(
-                x_pure_rand,
-                topk_idx,
-                aligned_num_tokens,
-                num_experts,
-                round_scale=False,
-                cumulative_local_expert_recv_stats=None,
-                async_finish=False,
-                return_recv_hook=False,
-                topk_weights=topk_weights,
-                **quant_dispatch_kwargs,
-            )
-        torch_npu.npu.synchronize()
-        buffer.end_profile()
-        trace_path = Path(kernel_trace_dir) / f"rank{rank}" / "trace_view.json"
-        assert trace_path.is_file(), f"Missing low-latency profile trace: {trace_path}"
-
     # Check dispatch correctness
     do_check = True
     return_recv_hook = False
@@ -144,6 +123,44 @@ def test(
     dispatch_use_fp8 = dispatch_quant_mode != "bf16"
     dispatch_use_ue8m0 = dispatch_quant_mode.startswith("mx_fp8")
     fp8_configs = [(dispatch_use_fp8, dispatch_use_ue8m0)]
+
+    if kernel_trace_dir is not None:
+        # Dispatch must run before the profiling session so that only combine
+        # launches are recorded in the profile buffer.
+        profile_recv_x, _, profile_handle, _, _ = buffer.low_latency_dispatch(
+            x_pure_rand,
+            topk_idx,
+            aligned_num_tokens,
+            num_experts,
+            round_scale=False,
+            cumulative_local_expert_recv_stats=None,
+            async_finish=False,
+            return_recv_hook=False,
+            topk_weights=topk_weights,
+            **quant_dispatch_kwargs,
+        )
+        profile_combine_x = (
+            per_token_cast_back(*profile_recv_x) if dispatch_use_fp8 else profile_recv_x
+        )
+
+        total_profile_launches = profile_warmups + profile_num_tests
+        buffer.begin_profile(profile_warmups, profile_num_tests, kernel_trace_dir)
+        for _ in range(total_profile_launches):
+            buffer.low_latency_combine(
+                profile_combine_x,
+                topk_idx,
+                topk_weights,
+                profile_handle,
+                async_finish=False,
+                return_recv_hook=False,
+                use_mxfp8=combine_use_mxfp8,
+            )
+        torch_npu.npu.synchronize()
+        buffer.end_profile()
+        trace_path = Path(kernel_trace_dir) / f"rank{rank}" / "trace_view.json"
+        assert (
+            trace_path.is_file()
+        ), f"Missing low-latency combine profile trace: {trace_path}"
 
     for dispatch_use_fp8, dispatch_use_ue8m0 in fp8_configs:
         for current_x in filter(lambda elem: elem is not None, (x_pure_rand,)):
@@ -628,19 +645,19 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--kernel-trace-dir",
-        help="Optional directory for A5 low-latency dispatch kernel traces.",
+        help="Optional directory for A5 low-latency combine kernel traces.",
     )
     parser.add_argument(
         "--profile-warmups",
         type=int,
         default=1,
-        help="Number of profile-only warmup dispatches.",
+        help="Number of profile-only warmup combines.",
     )
     parser.add_argument(
         "--profile-num-tests",
         type=int,
         default=3,
-        help="Number of active dispatches captured in the kernel trace.",
+        help="Number of active combines captured in the kernel trace.",
     )
     args = parser.parse_args()
 
