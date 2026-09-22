@@ -18,17 +18,6 @@ constexpr uint64_t NORMAL_NOTIFY_STATE_OFFSET = Moe::A5WindowLayout::kNotifyDisp
 constexpr uint64_t STATE_WIN_SIZE = Moe::A3WindowLayout::kNormalCombineStateSize;
 constexpr uint64_t NORMAL_NOTIFY_STATE_OFFSET = Moe::A3WindowLayout::kNotifyDispatchSize;
 #endif
-#ifdef __DAV_C310__
-constexpr uint64_t GetBaseHalfSize(uint64_t totalWinSize)
-{
-    return Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize);
-}
-#else
-constexpr uint64_t GetBaseHalfSize(uint64_t totalWinSize)
-{
-    return totalWinSize / 2UL;
-}
-#endif
 constexpr uint64_t STATE_WIN_SIZE_HALF = STATE_WIN_SIZE / 2;
 #ifdef __DAV_C310__
 constexpr uint64_t MAGIC_WIN_OFFSET = 1100UL * 1024UL;
@@ -521,8 +510,9 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::Init(
     InitBuffLen();
     combineDataBuffSize_ = perRoundTokens_ * axisK_ * h512AlignRecvXLen_;
     PipeBarrier<PIPE_ALL>();
-    winDataSizeOffset_ =
-        static_cast<uint64_t>(magic_) * GetBaseHalfSize(tilingData->camMoeCombineNormalInfo.totalWinSize);
+    // baseWinSize_ already excludes A5's fixed 4MB MTE prefix and is the
+    // complete ping-pong window size on A3.
+    winDataSizeOffset_ = static_cast<uint64_t>(magic_) * (baseWinSize_ / 2UL);
     DataCacheCleanAndInvalid<SrcInfoType, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
         epRecvCountGM_[moeExpertNum_ - 1]);
 

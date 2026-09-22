@@ -909,8 +909,7 @@ __aicore__ inline void NotifyDispatchA5<T>::InitSmallFullMesh(KERNELS_ARGS_FUN_A
     baseWindSize = GetWinSize(winContext_[COMM_EP_IDX]) - A5_MTE_STATE_WIN_SIZE;
     this->magic = GetMagicValue();
     ctxIdx = COMM_EP_IDX;
-    uint64_t winDataOffset =
-        (this->magic % PING_PONG_SIZE) * Moe::A5WindowLayout::GetBaseHalfSize(GetWinSize(winContext_[COMM_EP_IDX]));
+    uint64_t winDataOffset = (this->magic % PING_PONG_SIZE) * (baseWindSize / 2UL);
 
     shareAddrs[rank] = GetWindAddrByRankId(rank, ctxIdx) + winDataOffset;
 

@@ -132,7 +132,7 @@ private:
     __aicore__ GM_ADDR GetWinStateAddrByRankId(const int32_t rankId, const uint8_t domain)
     {
         if (isHybridDeployment_) {
-            uint64_t halfSize = Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize_);
+            uint64_t halfSize = baseWindSize_ / 2UL;
             if (domain == EP_DOMAIN) {
                 return GetBaseWindAddrByRankId(epWinContext_, rankId, epRankIdOriginal_) + dataState_ * halfSize +
                        Moe::A5WindowLayout::kLlCombineStateOffset;
@@ -154,9 +154,7 @@ private:
 
     __aicore__ inline uint64_t GetDataWindowSize()
     {
-        return isHybridDeployment_
-                   ? Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize_) - Moe::A5WindowLayout::kDataOffset
-                   : totalWinSize_;
+        return isHybridDeployment_ ? baseWindSize_ / 2UL - Moe::A5WindowLayout::kDataOffset : totalWinSize_;
     }
 
     __aicore__ inline uint32_t MIN(uint32_t x, uint32_t y)
@@ -549,7 +547,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Init(
     PipeBarrier<PIPE_ALL>();
 
     // 当前win区划分为前后两半区，连续两次dispatch，切换半区
-    winDataSizeOffset_ = static_cast<uint64_t>(dataState_) * Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize_);
+    winDataSizeOffset_ = static_cast<uint64_t>(dataState_) * (baseWindSize_ / 2UL);
     winStatusOffset_ = COMBINE_STATE_OFFSET + dataState_ * WIN_STATE_OFFSET;  // 前面的预留给dispatch使用
     epWindowGM_ = GetWinAddrByRankId(epRankIdOriginal_, EP_DOMAIN);
 #if defined(ASCENDC_OOM) && ASCENDC_OOM == 1

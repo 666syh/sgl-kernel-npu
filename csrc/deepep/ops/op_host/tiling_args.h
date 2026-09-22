@@ -123,11 +123,6 @@ constexpr uint64_t kPerHalfReservedSize = kMteStateWinSize / 2UL + kDataOffset;
 static_assert(kPerHalfReservedSize * 2UL == kMteStateWinSize + kDataOffset * 2UL,
               "A5 reserved size must count the MTE prefix exactly once");
 
-constexpr uint64_t GetBaseHalfSize(uint64_t totalWinSize)
-{
-    return (totalWinSize - kMteStateWinSize) / 2UL;
-}
-
 static_assert(kLlStateTimeoutOffset + kLlStateTimeoutBytes <= kLlStateSize,
               "A5 V2 timeout probe must remain inside its state slot");
 static_assert(kLlMaxBs * (kLlMaxTopK + kLlMaxSharedExpertNum) * kLlStateEntrySize <= kLlStateTimeoutOffset,

@@ -146,7 +146,7 @@ private:
         if (!isHybridDeployment_) {
             return GetBaseWindStateAddrByRankId(winContext_[ctxIdx], rankId, curRankId) + dataState_ * WIN_STATE_OFFSET;
         }
-        uint64_t halfSize = Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize_);
+        uint64_t halfSize = baseWindSize_ / 2UL;
         return GetBaseWindAddrByRankId(winContext_[ctxIdx], rankId, curRankId) + dataState_ * halfSize +
                Moe::A5WindowLayout::kLlDispatchStateOffset;
     }
@@ -158,9 +158,7 @@ private:
 
     __aicore__ inline uint64_t GetDataWindowSize()
     {
-        return isHybridDeployment_
-                   ? Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize_) - Moe::A5WindowLayout::kDataOffset
-                   : totalWinSize_;
+        return isHybridDeployment_ ? baseWindSize_ / 2UL - Moe::A5WindowLayout::kDataOffset : totalWinSize_;
     }
 
     __aicore__ inline uint32_t MIN(uint32_t x, uint32_t y)
@@ -546,8 +544,8 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Init(
     // 当前tpWin区划分为前后两半区，连续两次dispatch，切换半区, combine 数据区使用前面，
     // 即axisMaxBS_ * (axisK_ + sharedExpertNum_) * hSizeAlignCombine, dispatch使用后面
     uint64_t hSizeAlignCombine = Ceil(axisH_ * sizeof(XInType), WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
-    winDataSizeOffset_ = dataState_ * Moe::A5WindowLayout::GetBaseHalfSize(totalWinSize_) +
-                         axisMaxBS_ * (axisK_ + sharedExpertNum_) * hSizeAlignCombine;
+    winDataSizeOffset_ =
+        dataState_ * (baseWindSize_ / 2UL) + axisMaxBS_ * (axisK_ + sharedExpertNum_) * hSizeAlignCombine;
     windowGM_ = GetWindAddrByRankId(COMM_EP_IDX, epRankIdOriginal_);
     PipeBarrier<PIPE_ALL>();
 #if defined(ASCENDC_OOM) && ASCENDC_OOM == 1

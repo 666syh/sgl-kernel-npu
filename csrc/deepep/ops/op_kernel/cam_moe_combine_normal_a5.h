@@ -228,8 +228,7 @@ __aicore__ inline void CamMoeCombineNormalA5<TemplateMC2TypeFunc>::Init(GM_ADDR 
     InitBuffLen();
 
     PipeBarrier<PIPE_ALL>();
-    winDataSizeOffset_ = static_cast<uint64_t>(magic_) *
-                         Moe::A5WindowLayout::GetBaseHalfSize(tilingData->camMoeCombineNormalInfo.totalWinSize);
+    winDataSizeOffset_ = static_cast<uint64_t>(magic_) * (baseWindSize_ / 2UL);
     localRankGM_ = GetBufferAddrByRankId(epRankId_);
     DataCacheCleanAndInvalid<SrcInfoType, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
         epRecvCountGM_[moeExpertNum_ - 1]);
