@@ -11,22 +11,20 @@ if("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
         set(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE ON)
     endif()
 
-    # The generic FusedDeepMoe sources must never be compiled for an A5
-    # target. The generic kernel source resolves to the A5 entry under
+    # A5 does not build the legacy dispatch_ffn_combine operator.  The
+    # generic FusedDeepMoe sources must also never be compiled for an A5
+    # target: its canonical kernel resolves to the A5 entry under
     # __DAV_C310__ and would otherwise pull fused code into the build.
     list(REMOVE_ITEM ops_srcs
+        ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_def.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_infer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_tiling.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_infer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_tiling.cpp)
 
     if(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
         # Keep one FusedDeepMoe definition visible to code generation on A5.
-        # The old dispatch_ffn_combine operator is replaced by the A5 fused
-        # implementation in this mode, matching the existing behavior.
-        list(REMOVE_ITEM ops_srcs
-            ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_def.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_infer.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_tiling.cpp)
         list(APPEND ops_srcs
             ${a5_fused_deep_moe_host_dir}/fused_deep_moe.cpp
             ${a5_fused_deep_moe_host_dir}/fused_deep_moe_infer.cpp
@@ -48,15 +46,15 @@ file(GLOB_RECURSE pregen_file
     "${CMAKE_CURRENT_SOURCE_DIR}/op_api/*"
 )
 if("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
-    # Never leave a fused wrapper in the package when A5 fused is disabled;
-    # low-latency dispatch/combine wrappers remain available.
+    # A5 does not expose the legacy dispatch_ffn_combine wrapper.  Never leave
+    # a fused wrapper in the package when A5 fused is disabled; low-latency
+    # dispatch/combine wrappers remain available.
     list(REMOVE_ITEM pregen_file
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_fused_deep_moe.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_fused_deep_moe.h")
     if(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
-        list(REMOVE_ITEM pregen_file
-            "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.cpp"
-            "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.h")
         file(GLOB_RECURSE a5_pregen_file "${a5_fused_deep_moe_host_dir}/op_api/*")
         list(APPEND pregen_file ${a5_pregen_file})
     endif()

@@ -62,7 +62,10 @@ if ("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950" AND
         "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
     list(FILTER _DEEPEP_KERNEL_FILES EXCLUDE REGEX "^fused_deep_moe\\.cpp$")
     list(FILTER _DEEPEP_KERNEL_FILES EXCLUDE REGEX "^fused_deep_moe_a5(/|$)")
-    message(STATUS "A5 fused_deep_moe disabled; excluded fused kernel sources")
+    list(FILTER _DEEPEP_KERNEL_FILES EXCLUDE REGEX "^dispatch_ffn_combine\\.cpp$")
+    list(FILTER _DEEPEP_KERNEL_FILES EXCLUDE REGEX "^dispatch_ffn_combine_kernel(/|$)")
+    message(STATUS
+        "A5 fused_deep_moe disabled; excluded fused and dispatch_ffn_combine kernel sources")
     npu_op_kernel_sources(ascendc_kernels
         OP_TYPE DeepEP
         KERNEL_FILE "${_DEEPEP_KERNEL_FILES}")
