@@ -113,6 +113,10 @@ private:
                                           LocalTensor<uint32_t> record, uint32_t scaleOffset, bool dumpScale);
 #endif
     __aicore__ inline void ProcessExpert(uint32_t tokenIndex, uint32_t processLen);
+    __aicore__ inline bool WaitOneTopK(uint32_t tokenIndex, uint32_t topkId);
+    __aicore__ inline void InitAsyncOutputEarly();
+    __aicore__ inline void ProcessAsyncTopK(uint32_t tokenIndex, uint32_t topkId);
+    __aicore__ inline void LocalWindowCopyAsync();
     __aicore__ inline void ExpertScaleCopy(const uint32_t beginIndex, const uint32_t endIndex,
                                            const uint32_t tokenPerAivNum);
     __aicore__ inline void LocalWindowCopy();
@@ -284,6 +288,7 @@ private:
     TBuf<> stateBuf_;
     TBuf<> stateSumBuf_;
     TBuf<> stateResetBuf_;
+    TBuf<> asyncZeroBuf_;
     TBuf<> expertMaskBuf_;
     TBuf<> elasticInfoBuf_;
     TBuf<> epSendCountBuf_;  // epSendCount（expert-major/rank-minor 全前缀和）拷入 UB，用于 rank-major 分核
@@ -669,6 +674,11 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::BuffInit
     tpipe_->InitBuffer(sendRangeCntBuf_, rangeCntAlignLen);
     // expandIdx 按 BATCH_SRC_INFO_CNT 分批搬运，UB 占用与单核 token 数解耦
     tpipe_->InitBuffer(indexCountsBuf_, BATCH_SRC_INFO_CNT * EXPAND_IDX_INFO * sizeof(int32_t));
+    if constexpr (!IsNeedReduceScatter) {
+        if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
+            tpipe_->InitBuffer(asyncZeroBuf_, hExpandXAlign32Size_);
+        }
+    }
 }
 
 template <A5CombineTemplateClass>
@@ -1607,8 +1617,129 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessE
 }
 
 template <A5CombineTemplateClass>
+__aicore__ inline bool MoeDistributeCombineV2A5<A5CombineTemplateArgs>::WaitOneTopK(uint32_t tokenIndex,
+                                                                                    uint32_t topkId)
+{
+    GM_ADDR stateGM = GetWinStateAddrByRankId(epRankIdOriginal_, EP_DOMAIN) +
+                      (static_cast<uint64_t>(tokenIndex) * flagRcvCount_ + topkId) * stateOffset_;
+    GlobalTensor<float> stateGMTensor;
+    stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
+
+    LocalTensor<float> stateTensor = stateBuf_.Get<float>();
+    LocalTensor<float> stateSumTensor = stateSumBuf_.Get<float>();
+    while (true) {
+        SyncFunc<AscendC::HardEvent::S_MTE2>();
+        DataCopy<float>(stateTensor, stateGMTensor, FLOAT_PER_UB_ALIGN);
+        SyncFunc<AscendC::HardEvent::MTE2_V>();
+        Sum(stateSumTensor, stateTensor, SumParams{1U, FLOAT_PER_UB_ALIGN, FLOAT_PER_UB_ALIGN});
+        SyncFunc<AscendC::HardEvent::V_S>();
+
+        const float stateSum = stateSumTensor.GetValue(0);
+        if (stateSum >= static_cast<float>(FLOAT_PER_UB_ALIGN) - 0.5F &&
+            stateSum <= static_cast<float>(FLOAT_PER_UB_ALIGN) + 0.5F) {
+            // Only the AIV owning this token/top-k task clears this slot, so
+            // no cross-AIV state race is introduced by the asynchronous path.
+            DataCopy<float>(stateGMTensor, stateResetTensor_, FLOAT_PER_UB_ALIGN);
+            SyncFunc<AscendC::HardEvent::MTE3_S>();
+            return true;
+        }
+    }
+}
+
+template <A5CombineTemplateClass>
+__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::InitAsyncOutputEarly()
+{
+    const uint32_t tokenPerAiv = axisBS_ / aivNum_;
+    const uint32_t remainderToken = axisBS_ % aivNum_;
+    const uint32_t begin = tokenPerAiv * aivId_ + (aivId_ < remainderToken ? aivId_ : remainderToken);
+    const uint32_t count = tokenPerAiv + (aivId_ < remainderToken ? 1U : 0U);
+    const uint32_t outputBytes = axisH_ * static_cast<uint32_t>(sizeof(XType));
+    const DataCopyExtParams outputCopyParams{1U, outputBytes, 0U, 0U, 0U};
+    const DataCopyPadExtParams<XType> outputPadParams{false, 0U, 0U, 0U};
+    LocalTensor<XType> zeroTensor = asyncZeroBuf_.Get<XType>();
+    Duplicate<XType>(zeroTensor, static_cast<XType>(0), Ceil(outputBytes, static_cast<uint32_t>(sizeof(XType))));
+    PipeBarrier<PIPE_V>();
+    SyncFunc<AscendC::HardEvent::V_MTE3>();
+    for (uint32_t i = 0U; i < count; ++i) {
+        DataCopyPad(expandOutGlobal_[static_cast<uint64_t>(begin + i) * axisH_], zeroTensor, outputCopyParams,
+                    outputPadParams);
+    }
+    SyncFunc<AscendC::HardEvent::MTE3_S>();
+}
+
+template <A5CombineTemplateClass>
+__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessAsyncTopK(uint32_t tokenIndex,
+                                                                                         uint32_t topkId)
+{
+    const uint32_t expertIndex = tokenIndex * axisK_ + topkId;
+    DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(expertIdsGM_[expertIndex]);
+    const uint32_t expertId = static_cast<uint32_t>(expertIdsGM_.GetValue(expertIndex));
+    const float scaleVal = expertScalesGM_.GetValue(expertIndex);
+
+    // A zero/copy/constant expert does not have a receive status slot.
+    if (expertId >= moeExpertNum_ && expertId < moeExpertNum_ + zeroExpertNum_) {
+        return;
+    }
+    Duplicate(sumFloatBufLocal_, static_cast<float>(0), axisH_);
+    PipeBarrier<PIPE_V>();
+
+    if (expertId < moeExpertNum_) {
+        const uint32_t sourceRank = (moeExpertPerRankNum_ == 0U) ? 0U : expertId / moeExpertPerRankNum_;
+        if (!WaitOneTopK(tokenIndex, topkId)) {
+            return;
+        }
+        ProcessMoeExpert(tokenIndex * (axisK_ + sharedExpertNum_), topkId, scaleVal, sourceRank);
+    } else if (expertId < moeExpertNum_ + zeroExpertNum_ + copyExpertNum_) {
+        ProcessCopyExpert(tokenIndex, scaleVal);
+    } else if (expertId < moeExpertNum_ + zeroExpertNum_ + copyExpertNum_ + constExpertNum_) {
+        const uint32_t constExpertIdx = expertId - (moeExpertNum_ + zeroExpertNum_ + copyExpertNum_);
+        ProcessConstantExpert(tokenIndex, constExpertIdx, scaleVal);
+    } else {
+        return;
+    }
+
+    const uint32_t outputBytes = axisH_ * static_cast<uint32_t>(sizeof(XType));
+    const DataCopyExtParams outputCopyParams{1U, outputBytes, 0U, 0U, 0U};
+    const DataCopyPadExtParams<XType> outputPadParams{false, 0U, 0U, 0U};
+    LocalTensor<XType> sumTensor = tokenBuf_.Get<XType>();
+    Cast(sumTensor, sumFloatBufLocal_, AscendC::RoundMode::CAST_RINT, axisH_);
+    PipeBarrier<PIPE_V>();
+    SyncFunc<AscendC::HardEvent::V_MTE3>();
+    AscendC::SetAtomicAdd<XType>();
+    DataCopyPad(expandOutGlobal_[static_cast<uint64_t>(tokenIndex) * axisH_], sumTensor, outputCopyParams,
+                outputPadParams);
+    PipeBarrier<PIPE_MTE3>();
+    AscendC::SetAtomicNone();
+}
+
+template <A5CombineTemplateClass>
+__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWindowCopyAsync()
+{
+    if (activeMaskBsCnt_ == 0U) {
+        return;
+    }
+
+    const uint64_t taskCount = activeMaskBsCnt_ * static_cast<uint64_t>(axisK_);
+    for (uint64_t taskId = aivId_; taskId < taskCount; taskId += aivNum_) {
+        const uint32_t tokenOrdinal = static_cast<uint32_t>(taskId / axisK_);
+        const uint32_t topkId = static_cast<uint32_t>(taskId % axisK_);
+        const uint32_t tokenIndex = isInputExpertMaskFlag_ ? validBsIndexTensor_.GetValue(tokenOrdinal) : tokenOrdinal;
+        if (isInputExpertMaskFlag_ && !expertMaskTensor_.GetValue(tokenIndex * axisK_ + topkId)) {
+            continue;
+        }
+        ProcessAsyncTopK(tokenIndex, topkId);
+    }
+}
+
+template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWindowCopy()
 {
+    if constexpr (!IsNeedReduceScatter) {
+        if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
+            LocalWindowCopyAsync();
+            return;
+        }
+    }
     if (activeMaskBsCnt_ == 0U) {
         return;
     }
@@ -1705,6 +1836,13 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Process(
         if (profileWriter.enabled) {
             profileWriter.Record(Cam::MoeLowLatencyCombineV2A5ProfileStage::BufferInit, stageStart,
                                  profileWriter.Now());
+        }
+
+        if constexpr (!IsNeedReduceScatter) {
+            if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
+                InitAsyncOutputEarly();
+                SyncAll<true>();
+            }
         }
 
         stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
