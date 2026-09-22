@@ -9,7 +9,12 @@
 #include "hccl/hccl.h"
 #include "exception.hpp"
 #include "deep_ep.hpp"
+#ifndef DEEPEP_ENABLE_A5_FUSED_DEEP_MOE
+#define DEEPEP_ENABLE_A5_FUSED_DEEP_MOE 1
+#endif
+#if !defined(__DAV_C310__) || DEEPEP_ENABLE_A5_FUSED_DEEP_MOE
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.hpp"
+#endif
 #include "profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_adapter.hpp"
 #include "pytorch_npu_helper.hpp"
 
@@ -1124,6 +1129,10 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
     int quant_mode, bool profile_enable, const std::optional<std::string> &activation, std::optional<double> beta,
     std::optional<double> linear_beta)
 {
+#if defined(__DAV_C310__) && !DEEPEP_ENABLE_A5_FUSED_DEEP_MOE
+    TORCH_CHECK(false, "A5 fused_deep_moe was disabled at build time");
+    return {};
+#else
     EP_HOST_ASSERT(x.dim() == 2);
     EP_HOST_ASSERT(expert_ids.dim() == 2);
     EP_HOST_ASSERT(expert_scales_optional.dim() == 2);
@@ -1281,6 +1290,7 @@ std::vector<at::Tensor> Buffer::fused_deep_moe(
                  output, ep_recv_count);
 
     return {output, ep_recv_count};
+#endif
 #endif
 }
 

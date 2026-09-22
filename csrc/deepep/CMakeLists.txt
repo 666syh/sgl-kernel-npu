@@ -13,6 +13,18 @@ set(PROJECT_BUILD_PATH ${PROJECT_BINARY_DIR})
 set(TARGET_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
 set(ASCEND_HOME_PATH ${ASCEND_HOME_PATH})
 
+if(NOT DEFINED DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
+    set(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE "$ENV{DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}")
+endif()
+if("${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}" STREQUAL "")
+    set(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE ON)
+endif()
+if(NOT "${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}" STREQUAL "ON" AND
+   NOT "${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}" STREQUAL "OFF")
+    message(FATAL_ERROR "DEEPEP_ENABLE_A5_FUSED_DEEP_MOE must be ON or OFF")
+endif()
+message(STATUS "A5 fused_deep_moe: ${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}")
+
 find_program(PYTHON_EXECUTABLE NAMES python3 python)
 message(STATUS "PYTHON_EXECUTABLE:${PYTHON_EXECUTABLE}")
 
@@ -27,11 +39,14 @@ list(APPEND SOURCES_DEEPEP
     profiling/core/profile_exporter.cpp
     profiling/core/profile_runtime.cpp
     profiling/core/profile_session.cpp
-    profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_traits.cpp
-    profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.cpp
     profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_traits.cpp
     profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_adapter.cpp
 )
+if(NOT DEEPEP_IS_A5_BUILD OR DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
+    list(APPEND SOURCES_DEEPEP
+        profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_traits.cpp
+        profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.cpp)
+endif()
 
 pybind11_add_module(deep_ep_cpp pybind_extension.cpp ${SOURCES_DEEPEP})
 set_target_properties(deep_ep_cpp PROPERTIES CXX_STANDARD 17)
@@ -42,6 +57,13 @@ set_target_properties(deep_ep_cpp PROPERTIES CXX_STANDARD 17)
 if("${DEEPEP_IS_A5_BUILD}" STREQUAL "ON")
     target_compile_definitions(deep_ep_cpp PRIVATE __DAV_C310__)
 endif()
+if("${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}" STREQUAL "ON")
+    set(_DEEPEP_A5_FUSED_DEEP_MOE_DEFINE 1)
+else()
+    set(_DEEPEP_A5_FUSED_DEEP_MOE_DEFINE 0)
+endif()
+target_compile_definitions(deep_ep_cpp PRIVATE
+    DEEPEP_ENABLE_A5_FUSED_DEEP_MOE=${_DEEPEP_A5_FUSED_DEEP_MOE_DEFINE})
 target_include_directories( deep_ep_cpp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 

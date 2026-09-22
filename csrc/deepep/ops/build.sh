@@ -17,6 +17,15 @@ else
     export ASCEND_HOME_PATH=$BASE_LIBS_PATH
 fi
 echo "using ASCEND_HOME_PATH: $ASCEND_HOME_PATH"
+
+DEEPEP_ENABLE_A5_FUSED_DEEP_MOE="${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE:-ON}"
+if [[ "$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE" != "ON" &&
+      "$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE" != "OFF" ]]; then
+    echo "DEEPEP_ENABLE_A5_FUSED_DEEP_MOE must be ON or OFF, got '$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE'" >&2
+    exit 1
+fi
+export DEEPEP_ENABLE_A5_FUSED_DEEP_MOE
+echo "A5 fused_deep_moe: $([[ "$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE" == "ON" ]] && echo enabled || echo disabled)"
 script_path=$(realpath $(dirname $0))
 
 mkdir -p "${script_path}/third_party"
@@ -109,6 +118,7 @@ cmake_version=$(cmake --version | grep "cmake version" | awk '{print $3}')
 target=package
 if [ "$1"x != ""x ]; then target=$1; fi
 
-cmake -S . -B "$BUILD_DIR" --preset=default
+cmake -S . -B "$BUILD_DIR" --preset=default \
+    -DDEEPEP_ENABLE_A5_FUSED_DEEP_MOE="$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE"
 cmake --build "$BUILD_DIR" --target binary -j$(nproc)
 cmake --build "$BUILD_DIR" --target $target -j$(nproc)

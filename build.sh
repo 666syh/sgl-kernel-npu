@@ -14,6 +14,10 @@ SOC_VERSION=""
 CMAKE_SOC_VERSION="Ascend910_9382"
 DEEPEP_VARIANT="deepep"
 DEEPEP_IS_A5_BUILD="OFF"
+# A5's fused_deep_moe is optional. Keep it enabled by default so existing
+# builds retain their current behavior, while allowing low-latency-only A5
+# builds to skip the fused operator and its fused-only build dependencies.
+DEEPEP_ENABLE_A5_FUSED_DEEP_MOE="${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE:-ON}"
 
 BUILD_ATTENTIONS_MODULE="OFF"
 BUILD_DEEPEP_MODULE="OFF"
@@ -243,11 +247,18 @@ function configure_soc_version()
         unset ASCEND_COMPUTE_UNIT
     fi
 
+    if [[ "$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE" != "ON" &&
+          "$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE" != "OFF" ]]; then
+        die "DEEPEP_ENABLE_A5_FUSED_DEEP_MOE must be ON or OFF, got '$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE'"
+    fi
+    export DEEPEP_ENABLE_A5_FUSED_DEEP_MOE
+
     echo "Build target: $BUILD_TARGET"
     if [[ "$BUILD_DEEPEP_MODULE" == "ON" ]]; then
         echo "DeepEP variant: $DEEPEP_VARIANT"
         echo "DeepEP SOC_VERSION: $SOC_VERSION"
         echo "DeepEP ASCEND_COMPUTE_UNIT: ${ASCEND_COMPUTE_UNIT:-<unset>}"
+        echo "A5 fused_deep_moe: $([[ "$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE" == "ON" ]] && echo enabled || echo disabled)"
     fi
     if [[ "$BUILD_DEEPEP_MODULE" == "ON" || "$BUILD_KERNELS_MODULE" == "ON" ]]; then
         echo "CMake SOC_VERSION: $CMAKE_SOC_VERSION"
@@ -387,6 +398,7 @@ function build_cmake_modules()
         "-DASCEND_INCLUDE_DIR=$ASCEND_INCLUDE_DIR"
         "-DSOC_VERSION=$CMAKE_SOC_VERSION"
         "-DDEEPEP_IS_A5_BUILD=$DEEPEP_IS_A5_BUILD"
+        "-DDEEPEP_ENABLE_A5_FUSED_DEEP_MOE=$DEEPEP_ENABLE_A5_FUSED_DEEP_MOE"
         "-DBUILD_DEEPEP_MODULE=$BUILD_DEEPEP_MODULE"
         "-DBUILD_KERNELS_MODULE=$BUILD_KERNELS_MODULE"
         "-DBUILD_CATLASS_MODULE=${BUILD_CATLASS_MODULE:-OFF}"

@@ -6,18 +6,32 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} ops_srcs)
 set(a5_fused_deep_moe_host_dir ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_a5)
 set(op_codegen_options -g)
 if("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
-    # Keep one FusedDeepMoe definition visible to code generation on A5.
+    if(NOT DEFINED DEEPEP_ENABLE_A5_FUSED_DEEP_MOE OR
+       "${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}" STREQUAL "")
+        set(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE ON)
+    endif()
+
+    # The generic FusedDeepMoe sources must never be compiled for an A5
+    # target. The generic kernel source resolves to the A5 entry under
+    # __DAV_C310__ and would otherwise pull fused code into the build.
     list(REMOVE_ITEM ops_srcs
-        ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_def.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_infer.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_tiling.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_infer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_tiling.cpp)
-    list(APPEND ops_srcs
-        ${a5_fused_deep_moe_host_dir}/fused_deep_moe.cpp
-        ${a5_fused_deep_moe_host_dir}/fused_deep_moe_infer.cpp
-        ${a5_fused_deep_moe_host_dir}/fused_deep_moe_tiling.cpp)
+
+    if(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
+        # Keep one FusedDeepMoe definition visible to code generation on A5.
+        # The old dispatch_ffn_combine operator is replaced by the A5 fused
+        # implementation in this mode, matching the existing behavior.
+        list(REMOVE_ITEM ops_srcs
+            ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_def.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_infer.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/dispatch_ffn_combine_tiling.cpp)
+        list(APPEND ops_srcs
+            ${a5_fused_deep_moe_host_dir}/fused_deep_moe.cpp
+            ${a5_fused_deep_moe_host_dir}/fused_deep_moe_infer.cpp
+            ${a5_fused_deep_moe_host_dir}/fused_deep_moe_tiling.cpp)
+    endif()
     list(APPEND op_codegen_options -D__DAV_C310__)
 endif()
 
@@ -34,17 +48,21 @@ file(GLOB_RECURSE pregen_file
     "${CMAKE_CURRENT_SOURCE_DIR}/op_api/*"
 )
 if("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
-    # Keep all existing ACLNN wrappers (including low-latency dispatch/combine)
-    # and overlay only the A5-specific FusedDeepMoe wrapper.
+    # Never leave a fused wrapper in the package when A5 fused is disabled;
+    # low-latency dispatch/combine wrappers remain available.
     list(REMOVE_ITEM pregen_file
-        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_fused_deep_moe.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_fused_deep_moe.h")
-    file(GLOB_RECURSE a5_pregen_file "${a5_fused_deep_moe_host_dir}/op_api/*")
-    list(APPEND pregen_file ${a5_pregen_file})
+    if(DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
+        list(REMOVE_ITEM pregen_file
+            "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_dispatch_ffn_combine.h")
+        file(GLOB_RECURSE a5_pregen_file "${a5_fused_deep_moe_host_dir}/op_api/*")
+        list(APPEND pregen_file ${a5_pregen_file})
+    endif()
 endif()
 message(STATUS ">>> [DEBUG] ASCEND_COMPUTE_UNIT = ${ASCEND_COMPUTE_UNIT}")
+message(STATUS ">>> A5 fused_deep_moe = ${DEEPEP_ENABLE_A5_FUSED_DEEP_MOE}")
 file(COPY ${pregen_file} DESTINATION ${ASCEND_AUTOGEN_PATH})
 file(GLOB aclnn_src ${ASCEND_AUTOGEN_PATH}/aclnn*.cpp)
 file(GLOB autogen_aclnn_src ${ASCEND_AUTOGEN_PATH}/aclnnInner_*.cpp)                # 将通过npu_op_code_gen生成的aclnn相关源文件添加至源文件列表中
