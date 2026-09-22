@@ -24,7 +24,6 @@
 
 using namespace AscendC;
 using namespace ge;
-
 namespace {
 constexpr uint32_t EXPAND_X_INDEX = 0;
 constexpr uint32_t EXPERT_IDS_INDEX = 1;
@@ -1320,13 +1319,27 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     // 校验win区大小
     uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize();
     tilingData->moeDistributeCombineV2Info.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment();
+    const bool isA5 = (socVersion == "Ascend950");
     uint64_t h = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.h);
     uint64_t epWorldSize = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.epWorldSize);
     uint64_t k = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.k);
     uint64_t maxBs = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.globalBs) / epWorldSize;
-    OP_TILING_CHECK(maxBs > Moe::A3WindowLayout::kLlMaxBs,
-                    OP_LOGE(nodeName, "maxBs exceeds the A3 window layout limit, maxBs=%lu, limit=%lu.", maxBs,
-                            Moe::A3WindowLayout::kLlMaxBs),
+    const uint64_t llMaxBs = isA5 ? Moe::A5WindowLayout::kLlMaxBs : Moe::A3WindowLayout::kLlMaxBs;
+    const uint64_t llStateEntrySize =
+        isA5 ? Moe::A5WindowLayout::kLlStateEntrySize : Moe::A3WindowLayout::kLlStateEntrySize;
+    const uint64_t llStateTimeoutOffset =
+        isA5 ? Moe::A5WindowLayout::kLlStateTimeoutOffset : Moe::A3WindowLayout::kLlStateTimeoutOffset;
+    const uint64_t hybridReservedSize =
+        isA5 ? Moe::A5WindowLayout::kPerHalfReservedSize : Moe::A3WindowLayout::kPerHalfReservedSize;
+    auto layoutPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    const uint64_t layoutAivNum = layoutPlatform.GetCoreNumAiv();
+    OP_TILING_CHECK(isA5 && layoutAivNum > Moe::A5WindowLayout::kAivCount,
+                    OP_LOGE(nodeName, "A5 AIV count exceeds selector metadata capacity, aivNum=%lu, limit=%lu.",
+                            layoutAivNum, Moe::A5WindowLayout::kAivCount),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(maxBs > llMaxBs,
+                    OP_LOGE(nodeName, "maxBs exceeds the %s window layout limit, maxBs=%lu, limit=%lu.",
+                            isA5 ? "A5" : "A3", maxBs, llMaxBs),
                     return ge::GRAPH_FAILED);
     // combine数据区 token首地址对齐512
     uint64_t combinePacketBytes = h * MAX_OUT_DTYPE_SIZE;
@@ -1343,15 +1356,22 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     uint64_t perHalfDataSize =
         (maxBs * tokenNeedSizeDispatch * epWorldSize * static_cast<uint64_t>(localMoeExpertNum)) +
         (maxBs * tokenNeedSizeCombine * (k + static_cast<uint64_t>(sharedExpertNum)));
-    uint64_t combineStateSize =
-        maxBs * (k + static_cast<uint64_t>(sharedExpertNum)) * Moe::A3WindowLayout::kLlStateEntrySize;
-    OP_TILING_CHECK(combineStateSize > Moe::A3WindowLayout::kLlStateTimeoutOffset,
+    uint64_t combineStateSize = maxBs * (k + static_cast<uint64_t>(sharedExpertNum)) * llStateEntrySize;
+    OP_TILING_CHECK(combineStateSize > llStateTimeoutOffset,
                     OP_LOGE(nodeName, "V2 combine state overlaps timeout probe, needed=%lu, capacity=%lu.",
-                            combineStateSize, Moe::A3WindowLayout::kLlStateTimeoutOffset),
+                            combineStateSize, llStateTimeoutOffset),
                     return ge::GRAPH_FAILED);
-    uint64_t reservedSize =
-        tilingData->moeDistributeCombineV2Info.isHybridDeployment ? Moe::A3WindowLayout::kPerHalfReservedSize : 0UL;
+    uint64_t reservedSize = tilingData->moeDistributeCombineV2Info.isHybridDeployment ? hybridReservedSize : 0UL;
     uint64_t actualSize = (perHalfDataSize + reservedSize) * DOUBLE_DATA_BUFFER;
+    OP_LOGD(nodeName, "window layout arch=%s hybrid=%d stateSlot=%lu dataOffset=%lu reserved=%lu required=%lu max=%lu",
+            isA5 ? "A5" : "A3", tilingData->moeDistributeCombineV2Info.isHybridDeployment,
+            tilingData->moeDistributeCombineV2Info.isHybridDeployment
+                ? (isA5 ? Moe::A5WindowLayout::kLlStateSize : Moe::A3WindowLayout::kLlStateSize)
+                : 0UL,
+            tilingData->moeDistributeCombineV2Info.isHybridDeployment
+                ? (isA5 ? Moe::A5WindowLayout::kDataOffset : Moe::A3WindowLayout::kDataOffset)
+                : 0UL,
+            reservedSize, actualSize, maxWindowSize);
     OP_TILING_CHECK(
         (actualSize > maxWindowSize),
         OP_LOGE(
@@ -1365,7 +1385,7 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
             maxBs, h, epWorldSize, localMoeExpertNum, sharedExpertNum, tokenNeedSizeDispatch, tokenNeedSizeCombine, k,
             tilingData->moeDistributeCombineV2Info.isHybridDeployment, combineStateSize,
             tilingData->moeDistributeCombineV2Info.isHybridDeployment
-                ? Moe::A3WindowLayout::kLlStateTimeoutOffset
+                ? llStateTimeoutOffset
                 : Moe::A3WindowLayout::kLegacyLlStateTimeoutOffset,
             perHalfDataSize, reservedSize, actualSize / MB_SIZE + 1UL, maxWindowSize / MB_SIZE),
         return ge::GRAPH_FAILED);
