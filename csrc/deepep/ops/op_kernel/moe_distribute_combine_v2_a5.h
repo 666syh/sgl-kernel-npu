@@ -1655,14 +1655,12 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::InitAsyn
     const uint32_t count = tokenPerAiv + (aivId_ < remainderToken ? 1U : 0U);
     const uint32_t outputBytes = axisH_ * static_cast<uint32_t>(sizeof(XType));
     const DataCopyExtParams outputCopyParams{1U, outputBytes, 0U, 0U, 0U};
-    const DataCopyPadExtParams<XType> outputPadParams{false, 0U, 0U, 0U};
     LocalTensor<XType> zeroTensor = asyncZeroBuf_.Get<XType>();
     Duplicate<XType>(zeroTensor, static_cast<XType>(0), Ceil(outputBytes, static_cast<uint32_t>(sizeof(XType))));
     PipeBarrier<PIPE_V>();
     SyncFunc<AscendC::HardEvent::V_MTE3>();
     for (uint32_t i = 0U; i < count; ++i) {
-        DataCopyPad(expandOutGlobal_[static_cast<uint64_t>(begin + i) * axisH_], zeroTensor, outputCopyParams,
-                    outputPadParams);
+        DataCopyPad(expandOutGlobal_[static_cast<uint64_t>(begin + i) * axisH_], zeroTensor, outputCopyParams);
     }
     SyncFunc<AscendC::HardEvent::MTE3_S>();
 }
@@ -1700,14 +1698,12 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessA
 
     const uint32_t outputBytes = axisH_ * static_cast<uint32_t>(sizeof(XType));
     const DataCopyExtParams outputCopyParams{1U, outputBytes, 0U, 0U, 0U};
-    const DataCopyPadExtParams<XType> outputPadParams{false, 0U, 0U, 0U};
     LocalTensor<XType> sumTensor = tokenBuf_.Get<XType>();
     Cast(sumTensor, sumFloatBufLocal_, AscendC::RoundMode::CAST_RINT, axisH_);
     PipeBarrier<PIPE_V>();
     SyncFunc<AscendC::HardEvent::V_MTE3>();
     AscendC::SetAtomicAdd<XType>();
-    DataCopyPad(expandOutGlobal_[static_cast<uint64_t>(tokenIndex) * axisH_], sumTensor, outputCopyParams,
-                outputPadParams);
+    DataCopyPad(expandOutGlobal_[static_cast<uint64_t>(tokenIndex) * axisH_], sumTensor, outputCopyParams);
     PipeBarrier<PIPE_MTE3>();
     AscendC::SetAtomicNone();
 }
