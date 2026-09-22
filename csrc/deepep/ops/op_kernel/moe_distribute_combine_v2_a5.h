@@ -7,6 +7,7 @@
 #include "moe_distribute_v2_base.h"
 #include "moe_distribute_combine_v2_tiling.h"
 #include "check_winsize.h"
+#include "moe_low_latency_combine_v2_a5_profile.h"
 #ifdef __DAV_C310__
 #include "moe_mxfp8_utils.h"
 #endif
@@ -50,14 +51,12 @@ constexpr float FP8_E4M3_MAX_VALUE = 448.0f;
 constexpr float HIFP8_MAX_VALUE = 32768.0f;
 constexpr float INT8_MAX_VALUE = 127.0f;
 
-// Keep the original five-parameter macro contract of this A5 header.  The
-// MXFP8-only sixth template parameter is appended by A5-private aliases below;
-// do not undefine or redefine the generic TemplateMC2 macros.
-#define TemplateMC2TypeClass \
-    typename ExpandXType, typename XType, typename ExpandIdxType, bool IsNeedReduceScatter, bool IsInt8Quant
-#define TemplateMC2TypeFunc ExpandXType, XType, ExpandIdxType, IsNeedReduceScatter, IsInt8Quant
-#define A5CombineTemplateClass TemplateMC2TypeClass, bool IsMxfp8Quant
-#define A5CombineTemplateArgs TemplateMC2TypeFunc, IsMxfp8Quant
+// Keep the generic A3 TemplateMC2* macros untouched.  A5 has its own private
+// aliases because the MXFP8 mode adds one template parameter.
+#define A5CombineTemplateClass                                                                                \
+    typename ExpandXType, typename XType, typename ExpandIdxType, bool IsNeedReduceScatter, bool IsInt8Quant, \
+        bool IsMxfp8Quant
+#define A5CombineTemplateArgs ExpandXType, XType, ExpandIdxType, IsNeedReduceScatter, IsInt8Quant, IsMxfp8Quant
 
 using namespace AscendC;
 template <A5CombineTemplateClass>
@@ -68,8 +67,8 @@ public:
     __aicore__ inline void Init(GM_ADDR expandX, GM_ADDR expertIds, GM_ADDR expandIdx, GM_ADDR epSendCount,
                                 GM_ADDR tpSendCount, GM_ADDR expertScales, GM_ADDR xActiveMask, GM_ADDR sharedExpertX,
                                 GM_ADDR elasticInfo, GM_ADDR oriX, GM_ADDR constExpertAlpha1, GM_ADDR constExpertAlpha2,
-                                GM_ADDR constExpertV, GM_ADDR XOut, GM_ADDR workspaceGM, TPipe *pipe,
-                                const MoeDistributeCombineV2TilingData *tilingData);
+                                GM_ADDR constExpertV, GM_ADDR profileBuffer, GM_ADDR XOut, GM_ADDR workspaceGM,
+                                TPipe *pipe, const MoeDistributeCombineV2TilingData *tilingData);
     __aicore__ inline void Process();
 
 private:
@@ -167,6 +166,7 @@ private:
     GM_ADDR stateGM_;
     GM_ADDR maskCalcWorkspaceGM_;
     GM_ADDR statusDataSpaceGm_;
+    GM_ADDR profileBufferGM_;
 
     LocalTensor<XType> winTpSendCountTensor_;
     LocalTensor<ExpandXType> gmTpSendCountTensor_;
@@ -235,6 +235,9 @@ private:
     uint32_t axisBsAlignSize_{0};
     uint32_t expertScaleBeginIdx_{0};
     uint64_t baseWindSize_{0};
+    bool profileEnable_{false};
+    uint32_t profileLaunchId_{0};
+    uint64_t profileBufferBytes_{0};
 
     TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> moeQueue_;
     TQue<QuePosition::VECIN, 1> moeSumQueue_;
@@ -488,10 +491,14 @@ template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Init(
     GM_ADDR expandX, GM_ADDR expertIds, GM_ADDR expandIdx, GM_ADDR epSendCount, GM_ADDR tpSendCount,
     GM_ADDR expertScales, GM_ADDR xActiveMask, GM_ADDR sharedExpertX, GM_ADDR elasticInfo, GM_ADDR oriX,
-    GM_ADDR constExpertAlpha1, GM_ADDR constExpertAlpha2, GM_ADDR constExpertV, GM_ADDR XOut, GM_ADDR workspaceGM,
-    TPipe *pipe, const MoeDistributeCombineV2TilingData *tilingData)
+    GM_ADDR constExpertAlpha1, GM_ADDR constExpertAlpha2, GM_ADDR constExpertV, GM_ADDR profileBuffer, GM_ADDR XOut,
+    GM_ADDR workspaceGM, TPipe *pipe, const MoeDistributeCombineV2TilingData *tilingData)
 {
     tpipe_ = pipe;
+    profileBufferGM_ = profileBuffer;
+    profileEnable_ = tilingData->moeDistributeCombineV2Info.profileEnable != 0U;
+    profileLaunchId_ = tilingData->moeDistributeCombineV2Info.profileLaunchId;
+    profileBufferBytes_ = tilingData->moeDistributeCombineV2Info.profileBufferBytes;
 
     aivId_ = GetBlockIdx();
     auto contextGM0 = AscendC::GetHcclContext<HCCL_GROUP_ID_0>();
@@ -1652,14 +1659,47 @@ template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Process()
 {
     if ASCEND_IS_AIV {  // 全aiv处理
+        Cam::MoeLowLatencyCombineV2A5ProfileWriter profileWriter;
+        profileWriter.Init(profileBufferGM_, profileEnable_, profileLaunchId_, Cam::PROFILE_CORE_TYPE_AIV,
+                           profileBufferBytes_);
+
         if constexpr (IsNeedReduceScatter) {
+            uint64_t stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
             ReduceScatterTrans();
+            if (profileWriter.enabled) {
+                profileWriter.Record(Cam::MoeLowLatencyCombineV2A5ProfileStage::ReduceScatter, stageStart,
+                                     profileWriter.Now());
+            }
         }
+
+        uint64_t stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
         BuffInit();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyCombineV2A5ProfileStage::BufferInit, stageStart,
+                                 profileWriter.Now());
+        }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
         SetWaitTpStatusAndDisPatch();
         PipeBarrier<PIPE_ALL>();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyCombineV2A5ProfileStage::SetTpStatusAndDispatch, stageStart,
+                                 profileWriter.Now());
+        }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
         AlltoAllBuffInitAndMaskCal();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyCombineV2A5ProfileStage::AlltoAllBufferInitAndMaskCal, stageStart,
+                                 profileWriter.Now());
+        }
+
+        stageStart = profileWriter.enabled ? profileWriter.Now() : 0U;
         LocalWindowCopy();
+        if (profileWriter.enabled) {
+            profileWriter.Record(Cam::MoeLowLatencyCombineV2A5ProfileStage::LocalWindowCopy, stageStart,
+                                 profileWriter.Now());
+        }
     }
 }
 

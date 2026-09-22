@@ -55,10 +55,11 @@ __attribute__((visibility("default"))) aclnnStatus aclnnMoeLowLatencyCombineV2Ge
     const aclTensor *epSendCounts, const aclTensor *expertScales, const aclTensor *tpSendCountsOptional,
     const aclTensor *xActiveMaskOptional, const aclTensor *activationScaleOptional,
     const aclTensor *weightScaleOptional, const aclTensor *groupListOptional, const aclTensor *expandScalesOptional,
-    const aclTensor *sharedExpertXOptional, char *groupEp, int64_t epWorldSize, int64_t epRankId, int64_t moeExpertNum,
-    char *groupTp, int64_t tpWorldSize, int64_t tpRankId, int64_t expertShardType, int64_t sharedExpertNum,
-    int64_t sharedExpertRankNum, int64_t globalBs, int64_t outDtype, int64_t commQuantMode, int64_t groupListType,
-    char *commAlg, const aclTensor *xOut, const aclTensor *sendCostStats, uint64_t *workspaceSize,
+    const aclTensor *sharedExpertXOptional, const aclTensor *profileBufferOptional, char *groupEp, int64_t epWorldSize,
+    int64_t epRankId, int64_t moeExpertNum, char *groupTp, int64_t tpWorldSize, int64_t tpRankId,
+    int64_t expertShardType, int64_t sharedExpertNum, int64_t sharedExpertRankNum, int64_t globalBs, int64_t outDtype,
+    int64_t commQuantMode, int64_t groupListType, char *commAlg, int64_t profileEnable, int64_t profileBufferBytes,
+    int64_t profileLaunchId, const aclTensor *xOut, const aclTensor *sendCostStats, uint64_t *workspaceSize,
     aclOpExecutor **executor);
 
 /**

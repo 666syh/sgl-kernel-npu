@@ -108,6 +108,11 @@ public:
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .AutoContiguous();
+        this->Input("profile_buffer")
+            .ParamType(OPTIONAL)
+            .DataTypeList({ge::DT_UINT8})
+            .FormatList({ge::FORMAT_ND})
+            .AutoContiguous();
 
         this->Output("x")
             .ParamType(REQUIRED)
@@ -138,6 +143,9 @@ public:
         this->Attr("zero_expert_num").AttrType(OPTIONAL).Int(0);
         this->Attr("copy_expert_num").AttrType(OPTIONAL).Int(0);
         this->Attr("const_expert_num").AttrType(OPTIONAL).Int(0);
+        this->Attr("profile_enable").AttrType(OPTIONAL).Int(0);
+        this->Attr("profile_buffer_bytes").AttrType(OPTIONAL).Int(0);
+        this->Attr("profile_launch_id").AttrType(OPTIONAL).Int(0);
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)

@@ -16,6 +16,7 @@
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.hpp"
 #endif
 #include "profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_adapter.hpp"
+#include "profiling/adapters/moe_low_latency_combine_v2_a5/moe_low_latency_combine_v2_a5_profile_adapter.hpp"
 #include "pytorch_npu_helper.hpp"
 
 namespace deep_ep {
@@ -1113,11 +1114,42 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
         EP_HOST_ASSERT(isLayered == false);
         x_active_mask = (expert_ids >= 0).to(torch::kBool);
     }
-    EXEC_NPU_CMD(aclnnMoeLowLatencyCombineV2, expand_x, expert_ids, expand_idx, ep_send_counts, expert_scales,
-                 tp_send_counts, x_active_mask, activation_scale, weight_scale, group_list, expand_scales,
-                 shared_expert_x, hcom_ep_name, num_ranks, rank, num_experts, hcom_tp_name, tp_world_size, tp_rankId,
-                 expert_shared_type, shared_expert_num, shared_expert_rank_num, global_bs, out_dtype, comm_quant_mode,
-                 group_list_type, comm_alg, combined_x, combine_send_cost_stats_out);
+
+    profiling::moe_low_latency_combine_v2_a5::LaunchContext profile_ctx{};
+    const bool profile_session_active = profiling::runtime::IsSessionActive();
+#if defined(__DAV_C310__)
+    if (profile_session_active) {
+        TORCH_CHECK(isCcu == 0, "Low-latency combine profiling does not support the A5 CCU path.");
+        profile_ctx = profiling::moe_low_latency_combine_v2_a5::PrepareLaunch(true);
+    }
+#else
+    TORCH_CHECK(!profile_session_active, "Low-latency combine profiling requires an A5 build.");
+#endif
+    const bool use_profile = profile_ctx.enabled;
+    const int64_t profile_enable_i64 = static_cast<int64_t>(use_profile);
+    const int64_t profile_buffer_bytes_i64 = profile_ctx.profileBufferBytes;
+    const int64_t profile_launch_id_i64 = profile_ctx.launchId;
+
+    if (use_profile) {
+        TORCH_CHECK(profile_ctx.profileBuffer != nullptr,
+                    "Low-latency combine profiling requires a valid profile buffer.");
+        EXEC_NPU_CMD(aclnnMoeLowLatencyCombineV2, expand_x, expert_ids, expand_idx, ep_send_counts, expert_scales,
+                     tp_send_counts, x_active_mask, activation_scale, weight_scale, group_list, expand_scales,
+                     shared_expert_x, *profile_ctx.profileBuffer, hcom_ep_name, num_ranks, rank, num_experts,
+                     hcom_tp_name, tp_world_size, tp_rankId, expert_shared_type, shared_expert_num,
+                     shared_expert_rank_num, global_bs, out_dtype, comm_quant_mode, group_list_type, comm_alg,
+                     profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, combined_x,
+                     combine_send_cost_stats_out);
+        profiling::moe_low_latency_combine_v2_a5::CompleteLaunch(profile_ctx, rank);
+    } else {
+        EXEC_NPU_CMD(aclnnMoeLowLatencyCombineV2, expand_x, expert_ids, expand_idx, ep_send_counts, expert_scales,
+                     tp_send_counts, x_active_mask, activation_scale, weight_scale, group_list, expand_scales,
+                     shared_expert_x, static_cast<const std::nullptr_t &>(nullptr), hcom_ep_name, num_ranks, rank,
+                     num_experts, hcom_tp_name, tp_world_size, tp_rankId, expert_shared_type, shared_expert_num,
+                     shared_expert_rank_num, global_bs, out_dtype, comm_quant_mode, group_list_type, comm_alg,
+                     profile_enable_i64, profile_buffer_bytes_i64, profile_launch_id_i64, combined_x,
+                     combine_send_cost_stats_out);
+    }
 
     return {combined_x, event, std::function<void()>([] {})};
 }

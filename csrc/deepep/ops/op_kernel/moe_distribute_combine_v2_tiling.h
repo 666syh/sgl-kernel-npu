@@ -34,6 +34,11 @@ struct MoeDistributeCombineV2Info {
     uint64_t totalWinSize;
     float armAvgFactor;
     float epsilon;
+    // Kernel profiling session parameters.  These are appended to preserve the
+    // existing tiling field order used by non-profiling launches.
+    uint32_t profileEnable;
+    uint32_t profileLaunchId;
+    uint64_t profileBufferBytes;
 };
 struct MoeDistributeCombineV2TilingData {
     Mc2InitTiling mc2InitTiling;

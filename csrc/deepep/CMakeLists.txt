@@ -41,6 +41,8 @@ list(APPEND SOURCES_DEEPEP
     profiling/core/profile_session.cpp
     profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_traits.cpp
     profiling/adapters/moe_low_latency_dispatch_v2_a5/moe_low_latency_dispatch_v2_a5_profile_adapter.cpp
+    profiling/adapters/moe_low_latency_combine_v2_a5/moe_low_latency_combine_v2_a5_profile_traits.cpp
+    profiling/adapters/moe_low_latency_combine_v2_a5/moe_low_latency_combine_v2_a5_profile_adapter.cpp
 )
 if(NOT DEEPEP_IS_A5_BUILD OR DEEPEP_ENABLE_A5_FUSED_DEEP_MOE)
     list(APPEND SOURCES_DEEPEP

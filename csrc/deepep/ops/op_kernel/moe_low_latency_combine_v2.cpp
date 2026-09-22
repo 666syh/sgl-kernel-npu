@@ -46,8 +46,8 @@ extern "C" __global__ __aicore__ void moe_low_latency_combine_v2(
     GM_ADDR expandX, GM_ADDR expertIds, GM_ADDR assistInfoForCombine, GM_ADDR epSendCount, GM_ADDR scales,
     GM_ADDR tpSendCount, GM_ADDR xActiveMask, GM_ADDR activationScale, GM_ADDR weightScale, GM_ADDR groupList,
     GM_ADDR expandScales, GM_ADDR sharedExpertX, GM_ADDR elasticInfo, GM_ADDR oriX, GM_ADDR constExpertAlpha1,
-    GM_ADDR constExpertAlpha2, GM_ADDR constExpertV, GM_ADDR XOut, GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
-    GM_ADDR tilingGM)
+    GM_ADDR constExpertAlpha2, GM_ADDR constExpertV, GM_ADDR profileBuffer, GM_ADDR XOut, GM_ADDR sendCostStatsOut,
+    GM_ADDR workspaceGM, GM_ADDR tilingGM)
 
 {
     REGISTER_TILING_DEFAULT(MoeDistributeCombineV2TilingData);
@@ -78,15 +78,15 @@ extern "C" __global__ __aicore__ void moe_low_latency_combine_v2(
         GET_TILING_DATA_WITH_STRUCT(MoeDistributeCombineV2TilingData, tilingData, tilingGM);
         MoeDistributeCombineV2A5<DTYPE_EXPAND_X, DTYPE_X, int32_t, false, false, false> op;
         op.Init(expandX, expertIds, assistInfoForCombine, epSendCount, tpSendCount, scales, xActiveMask, sharedExpertX,
-                elasticInfo, oriX, constExpertAlpha1, constExpertAlpha2, constExpertV, XOut, workspaceGM, &pipe,
-                &tilingData);
+                elasticInfo, oriX, constExpertAlpha1, constExpertAlpha2, constExpertV, profileBuffer, XOut, workspaceGM,
+                &pipe, &tilingData);
         op.Process();
     } else if (TILING_KEY_IS(50030)) {  // A5 tp=1 MXFP8 E4M3 communication quantization
         GET_TILING_DATA_WITH_STRUCT(MoeDistributeCombineV2TilingData, tilingData, tilingGM);
         MoeDistributeCombineV2A5<DTYPE_EXPAND_X, DTYPE_X, int32_t, false, false, true> op;
         op.Init(expandX, expertIds, assistInfoForCombine, epSendCount, tpSendCount, scales, xActiveMask, sharedExpertX,
-                elasticInfo, oriX, constExpertAlpha1, constExpertAlpha2, constExpertV, XOut, workspaceGM, &pipe,
-                &tilingData);
+                elasticInfo, oriX, constExpertAlpha1, constExpertAlpha2, constExpertV, profileBuffer, XOut, workspaceGM,
+                &pipe, &tilingData);
         op.Process();
     }
 #ifdef __DAV_C310__

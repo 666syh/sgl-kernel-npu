@@ -42,6 +42,7 @@ constexpr uint32_t ORI_X_INDEX = 13;
 constexpr uint32_t CONST_EXPERT_ALPHA_1_INDEX = 14;
 constexpr uint32_t CONST_EXPERT_ALPHA_2_INDEX = 15;
 constexpr uint32_t CONST_EXPERT_V_INDEX = 16;
+constexpr uint32_t PROFILE_BUFFER_INDEX = 17;
 constexpr uint32_t OUTPUT_X_INDEX = 0;
 
 constexpr uint32_t ATTR_GROUP_EP_INDEX = 0;
@@ -62,6 +63,9 @@ constexpr uint32_t ATTR_COMM_ALG_INDEX = 14;
 constexpr uint32_t ATTR_ZERO_EXPERT_NUM_INDEX = 15;
 constexpr uint32_t ATTR_COPY_EXPERT_NUM_INDEX = 16;
 constexpr uint32_t ATTR_CONST_EXPERT_NUM_INDEX = 17;
+constexpr uint32_t ATTR_PROFILE_ENABLE_INDEX = 18;
+constexpr uint32_t ATTR_PROFILE_BUFFER_BYTES_INDEX = 19;
+constexpr uint32_t ATTR_PROFILE_LAUNCH_ID_INDEX = 20;
 
 // tiling key
 constexpr uint32_t INT8_COMM_QUANT = 2U;
@@ -243,6 +247,9 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext *contex
     auto zeroExpertNumPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_ZERO_EXPERT_NUM_INDEX));
     auto copyExpertNumPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_COPY_EXPERT_NUM_INDEX));
     auto constExpertNumPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_CONST_EXPERT_NUM_INDEX));
+    auto profileEnablePtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_PROFILE_ENABLE_INDEX));
+    auto profileBufferBytesPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_PROFILE_BUFFER_BYTES_INDEX));
+    auto profileLaunchIdPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_PROFILE_LAUNCH_ID_INDEX));
 
     // 判空
     OP_TILING_CHECK((groupEpPtr == nullptr) || (strnlen(groupEpPtr, MAX_GROUP_NAME_LENGTH) == 0) ||
@@ -262,6 +269,22 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext *contex
     OP_TILING_CHECK(zeroExpertNumPtr == nullptr, OP_LOGE(nodeName, "zeroExpertNum is null."), return ge::GRAPH_FAILED);
     OP_TILING_CHECK(copyExpertNumPtr == nullptr, OP_LOGE(nodeName, "copyExpertNum is null."), return ge::GRAPH_FAILED);
     OP_TILING_CHECK(constExpertNumPtr == nullptr, OP_LOGE(nodeName, "constExpertNum is null."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(profileEnablePtr == nullptr, OP_LOGE(nodeName, "profileEnable is null."), return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(profileBufferBytesPtr == nullptr, OP_LOGE(nodeName, "profileBufferBytes is null."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(profileLaunchIdPtr == nullptr, OP_LOGE(nodeName, "profileLaunchId is null."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(*profileEnablePtr < 0 || *profileBufferBytesPtr < 0 || *profileLaunchIdPtr < 0,
+                    OP_LOGE(nodeName, "profile attrs must be non-negative."), return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(*profileEnablePtr > UINT32_MAX || *profileLaunchIdPtr > UINT32_MAX,
+                    OP_LOGE(nodeName, "profileEnable/profileLaunchId exceeds uint32 range."), return ge::GRAPH_FAILED);
+    const gert::StorageShape *profileBufferStorageShape = context->GetOptionalInputShape(PROFILE_BUFFER_INDEX);
+    OP_TILING_CHECK(*profileEnablePtr != 0 && profileBufferStorageShape == nullptr,
+                    OP_LOGE(nodeName, "profile_buffer is required when profile_enable is non-zero."),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(*profileEnablePtr != 0 && *profileBufferBytesPtr == 0,
+                    OP_LOGE(nodeName, "profileBufferBytes must be positive when profiling is enabled."),
                     return ge::GRAPH_FAILED);
 
     // 判断是否满足uint32_t及其他限制
@@ -359,6 +382,9 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext *contex
     tilingData.moeDistributeCombineV2Info.zeroExpertNum = static_cast<uint32_t>(zeroExpertNum);
     tilingData.moeDistributeCombineV2Info.copyExpertNum = static_cast<uint32_t>(copyExpertNum);
     tilingData.moeDistributeCombineV2Info.constExpertNum = static_cast<uint32_t>(constExpertNum);
+    tilingData.moeDistributeCombineV2Info.profileEnable = static_cast<uint32_t>(*profileEnablePtr);
+    tilingData.moeDistributeCombineV2Info.profileBufferBytes = static_cast<uint64_t>(*profileBufferBytesPtr);
+    tilingData.moeDistributeCombineV2Info.profileLaunchId = static_cast<uint32_t>(*profileLaunchIdPtr);
 
     return ge::GRAPH_SUCCESS;
 }

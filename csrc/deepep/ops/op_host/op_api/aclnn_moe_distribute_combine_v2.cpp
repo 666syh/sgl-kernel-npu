@@ -29,12 +29,12 @@ extern aclnnStatus aclnnInnerMoeLowLatencyCombineV2GetWorkspaceSize(
     const aclTensor *xActiveMask, const aclTensor *activationScale, const aclTensor *weightScale,
     const aclTensor *groupList, const aclTensor *expandScales, const aclTensor *sharedExpertX,
     const aclTensor *elasticInfo, const aclTensor *oriX, const aclTensor *constExpertAlpha1,
-    const aclTensor *constExpertAlpha2, const aclTensor *constExpertV, char *groupEp, int64_t epWorldSize,
-    int64_t epRankId, int64_t moeExpertNum, char *groupTp, int64_t tpWorldSize, int64_t tpRankId,
+    const aclTensor *constExpertAlpha2, const aclTensor *constExpertV, const aclTensor *profileBuffer, char *groupEp,
+    int64_t epWorldSize, int64_t epRankId, int64_t moeExpertNum, char *groupTp, int64_t tpWorldSize, int64_t tpRankId,
     int64_t expertShardType, int64_t sharedExpertNum, int64_t sharedExpertRankNum, int64_t globalBs, int64_t outDtype,
     int64_t commQuantMode, int64_t groupListType, char *commAlg, int64_t zeroExpertNum, int64_t copyExpertNum,
-    int64_t constExpertNum, const aclTensor *x, const aclTensor *sendCostStats, uint64_t *workspaceSize,
-    aclOpExecutor **executor);
+    int64_t constExpertNum, int64_t profileEnable, int64_t profileBufferBytes, int64_t profileLaunchId,
+    const aclTensor *x, const aclTensor *sendCostStats, uint64_t *workspaceSize, aclOpExecutor **executor);
 
 extern aclnnStatus aclnnInnerMoeLowLatencyCombineV2(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor,
                                                     aclrtStream stream);
@@ -46,18 +46,20 @@ aclnnStatus aclnnMoeLowLatencyCombineV2GetWorkspaceSize(
     const aclTensor *epSendCounts, const aclTensor *expertScales, const aclTensor *tpSendCountsOptional,
     const aclTensor *xActiveMaskOptional, const aclTensor *activationScaleOptional,
     const aclTensor *weightScaleOptional, const aclTensor *groupListOptional, const aclTensor *expandScalesOptional,
-    const aclTensor *sharedExpertXOptional, char *groupEp, int64_t epWorldSize, int64_t epRankId, int64_t moeExpertNum,
-    char *groupTp, int64_t tpWorldSize, int64_t tpRankId, int64_t expertShardType, int64_t sharedExpertNum,
-    int64_t sharedExpertRankNum, int64_t globalBs, int64_t outDtype, int64_t commQuantMode, int64_t groupListType,
-    char *commAlg, const aclTensor *xOut, const aclTensor *sendCostStats, uint64_t *workspaceSize,
+    const aclTensor *sharedExpertXOptional, const aclTensor *profileBufferOptional, char *groupEp, int64_t epWorldSize,
+    int64_t epRankId, int64_t moeExpertNum, char *groupTp, int64_t tpWorldSize, int64_t tpRankId,
+    int64_t expertShardType, int64_t sharedExpertNum, int64_t sharedExpertRankNum, int64_t globalBs, int64_t outDtype,
+    int64_t commQuantMode, int64_t groupListType, char *commAlg, int64_t profileEnable, int64_t profileBufferBytes,
+    int64_t profileLaunchId, const aclTensor *xOut, const aclTensor *sendCostStats, uint64_t *workspaceSize,
     aclOpExecutor **executor)
 {
     aclnnStatus getWorkspaceSizesRes = aclnnInnerMoeLowLatencyCombineV2GetWorkspaceSize(
         expandX, expertIds, assistInfoForCombine, epSendCounts, expertScales, tpSendCountsOptional, xActiveMaskOptional,
         activationScaleOptional, weightScaleOptional, groupListOptional, expandScalesOptional, sharedExpertXOptional,
-        nullptr, nullptr, nullptr, nullptr, nullptr, groupEp, epWorldSize, epRankId, moeExpertNum, groupTp, tpWorldSize,
-        tpRankId, expertShardType, sharedExpertNum, sharedExpertRankNum, globalBs, outDtype, commQuantMode,
-        groupListType, commAlg, 0, 0, 0, xOut, sendCostStats, workspaceSize, executor);
+        nullptr, nullptr, nullptr, nullptr, profileBufferOptional, groupEp, epWorldSize, epRankId, moeExpertNum,
+        groupTp, tpWorldSize, tpRankId, expertShardType, sharedExpertNum, sharedExpertRankNum, globalBs, outDtype,
+        commQuantMode, groupListType, commAlg, 0, 0, 0, profileEnable, profileBufferBytes, profileLaunchId, xOut,
+        sendCostStats, workspaceSize, executor);
 
     if (getWorkspaceSizesRes != ACLNN_SUCCESS) {
         return getWorkspaceSizesRes;

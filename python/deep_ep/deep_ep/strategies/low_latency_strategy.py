@@ -327,6 +327,12 @@ class OpsLowLatencyCommStrategy(LowLatencyEPCommStrategy):
         use_mxfp8: bool = False,
     ) -> Tuple[torch.Tensor, EventOverlap, Callable]:
 
+        if self._is_profile_active():
+            raise RuntimeError(
+                "Low-latency combine profiling does not support DEEP_USE_MODE=ops. "
+                "Use the default deep_ep_cpp strategy."
+            )
+
         topk_ids = topk_idx.int()
         src_num = topk_idx.size(0)
         (
