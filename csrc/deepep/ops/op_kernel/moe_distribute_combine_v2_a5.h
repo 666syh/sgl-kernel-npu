@@ -674,7 +674,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::BuffInit
     tpipe_->InitBuffer(sendRangeCntBuf_, rangeCntAlignLen);
     // expandIdx 按 BATCH_SRC_INFO_CNT 分批搬运，UB 占用与单核 token 数解耦
     tpipe_->InitBuffer(indexCountsBuf_, BATCH_SRC_INFO_CNT * EXPAND_IDX_INFO * sizeof(int32_t));
-    if constexpr (!IsNeedReduceScatter) {
+    if constexpr (!IsNeedReduceScatter && IsMxfp8Quant) {
         if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
             tpipe_->InitBuffer(asyncZeroBuf_, hExpandXAlign32Size_);
         }
@@ -1730,7 +1730,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWin
 template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWindowCopy()
 {
-    if constexpr (!IsNeedReduceScatter) {
+    if constexpr (!IsNeedReduceScatter && IsMxfp8Quant) {
         if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
             LocalWindowCopyAsync();
             return;
@@ -1834,7 +1834,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Process(
                                  profileWriter.Now());
         }
 
-        if constexpr (!IsNeedReduceScatter) {
+        if constexpr (!IsNeedReduceScatter && IsMxfp8Quant) {
             if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
                 InitAsyncOutputEarly();
                 SyncAll<true>();
