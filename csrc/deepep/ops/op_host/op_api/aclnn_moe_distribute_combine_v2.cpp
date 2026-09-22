@@ -56,10 +56,10 @@ aclnnStatus aclnnMoeLowLatencyCombineV2GetWorkspaceSize(
     aclnnStatus getWorkspaceSizesRes = aclnnInnerMoeLowLatencyCombineV2GetWorkspaceSize(
         expandX, expertIds, assistInfoForCombine, epSendCounts, expertScales, tpSendCountsOptional, xActiveMaskOptional,
         activationScaleOptional, weightScaleOptional, groupListOptional, expandScalesOptional, sharedExpertXOptional,
-        nullptr, nullptr, nullptr, nullptr, profileBufferOptional, groupEp, epWorldSize, epRankId, moeExpertNum,
-        groupTp, tpWorldSize, tpRankId, expertShardType, sharedExpertNum, sharedExpertRankNum, globalBs, outDtype,
-        commQuantMode, groupListType, commAlg, 0, 0, 0, profileEnable, profileBufferBytes, profileLaunchId, xOut,
-        sendCostStats, workspaceSize, executor);
+        nullptr, nullptr, nullptr, nullptr, nullptr, profileBufferOptional, groupEp, epWorldSize, epRankId,
+        moeExpertNum, groupTp, tpWorldSize, tpRankId, expertShardType, sharedExpertNum, sharedExpertRankNum, globalBs,
+        outDtype, commQuantMode, groupListType, commAlg, 0, 0, 0, profileEnable, profileBufferBytes, profileLaunchId,
+        xOut, sendCostStats, workspaceSize, executor);
 
     if (getWorkspaceSizesRes != ACLNN_SUCCESS) {
         return getWorkspaceSizesRes;
