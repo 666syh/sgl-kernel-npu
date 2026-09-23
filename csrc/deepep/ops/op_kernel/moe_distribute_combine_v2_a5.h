@@ -1300,6 +1300,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8Deq
     MoeMxfp8::DequantizeE4M3AndAccumulate(packet, sumFloatBufLocal_, scaleFloat, rowTmpFloatLocal_, expertScale,
                                           axisH_);
 }
+#endif  // __DAV_C310__
 
 // 处理常量专家
 template <A5CombineTemplateClass>
