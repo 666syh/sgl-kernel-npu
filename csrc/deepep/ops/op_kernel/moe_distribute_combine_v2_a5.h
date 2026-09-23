@@ -1551,6 +1551,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessM
         AscendC::Muls(mulBufLocal_, rowTmpFloatLocal_, scaleVal, processLen);
         PipeBarrier<PIPE_V>();
         AscendC::Add(sumFloatBufLocal_, sumFloatBufLocal_, mulBufLocal_, processLen);
+        PipeBarrier<PIPE_V>();
     }
     moeSumQueue_.FreeTensor<XType>(tmpUb);
 }
@@ -1798,6 +1799,11 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWin
 template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWindowCopy()
 {
+    // Both paths share these buffers; bind their tensor handles before selecting the async path.
+    rowTmpFloatLocal_ = rowTmpFloatBuf_.Get<float>();
+    mulBufLocal_ = mulBuf_.Get<float>();
+    sumFloatBufLocal_ = sumFloatBuf_.Get<float>();
+
     if constexpr (!IsNeedReduceScatter && (IsMxfp8Quant || (DEEPEP_DEBUG_ASYNC_NON_QUANT && !IsInt8Quant))) {
         if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
             LocalWindowCopyAsync();
@@ -1830,9 +1836,6 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWin
     TBuf<> opPosDfxBuf;
     tpipe_->InitBuffer(opPosDfxBuf, UB_ALIGN);
     dataStateLocalTensor_ = opPosDfxBuf.Get<uint32_t>();
-    rowTmpFloatLocal_ = rowTmpFloatBuf_.Get<float>();
-    mulBufLocal_ = mulBuf_.Get<float>();
-    sumFloatBufLocal_ = sumFloatBuf_.Get<float>();
     const DataCopyPadExtParams<XType> copyPadXTypeParams{false, 0U, 0U, 0U};
     DataCopyParams dataStateParams{1U, sizeof(uint32_t), 0U, 0U};
     const DataCopyExtParams expandXCopyParams{1U, static_cast<uint32_t>(hExpandXTypeSize_), 0U, 0U, 0U};
