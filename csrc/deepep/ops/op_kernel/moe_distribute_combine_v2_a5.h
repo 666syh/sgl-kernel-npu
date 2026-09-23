@@ -13,10 +13,6 @@
 #include "moe_mxfp8_utils.h"
 #endif
 
-#ifndef DEEPEP_DEBUG_ASYNC_NON_QUANT
-#define DEEPEP_DEBUG_ASYNC_NON_QUANT 1
-#endif
-
 namespace MoeDistributeCombineV2A5Impl {
 using namespace MoeDistributeV2Base;
 constexpr uint8_t BUFFER_NUM = 2;                       // 多buf
@@ -112,20 +108,11 @@ private:
     __aicore__ inline void ProcessCopyExpert(uint32_t tokenIndex, float scaleVal);
     __aicore__ inline void ProcessMoeExpert(uint32_t tokenIndexOffset, uint32_t topkId, float scaleVal,
                                             uint32_t sourceRank);
-#ifdef __DAV_C310__
-    __aicore__ inline void DebugDumpMxfp8(uint32_t stage, uint32_t sourceRank, uint32_t targetRank, uint32_t tokenId,
-                                          uint32_t topkId, uint32_t windowOffset, LocalTensor<uint8_t> tokenBytes,
-                                          LocalTensor<uint32_t> record, uint32_t scaleOffset, bool dumpScale);
-#endif
     __aicore__ inline void ProcessExpert(uint32_t tokenIndex, uint32_t processLen);
     __aicore__ inline bool WaitOneTopK(uint32_t tokenIndex, uint32_t topkId);
     __aicore__ inline void InitAsyncOutputEarly();
     __aicore__ inline void ProcessAsyncTopK(uint32_t tokenIndex, uint32_t topkId);
     __aicore__ inline void LocalWindowCopyAsync();
-#if DEEPEP_DEBUG_ASYNC_NON_QUANT
-    __aicore__ inline void DebugDumpAsyncNonQuant(uint32_t stage, uint32_t sourceRank, uint32_t targetRank,
-                                                  uint32_t tokenId, uint32_t topkId, LocalTensor<uint32_t> tokenWords);
-#endif
     __aicore__ inline void ExpertScaleCopy(const uint32_t beginIndex, const uint32_t endIndex,
                                            const uint32_t tokenPerAivNum);
     __aicore__ inline void LocalWindowCopy();
@@ -298,9 +285,6 @@ private:
     TBuf<> stateSumBuf_;
     TBuf<> stateResetBuf_;
     TBuf<> asyncZeroBuf_;
-#if DEEPEP_DEBUG_ASYNC_NON_QUANT
-    TBuf<> asyncDebugRecordBuf_;
-#endif
     TBuf<> expertMaskBuf_;
     TBuf<> elasticInfoBuf_;
     TBuf<> epSendCountBuf_;  // epSendCount（expert-major/rank-minor 全前缀和）拷入 UB，用于 rank-major 分核
@@ -686,18 +670,11 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::BuffInit
     tpipe_->InitBuffer(sendRangeCntBuf_, rangeCntAlignLen);
     // expandIdx 按 BATCH_SRC_INFO_CNT 分批搬运，UB 占用与单核 token 数解耦
     tpipe_->InitBuffer(indexCountsBuf_, BATCH_SRC_INFO_CNT * EXPAND_IDX_INFO * sizeof(int32_t));
-    if constexpr (!IsNeedReduceScatter && (IsMxfp8Quant || (DEEPEP_DEBUG_ASYNC_NON_QUANT && !IsInt8Quant))) {
+    if constexpr (!IsNeedReduceScatter) {
         if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
             tpipe_->InitBuffer(asyncZeroBuf_, hExpandXAlign32Size_);
         }
     }
-#if DEEPEP_DEBUG_ASYNC_NON_QUANT
-    if constexpr (!IsNeedReduceScatter && !IsInt8Quant && !IsMxfp8Quant) {
-        if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
-            tpipe_->InitBuffer(asyncDebugRecordBuf_, 16U * sizeof(uint32_t));
-        }
-    }
-#endif
 }
 
 template <A5CombineTemplateClass>
@@ -1192,20 +1169,9 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ExpertAl
             DataCopyPad(gmTpSendCountTensor_, expandXGM_[tokenGMOffset], expandXCopyParams, copyPadExtParams);
             gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
             gmTpSendCountTensor_ = gmTpSendCountQueue_.DeQue<ExpandXType>();
-#ifdef __DAV_C310__
-            LocalTensor<uint32_t> debugRecordPre = mxScratchBuf_.Get<uint32_t>();
-            DebugDumpMxfp8(1U, epRankId_, toRankId, tokenId, topkId, epOffset * hAlignWinSize_, inputBytes,
-                           debugRecordPre, 0U, false);
-#endif
             LocalTensor<XType> packet = xOutQueue_.AllocTensor<XType>();
 #ifdef __DAV_C310__
             Mxfp8QuantProcess(packet, gmTpSendCountTensor_);
-            PipeBarrier<PIPE_ALL>();
-            LocalTensor<uint8_t> packetBytes = packet.template ReinterpretCast<uint8_t>();
-            uint32_t scaleOffset = MoeMxfp8::AlignUp(axisH_, 256U);
-            LocalTensor<uint32_t> debugRecordPost = mxScratchBuf_.Get<uint32_t>();
-            DebugDumpMxfp8(2U, epRankId_, toRankId, tokenId, topkId, epOffset * hAlignWinSize_, packetBytes,
-                           debugRecordPost, scaleOffset, true);
 #endif
             xOutQueue_.EnQue(packet);
             packet = xOutQueue_.DeQue<XType>();
@@ -1229,15 +1195,6 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ExpertAl
             DataCopyPad(gmTpSendCountTensor_, expandXGM_[tokenGMOffset], expandXCopyParams, copyPadExtParams);
             gmTpSendCountQueue_.EnQue(gmTpSendCountTensor_);
             gmTpSendCountTensor_ = gmTpSendCountQueue_.DeQue<ExpandXType>();
-#if DEEPEP_DEBUG_ASYNC_NON_QUANT
-            if constexpr (!IsInt8Quant && !IsMxfp8Quant) {
-                if (sharedExpertNum_ == 0U && !hasSharedExpertX_ && epRankId_ <= 1U && toRankId <= 1U &&
-                    epRankId_ != toRankId && hExpandXTypeSize_ >= 16U) {
-                    DebugDumpAsyncNonQuant(1U, epRankId_, toRankId, tokenId, topkId,
-                                           gmTpSendCountTensor_.template ReinterpretCast<uint32_t>());
-                }
-            }
-#endif
             DataCopyPad(rankWindow_, gmTpSendCountTensor_, expandXCopyParams);
             gmTpSendCountQueue_.FreeTensor<ExpandXType>(gmTpSendCountTensor_);
         }
@@ -1344,75 +1301,6 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Mxfp8Deq
                                           axisH_);
 }
 
-template <A5CombineTemplateClass>
-__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::DebugDumpMxfp8(
-    uint32_t stage, uint32_t sourceRank, uint32_t targetRank, uint32_t tokenId, uint32_t topkId, uint32_t windowOffset,
-    LocalTensor<uint8_t> tokenBytes, LocalTensor<uint32_t> record, uint32_t scaleOffset, bool dumpScale)
-{
-    return;
-    if (sourceRank > 1U || targetRank > 1U || sourceRank == targetRank) {
-        return;
-    }
-    // The caller supplies a phase-local private record buffer.
-    PipeBarrier<PIPE_ALL>();
-    Duplicate<uint32_t>(record, 0U, 32U);
-    SyncFunc<AscendC::HardEvent::V_S>();
-    record.SetValue(0U, 0x4D584442U);  // MXDB
-    record.SetValue(1U, stage);
-    record.SetValue(2U, sourceRank);
-    record.SetValue(3U, targetRank);
-    record.SetValue(4U, aivId_);
-    record.SetValue(5U, tokenId);
-    record.SetValue(6U, topkId);
-    record.SetValue(7U, windowOffset);
-    record.SetValue(8U, axisH_);
-    record.SetValue(9U, scaleOffset);
-    LocalTensor<uint32_t> tokenWords = tokenBytes.template ReinterpretCast<uint32_t>();
-    // Keep the temporary dump compact: 16 token bytes and 4 scale bytes.
-    record.SetValue(10U, tokenWords.GetValue(0U));
-    record.SetValue(11U, tokenWords.GetValue(1U));
-    record.SetValue(12U, tokenWords.GetValue(2U));
-    record.SetValue(13U, tokenWords.GetValue(3U));
-    if (dumpScale) {
-        LocalTensor<uint32_t> scaleWords = tokenBytes[scaleOffset].template ReinterpretCast<uint32_t>();
-        record.SetValue(14U, scaleWords.GetValue(0U));
-    }
-    PipeBarrier<PIPE_ALL>();
-    AscendC::DumpTensor(record, 500U + stage, 16U);
-    PipeBarrier<PIPE_ALL>();
-}
-#endif
-
-#if DEEPEP_DEBUG_ASYNC_NON_QUANT
-template <A5CombineTemplateClass>
-__aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::DebugDumpAsyncNonQuant(
-    uint32_t stage, uint32_t sourceRank, uint32_t targetRank, uint32_t tokenId, uint32_t topkId,
-    LocalTensor<uint32_t> tokenWords)
-{
-    if (sourceRank > 1U || targetRank > 1U || sourceRank == targetRank) {
-        return;
-    }
-    LocalTensor<uint32_t> record = asyncDebugRecordBuf_.Get<uint32_t>();
-    SyncFunc<AscendC::HardEvent::MTE2_S>();
-    Duplicate<uint32_t>(record, 0U, 16U);
-    SyncFunc<AscendC::HardEvent::V_S>();
-    record.SetValue(0U, 0x41534442U);  // ASDB
-    record.SetValue(1U, stage);
-    record.SetValue(2U, sourceRank);
-    record.SetValue(3U, targetRank);
-    record.SetValue(4U, tokenId);
-    record.SetValue(5U, topkId);
-    record.SetValue(6U, aivId_);
-    record.SetValue(7U, tokenWords.GetValue(0U));
-    record.SetValue(8U, tokenWords.GetValue(1U));
-    record.SetValue(9U, tokenWords.GetValue(2U));
-    record.SetValue(10U, tokenWords.GetValue(3U));
-    PipeBarrier<PIPE_ALL>();
-    AscendC::DumpTensor(record, 520U + stage, 11U);
-    PipeBarrier<PIPE_ALL>();
-}
-#endif
-
 // 处理常量专家
 template <A5CombineTemplateClass>
 __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessConstantExpert(uint32_t tokenIndex,
@@ -1514,31 +1402,9 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::ProcessM
     }
     moeSumQueue_.EnQue(tmpUb);
     tmpUb = moeSumQueue_.DeQue<XType>();
-#if DEEPEP_DEBUG_ASYNC_NON_QUANT
-    if constexpr (!IsInt8Quant && !IsMxfp8Quant) {
-        if (sharedExpertNum_ == 0U && !hasSharedExpertX_ && sourceRank <= 1U && epRankId_ <= 1U &&
-            sourceRank != epRankId_ && hExpandXTypeSize_ >= 16U) {
-            uint32_t localToken = tokenIndexOffset / (axisK_ + sharedExpertNum_);
-            DebugDumpAsyncNonQuant(2U, sourceRank, epRankId_, localToken, topkId,
-                                   tmpUb.template ReinterpretCast<uint32_t>());
-        }
-    }
-#endif
     if constexpr (IsMxfp8Quant) {
 #ifdef __DAV_C310__
-        uint32_t localToken = tokenIndexOffset / (axisK_ + sharedExpertNum_);
-        uint32_t windowOffset = (tokenIndexOffset + topkId) * hAlignWinSize_;
-        LocalTensor<uint8_t> recvBytes = tmpUb.template ReinterpretCast<uint8_t>();
-        uint32_t scaleOffset = MoeMxfp8::AlignUp(axisH_, 256U);
-        LocalTensor<uint32_t> debugRecord = mulBuf_.Get<uint32_t>();
-        DebugDumpMxfp8(3U, sourceRank, epRankId_, localToken, topkId, windowOffset, recvBytes, debugRecord, scaleOffset,
-                       true);
         Mxfp8DequantProcess(tmpUb, scaleVal);
-        PipeBarrier<PIPE_ALL>();
-        LocalTensor<uint8_t> dequantBytes = rowTmpFloatLocal_.template ReinterpretCast<uint8_t>();
-        DebugDumpMxfp8(4U, sourceRank, epRankId_, localToken, topkId, windowOffset, dequantBytes, debugRecord, 0U,
-                       false);
-        PipeBarrier<PIPE_V>();
 #endif
     } else if constexpr (IsInt8Quant) {
         Int8DequantProcess(tmpUb);
@@ -1804,7 +1670,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::LocalWin
     mulBufLocal_ = mulBuf_.Get<float>();
     sumFloatBufLocal_ = sumFloatBuf_.Get<float>();
 
-    if constexpr (!IsNeedReduceScatter && (IsMxfp8Quant || (DEEPEP_DEBUG_ASYNC_NON_QUANT && !IsInt8Quant))) {
+    if constexpr (!IsNeedReduceScatter) {
         if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
             LocalWindowCopyAsync();
             return;
@@ -1905,7 +1771,7 @@ __aicore__ inline void MoeDistributeCombineV2A5<A5CombineTemplateArgs>::Process(
                                  profileWriter.Now());
         }
 
-        if constexpr (!IsNeedReduceScatter && (IsMxfp8Quant || (DEEPEP_DEBUG_ASYNC_NON_QUANT && !IsInt8Quant))) {
+        if constexpr (!IsNeedReduceScatter) {
             if (sharedExpertNum_ == 0U && !hasSharedExpertX_) {
                 InitAsyncOutputEarly();
                 SyncAll<true>();
