@@ -65,6 +65,7 @@ constexpr uint32_t ATTR_CONST_EXPERT_NUM_INDEX = 17;
 
 // tiling key
 constexpr uint32_t INT8_COMM_QUANT = 2U;
+constexpr uint32_t MXFP8_E4M3_COMM_QUANT = 3U;
 constexpr uint64_t INIT_TILINGKEY = 10000;
 constexpr uint64_t TILING_KEY_CCU_TYPE = 60000;
 constexpr uint64_t TILING_KEY_A5_TYPE = 50000;
@@ -73,6 +74,7 @@ constexpr uint64_t TILING_KEY_A2_TYPE = 20000;
 constexpr uint64_t TILINGKEY_TP_WORLD_SIZE = 100;
 constexpr uint64_t TP_WORLD_SIZE_TWO = 2;
 constexpr uint32_t TILINGKEY_INT8_COMM_QUANT = 20U;
+constexpr uint32_t TILINGKEY_MXFP8_COMM_QUANT = 30U;
 // not used
 constexpr uint64_t TILING_KEY_LAYERED_COMM_A2 = 3000UL;
 constexpr uint64_t TILING_KEY_INT8_COMM_QUANT_A2 = 100UL;
@@ -115,10 +117,90 @@ constexpr uint64_t DOUBLE_DATA_BUFFER = 2UL;
 constexpr uint64_t MAX_OUT_DTYPE_SIZE = 2UL;
 constexpr uint64_t UB_ALIGN = 32UL;
 constexpr int64_t ELASTIC_METAINFO_OFFSET = 4;
+constexpr uint32_t MXFP8_BUFFER_SINGLE = 1U;
+constexpr uint32_t MXFP8_BUFFER_DOUBLE = 2U;
+constexpr uint64_t MXFP8_INPUT_ALIGN = 128UL;
+constexpr uint64_t MXFP8_DATA_ALIGN = 256UL;
+constexpr uint64_t MXFP8_SCALE_BLOCK = 32UL;
+constexpr uint64_t MXFP8_SCALE_ALIGN = 2UL;
+constexpr uint64_t EXPAND_IDX_BATCH = 128UL;
+// Keep host UB accounting independent from op_kernel namespace constants.
+constexpr uint64_t A5_COMBINE_STATE_UB_BYTES_PER_FLAG = 32UL;
+constexpr uint64_t A5_COMBINE_REDUCE_ALIGN = 256UL;
 
 }  // namespace
 
 namespace optiling {
+
+static uint64_t AlignUpForMxCombine(uint64_t value, uint64_t align)
+{
+    return (value + align - 1UL) / align * align;
+}
+
+static uint64_t MaxForMxCombine(uint64_t lhs, uint64_t rhs)
+{
+    return lhs > rhs ? lhs : rhs;
+}
+
+// BuffInit() and AlltoAllBuffInitAndMaskCal() are separated by TPipe::Reset(),
+// so only the larger phase peak is resident.  This mirrors every InitBuffer in
+// the A5 standard-EP MXFP8 path, including LocalWindowCopy's per-core buffers.
+static uint64_t CalcA5Mxfp8CombinePeakUb(const MoeDistributeCombineV2Info &info, uint32_t queueBufferNum)
+{
+    constexpr uint64_t kElementBytes = sizeof(uint16_t);  // MXFP8 combine accepts BF16/FP16 input only.
+    const uint64_t h = info.h;
+    const uint64_t bs = info.bs;
+    const uint64_t k = info.k;
+    // mxfp8 按照32一组
+    const uint64_t scaleCount =
+        AlignUpForMxCombine((h + MXFP8_SCALE_BLOCK - 1UL) / MXFP8_SCALE_BLOCK, MXFP8_SCALE_ALIGN);
+    // 128对齐
+    const uint64_t inputBytes = AlignUpForMxCombine(h, MXFP8_INPUT_ALIGN) * kElementBytes;
+    // 原始数据 + 量化值
+    const uint64_t packetBytes = AlignUpForMxCombine(AlignUpForMxCombine(h, MXFP8_DATA_ALIGN) + scaleCount, UB_ALIGN);
+    const uint64_t scaleScratchCount = AlignUpForMxCombine(scaleCount, UB_ALIGN);
+    const uint64_t scratchBytes = MaxForMxCombine(
+        AlignUpForMxCombine(scaleScratchCount * sizeof(float) + scaleCount * sizeof(uint16_t), UB_ALIGN),
+        A5_COMBINE_REDUCE_ALIGN);
+
+    const uint64_t expertBlocks = info.moeExpertPerRankNum;
+    uint64_t sendPeak = UB_ALIGN;                                  // readStateBuf_ 状态读取暂存
+    sendPeak += queueBufferNum * inputBytes;                       // gmTpSendCountQueue_ 暂存源token
+    sendPeak += queueBufferNum * packetBytes;                      // xOutQueue_ 暂存量化后的packet
+    sendPeak += scratchBytes;                                      // 量化计算使用
+    sendPeak += AlignUpForMxCombine(h * kElementBytes, UB_ALIGN);  // asyncZeroBuf_ 清零输出
+    sendPeak += AlignUpForMxCombine(expertBlocks * info.epWorldSize * sizeof(int32_t), UB_ALIGN);
+    sendPeak += 2UL * AlignUpForMxCombine(expertBlocks * sizeof(int32_t), UB_ALIGN);
+    sendPeak += EXPAND_IDX_BATCH * TRIPLE * sizeof(int32_t);  // indexCountsBuf_
+
+    const uint64_t hExpandBytes = AlignUpForMxCombine(h * kElementBytes, UB_ALIGN);
+    const uint64_t hFloatBytes = AlignUpForMxCombine(h * sizeof(float), UB_ALIGN);
+    const uint64_t activeMaskBytes = bs * AlignUpForMxCombine(k * sizeof(bool), UB_ALIGN);
+    uint64_t tokenBufBytes = hExpandBytes;
+    uint64_t rowTmpBytes = hFloatBytes;
+    if (info.isExpertMask) {
+        tokenBufBytes = MaxForMxCombine(tokenBufBytes, activeMaskBytes);
+        rowTmpBytes = MaxForMxCombine(rowTmpBytes, activeMaskBytes * 2UL);
+    }
+
+    uint64_t receivePeak = 0UL;                                // MXFP8 async path reads expert scales directly from GM.
+    receivePeak += tokenBufBytes + rowTmpBytes + hFloatBytes;  // tokenBuf_, rowTmpFloatBuf_, sumFloatBuf_
+    receivePeak += queueBufferNum * packetBytes;               // moeSumQueue_ 保存收到的 packet
+    receivePeak += 2UL * AlignUpForMxCombine(k * A5_COMBINE_STATE_UB_BYTES_PER_FLAG, UB_ALIGN) + UB_ALIGN;
+    receivePeak += AlignUpForMxCombine(scaleCount * 4UL * sizeof(float), UB_ALIGN);
+    if (info.isTokenMask) {
+        const uint64_t tokenMaskBytes = AlignUpForMxCombine(bs * sizeof(bool), UB_ALIGN);
+        receivePeak += tokenMaskBytes + 2UL * tokenMaskBytes * kElementBytes;
+    }
+    if (info.isExpertMask) {
+        receivePeak += AlignUpForMxCombine(bs * kElementBytes, UB_ALIGN);
+        receivePeak += AlignUpForMxCombine(bs * sizeof(int32_t), UB_ALIGN);
+        receivePeak += AlignUpForMxCombine(bs * k * sizeof(bool), UB_ALIGN);
+        receivePeak += AlignUpForMxCombine(bs * sizeof(int32_t), UB_ALIGN);  // mulBuf_ for valid token indices
+    }
+
+    return MaxForMxCombine(sendPeak, receivePeak);
+}
 
 // a3专有
 static void PrintTilingDataInfo(const char *nodeName, MoeDistributeCombineV2TilingData &tilingData)
@@ -137,6 +219,7 @@ static void PrintTilingDataInfo(const char *nodeName, MoeDistributeCombineV2Tili
     OP_LOGD(nodeName, "k is %u.", tilingData.moeDistributeCombineV2Info.k);
     OP_LOGD(nodeName, "h is %u.", tilingData.moeDistributeCombineV2Info.h);
     OP_LOGD(nodeName, "aivNum is %u.", tilingData.moeDistributeCombineV2Info.aivNum);
+    OP_LOGD(nodeName, "a5MxCombineBufferNum is %u.", tilingData.moeDistributeCombineV2Info.a5MxCombineBufferNum);
     OP_LOGD(nodeName, "totalUbSize is %lu.", tilingData.moeDistributeCombineV2Info.totalUbSize);
     OP_LOGD(nodeName, "totalWinSize is %lu.", tilingData.moeDistributeCombineV2Info.totalWinSize);
     OP_LOGD(nodeName, "hasElastic is %d.", tilingData.moeDistributeCombineV2Info.hasElasticInfo);
@@ -255,11 +338,11 @@ static ge::graphStatus GetAttrAndSetTilingData(const gert::TilingContext *contex
                     OP_LOGE(nodeName, "moeExpertNum is invalid, only support (0, %ld], but got moeExpertNum=%ld.",
                             MOE_EXPERT_MAX_NUM, moeExpertNum),
                     return ge::GRAPH_FAILED);
-    OP_TILING_CHECK(
-        (*commQuantModePtr != 0) && (*commQuantModePtr != INT8_COMM_QUANT),
-        OP_LOGE(nodeName, "commQuantMode only support 0(default) or 2(int8 comm quant), but got commQuantMode=%ld.",
-                *commQuantModePtr),
-        return ge::GRAPH_FAILED);
+    OP_TILING_CHECK((*commQuantModePtr != 0) && (*commQuantModePtr != INT8_COMM_QUANT) &&
+                        (*commQuantModePtr != MXFP8_E4M3_COMM_QUANT),
+                    OP_LOGE(nodeName, "commQuantMode only supports 0(default), 2(int8), or 3(MXFP8 E4M3), but got %ld.",
+                            *commQuantModePtr),
+                    return ge::GRAPH_FAILED);
 
     commQuantMode = static_cast<uint32_t>(*commQuantModePtr);
     groupEp = std::string(groupEpPtr);
@@ -1070,6 +1153,8 @@ static void CalTilingKey(uint64_t &tilingKey, const uint64_t tpWorldSize, uint32
     }
     if (commQuantMode == INT8_COMM_QUANT) {
         tilingKey += TILINGKEY_INT8_COMM_QUANT;
+    } else if (commQuantMode == MXFP8_E4M3_COMM_QUANT) {
+        tilingKey += TILINGKEY_MXFP8_COMM_QUANT;
     }
 }
 
@@ -1138,8 +1223,11 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     OP_TILING_CHECK(
         GetAttrAndSetTilingData(context, *tilingData, nodeName, groupEp, groupTp, commQuantMode) == ge::GRAPH_FAILED,
         OP_LOGE(nodeName, "Getting attr failed."), return ge::GRAPH_FAILED);
+    tilingData->moeDistributeCombineV2Info.a5MxCombineBufferNum = MXFP8_BUFFER_DOUBLE;
     uint64_t tpWorldSize = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.tpWorldSize);
     uint32_t blockDim = 1U;
+    OP_TILING_CHECK(commQuantMode == MXFP8_E4M3_COMM_QUANT && ccuFlag,
+                    OP_LOGE(nodeName, "MXFP8 low-latency combine does not support CCU."), return ge::GRAPH_FAILED);
     if (ccuFlag) {
         return MoeDistributeCombineTilingImpl(context);
     }
@@ -1157,6 +1245,9 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     } else if (socVersion == "Ascend910B") {
         tilingKey = TILING_KEY_A2_TYPE;
     }
+    OP_TILING_CHECK(commQuantMode == MXFP8_E4M3_COMM_QUANT && socVersion != "Ascend950",
+                    OP_LOGE(nodeName, "MXFP8 low-latency combine is supported only on Ascend950/A5."),
+                    return ge::GRAPH_FAILED);
     CalTilingKey(tilingKey, tpWorldSize, commQuantMode);
     OP_LOGD(nodeName, "tilingKey is %lu", tilingKey);
     context->SetTilingKey(tilingKey);
@@ -1188,6 +1279,16 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
 
     isShared = (epRankId < sharedExpertRankNum);
 
+    OP_TILING_CHECK(commQuantMode == MXFP8_E4M3_COMM_QUANT &&
+                        (tpWorldSize > 1U || sharedExpertNum != 0U || sharedExpertRankNum != 0U || hasElasticInfo ||
+                         tilingData->moeDistributeCombineV2Info.zeroExpertNum != 0U ||
+                         tilingData->moeDistributeCombineV2Info.copyExpertNum != 0U ||
+                         tilingData->moeDistributeCombineV2Info.constExpertNum != 0U),
+                    OP_LOGE(nodeName,
+                            "MXFP8 low-latency combine supports only standard EP: TP=1, no shared, elastic, or "
+                            "special experts."),
+                    return ge::GRAPH_FAILED);
+
     // 检查shape各维度并赋值h,k
     OP_TILING_CHECK(
         !CheckTensorShape(context, *tilingData, nodeName, isShared, isActiveMask, localMoeExpertNum, hasElasticInfo),
@@ -1196,16 +1297,36 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     // 校验win区大小
     uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize();
     tilingData->moeDistributeCombineV2Info.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment();
+    const bool isA5 = (socVersion == "Ascend950");
     uint64_t h = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.h);
     uint64_t epWorldSize = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.epWorldSize);
     uint64_t k = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.k);
     uint64_t maxBs = static_cast<uint64_t>(tilingData->moeDistributeCombineV2Info.globalBs) / epWorldSize;
-    OP_TILING_CHECK(maxBs > Moe::A3WindowLayout::kLlMaxBs,
-                    OP_LOGE(nodeName, "maxBs exceeds the A3 window layout limit, maxBs=%lu, limit=%lu.", maxBs,
-                            Moe::A3WindowLayout::kLlMaxBs),
+    const uint64_t llMaxBs = isA5 ? Moe::A5WindowLayout::kLlMaxBs : Moe::A3WindowLayout::kLlMaxBs;
+    const uint64_t llStateEntrySize =
+        isA5 ? Moe::A5WindowLayout::kLlStateEntrySize : Moe::A3WindowLayout::kLlStateEntrySize;
+    const uint64_t llStateTimeoutOffset =
+        isA5 ? Moe::A5WindowLayout::kLlStateTimeoutOffset : Moe::A3WindowLayout::kLlStateTimeoutOffset;
+    const uint64_t hybridReservedSize =
+        isA5 ? Moe::A5WindowLayout::kPerHalfReservedSize : Moe::A3WindowLayout::kPerHalfReservedSize;
+    auto layoutPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    const uint64_t layoutAivNum = layoutPlatform.GetCoreNumAiv();
+    OP_TILING_CHECK(isA5 && layoutAivNum > Moe::A5WindowLayout::kAivCount,
+                    OP_LOGE(nodeName, "A5 AIV count exceeds selector metadata capacity, aivNum=%lu, limit=%lu.",
+                            layoutAivNum, Moe::A5WindowLayout::kAivCount),
+                    return ge::GRAPH_FAILED);
+    OP_TILING_CHECK(maxBs > llMaxBs,
+                    OP_LOGE(nodeName, "maxBs exceeds the %s window layout limit, maxBs=%lu, limit=%lu.",
+                            isA5 ? "A5" : "A3", maxBs, llMaxBs),
                     return ge::GRAPH_FAILED);
     // combine数据区 token首地址对齐512
-    uint64_t tokenNeedSizeCombine = ((h * MAX_OUT_DTYPE_SIZE + WIN_ADDR_ALIGN - 1UL) / WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+    uint64_t combinePacketBytes = h * MAX_OUT_DTYPE_SIZE;
+    if (commQuantMode == MXFP8_E4M3_COMM_QUANT) {
+        uint64_t mxDataBytes = ((h + 255UL) / 256UL) * 256UL;
+        uint64_t mxScaleBytes = (((h + 31UL) / 32UL + 1UL) / 2UL) * 2UL;
+        combinePacketBytes = mxDataBytes + mxScaleBytes;
+    }
+    uint64_t tokenNeedSizeCombine = ((combinePacketBytes + WIN_ADDR_ALIGN - 1UL) / WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
     // dispatch数据区 token首对齐512，有效token长度h_align_32b + scale(32b) + 三元组(3*4b)
     uint64_t tokenActualLen =
         ((h * MAX_OUT_DTYPE_SIZE + UB_ALIGN - 1UL) / UB_ALIGN) * UB_ALIGN + SCALE_EXPAND_IDX_BUFFER;
@@ -1213,14 +1334,12 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     uint64_t perHalfDataSize =
         (maxBs * tokenNeedSizeDispatch * epWorldSize * static_cast<uint64_t>(localMoeExpertNum)) +
         (maxBs * tokenNeedSizeCombine * (k + static_cast<uint64_t>(sharedExpertNum)));
-    uint64_t combineStateSize =
-        maxBs * (k + static_cast<uint64_t>(sharedExpertNum)) * Moe::A3WindowLayout::kLlStateEntrySize;
-    OP_TILING_CHECK(combineStateSize > Moe::A3WindowLayout::kLlStateTimeoutOffset,
+    uint64_t combineStateSize = maxBs * (k + static_cast<uint64_t>(sharedExpertNum)) * llStateEntrySize;
+    OP_TILING_CHECK(combineStateSize > llStateTimeoutOffset,
                     OP_LOGE(nodeName, "V2 combine state overlaps timeout probe, needed=%lu, capacity=%lu.",
-                            combineStateSize, Moe::A3WindowLayout::kLlStateTimeoutOffset),
+                            combineStateSize, llStateTimeoutOffset),
                     return ge::GRAPH_FAILED);
-    uint64_t reservedSize =
-        tilingData->moeDistributeCombineV2Info.isHybridDeployment ? Moe::A3WindowLayout::kPerHalfReservedSize : 0UL;
+    uint64_t reservedSize = tilingData->moeDistributeCombineV2Info.isHybridDeployment ? hybridReservedSize : 0UL;
     uint64_t actualSize = (perHalfDataSize + reservedSize) * DOUBLE_DATA_BUFFER;
     OP_TILING_CHECK(
         (actualSize > maxWindowSize),
@@ -1235,7 +1354,7 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
             maxBs, h, epWorldSize, localMoeExpertNum, sharedExpertNum, tokenNeedSizeDispatch, tokenNeedSizeCombine, k,
             tilingData->moeDistributeCombineV2Info.isHybridDeployment, combineStateSize,
             tilingData->moeDistributeCombineV2Info.isHybridDeployment
-                ? Moe::A3WindowLayout::kLlStateTimeoutOffset
+                ? llStateTimeoutOffset
                 : Moe::A3WindowLayout::kLegacyLlStateTimeoutOffset,
             perHalfDataSize, reservedSize, actualSize / MB_SIZE + 1UL, maxWindowSize / MB_SIZE),
         return ge::GRAPH_FAILED);
@@ -1245,10 +1364,29 @@ static ge::graphStatus MoeDistributeCombineA3TilingFuncImpl(gert::TilingContext 
     uint64_t aivNum = ascendcPlatform.GetCoreNumAiv();
     uint64_t ubSize = 0UL;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
+    OP_TILING_CHECK(aivNum == 0UL, OP_LOGE(nodeName, "MXFP8 low-latency combine requires at least one AIV core."),
+                    return ge::GRAPH_FAILED);
     blockDim = ascendcPlatform.CalcTschBlockDim(aivNum, 0, aivNum);
     context->SetBlockDim(blockDim);
     tilingData->moeDistributeCombineV2Info.aivNum = aivNum;
     tilingData->moeDistributeCombineV2Info.totalUbSize = ubSize;
+    if (commQuantMode == MXFP8_E4M3_COMM_QUANT) {
+        uint64_t mxPeakUbBytes = CalcA5Mxfp8CombinePeakUb(tilingData->moeDistributeCombineV2Info, MXFP8_BUFFER_DOUBLE);
+        uint32_t mxBufferNum = MXFP8_BUFFER_DOUBLE;
+        if (mxPeakUbBytes > ubSize) {
+            mxBufferNum = MXFP8_BUFFER_SINGLE;
+            mxPeakUbBytes = CalcA5Mxfp8CombinePeakUb(tilingData->moeDistributeCombineV2Info, mxBufferNum);
+        }
+        OP_TILING_CHECK(mxPeakUbBytes > ubSize,
+                        OP_LOGE(nodeName,
+                                "MXFP8 low-latency combine UB capacity is insufficient: peak=%lu bytes, UB=%lu bytes "
+                                "even with a single queue buffer.",
+                                mxPeakUbBytes, ubSize),
+                        return ge::GRAPH_FAILED);
+        tilingData->moeDistributeCombineV2Info.a5MxCombineBufferNum = mxBufferNum;
+        OP_LOGD(nodeName, "MXFP8 combine UB peak=%lu bytes, UB=%lu bytes, queueBuffers=%u.", mxPeakUbBytes, ubSize,
+                mxBufferNum);
+    }
     context->SetScheduleMode(1);  // 设置为batch mode模式，所有核同时启动
     OP_LOGD(nodeName, "blockdim = %u, aivNum = %lu, ubsize = %lu", blockDim, aivNum, ubSize);
     PrintTilingDataInfo(nodeName, *tilingData);
