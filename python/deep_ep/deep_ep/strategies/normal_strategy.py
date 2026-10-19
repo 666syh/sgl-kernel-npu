@@ -99,7 +99,21 @@ class DefaultNormalCommStrategy(NormalEPCommStrategy):
         EventOverlap,
     ]:
 
-        if self.runtime.get_num_rdma_ranks() > 1:
+        # Layered normal owns its server topology through
+        # DEEPEP_NORMAL_LAYERED_RANKS_PER_SERVER.  Do not let the legacy fixed
+        # RDMA-rank heuristic route it back to the intranode implementation.
+        if (
+            self.runtime.get_num_rdma_ranks() > 1
+            or os.getenv("DEEPEP_ENABLE_NORMAL_LAYERED") == "1"
+        ):
+            if (
+                quant_mode not in (None, "bf16")
+                or isinstance(x, tuple)
+                or os.getenv("DEEP_NORMAL_MODE_USE_INT8_QUANT") == "1"
+            ):
+                raise ValueError(
+                    "normal layered dispatch currently supports BF16/FP16 only"
+                )
             return self._internode_dispatch(
                 x,
                 handle,
@@ -314,6 +328,7 @@ class DefaultNormalCommStrategy(NormalEPCommStrategy):
             async_finish,
             allocate_on_comm_stream,
             use_quant,
+            expert_alignment,
         )
 
         handle = (
@@ -350,7 +365,10 @@ class DefaultNormalCommStrategy(NormalEPCommStrategy):
         combine_send_cost_stats: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], EventOverlap]:
 
-        if self.runtime.get_num_rdma_ranks() > 1:
+        if (
+            self.runtime.get_num_rdma_ranks() > 1
+            or os.getenv("DEEPEP_ENABLE_NORMAL_LAYERED") == "1"
+        ):
             return self._internode_combine(
                 x,
                 handle,

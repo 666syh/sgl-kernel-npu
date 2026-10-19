@@ -3,6 +3,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
+#include <limits>
 #include <vector>
 #include <pybind11/functional.h>
 
@@ -11,6 +12,9 @@
 #include "deep_ep.hpp"
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.hpp"
 #include "pytorch_npu_helper.hpp"
+#include "torch_npu/csrc/aten/common/from_blob.h"
+#include "cam_moe_layered_roce_context.hpp"
+#include "ops/op_kernel/cam_moe_layered_plan.h"
 
 namespace deep_ep {
 constexpr int PADDING_SIZE = 1;
@@ -37,6 +41,10 @@ constexpr uint32_t MAX_ROUNDS = 256;
 constexpr uint32_t MIN_TOKENS_PER_ROUND = 32;
 constexpr uint32_t MAX_TOKENS_PER_ROUND = 8192;
 constexpr uint32_t MAX_TOTAL_TOKENS = 131072;
+#ifdef __DAV_C310__
+constexpr char kLayeredRoceContextTagSuffix[] = "_cam_moe_layered_roce";
+extern "C" HcclResult HcomGetCommHandleByGroup(const char *groupName, HcclComm *comm) __attribute__((weak));
+#endif
 
 Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
                std::string moe_all_to_all_group_name)
@@ -49,6 +57,10 @@ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t n
 {
     rdma_rank = rank;
     EP_HOST_ASSERT(0 <= rank and rank < num_ranks);
+    layered_mode = layered_enabled();
+    if (layered_mode) {
+        layered_topology_cache = layered_topology(rank, num_ranks);
+    }
 
     if (moe_all_to_all_group_name.empty()) {
         // ep domain
@@ -134,7 +146,8 @@ Buffer::get_dispatch_layout(const torch::Tensor &topk_idx, int num_experts, std:
     const int64_t actual_rounds = (static_cast<int64_t>(num_tokens) + per_round_tokens - 1) / per_round_tokens;
     EP_HOST_ASSERT_S(actual_rounds <= static_cast<int>(MAX_ROUNDS), "actual_rounds (", actual_rounds,
                      ") must not exceed MAX_ROUNDS (", MAX_ROUNDS, ").");
-    const int local_ranksize = LOCAL_RANK_SIZE;
+    const int local_ranksize =
+        layered_mode ? static_cast<int>(layered_topology_cache.ranks_per_server) : LOCAL_RANK_SIZE;
     auto server_num = num_ranks / local_ranksize;
     auto device = topk_idx.device();
 
@@ -188,11 +201,18 @@ torch::Tensor Buffer::get_notify_send_data()
 
 int Buffer::get_num_rdma_ranks() const
 {
+    if (layered_mode) {
+        return static_cast<int>(layered_topology_cache.server_num);
+    }
     return num_rdma_ranks;
 }
 
 int Buffer::get_rdma_rank() const
 {
+    if (layered_mode) {
+        const auto &topology = layered_topology_cache;
+        return static_cast<int>(rank / topology.ranks_per_server);
+    }
     return rdma_rank;
 }
 
@@ -436,6 +456,8 @@ Buffer::notify_verify(const at::Tensor &x, const std::optional<at::Tensor> &x_sc
                       int num_worst_tokens, const Config &config, std::optional<EventHandle> &previous_event,
                       bool async, bool allocate_on_comm_stream, bool use_quant)
 {
+    EP_HOST_ASSERT_S(!layered_mode, "notify_verify",
+                     " is not supported for normal layered mode; dispatch builds the plan");
     // One channel use two blocks, even-numbered blocks for sending, odd-numbered blocks for receiving.
     EP_HOST_ASSERT(config.num_sms % 2 == 0);
     int num_channels = config.num_sms / 2;
@@ -620,12 +642,15 @@ Buffer::intranode_combine(const torch::Tensor &x, const torch::Tensor &topk_idx,
 std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<torch::Tensor>, std::optional<torch::Tensor>,
            std::vector<int>, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor,
            std::optional<EventHandle>>
-Buffer::internode_dispatch(
-    const torch::Tensor &x, const std::optional<torch::Tensor> &x_scales, const std::optional<torch::Tensor> &topk_idx,
-    const std::optional<torch::Tensor> &topk_weights, const std::optional<torch::Tensor> &num_tokens_per_rank,
-    const std::optional<torch::Tensor> &num_tokens_per_rdma_rank, const torch::Tensor &is_token_in_rank,
-    const std::optional<torch::Tensor> &num_tokens_per_expert, const Config &config,
-    std::optional<EventHandle> &previous_event, bool async, bool allocate_on_comm_stream, bool use_quant)
+Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Tensor> &x_scales,
+                           const std::optional<torch::Tensor> &topk_idx,
+                           const std::optional<torch::Tensor> &topk_weights,
+                           const std::optional<torch::Tensor> &num_tokens_per_rank,
+                           const std::optional<torch::Tensor> &num_tokens_per_rdma_rank,
+                           const torch::Tensor &is_token_in_rank,
+                           const std::optional<torch::Tensor> &num_tokens_per_expert, const Config &config,
+                           std::optional<EventHandle> &previous_event, bool async, bool allocate_on_comm_stream,
+                           bool use_quant, int expert_alignment)
 {
     // One channel use two blocks, even-numbered blocks for sending, odd-numbered blocks for receiving.
     EP_HOST_ASSERT(config.num_sms % 2 == 0);
@@ -647,7 +672,9 @@ Buffer::internode_dispatch(
     EP_HOST_ASSERT(num_tokens_per_rank->size(0) == num_ranks);
 
     auto num_tokens = static_cast<int>(new_x.size(0)), hidden = static_cast<int>(new_x.size(1));
-    auto num_experts = static_cast<int64_t>(num_tokens_per_expert->size(0));
+    // DispatchLayout returns one expert-count row per configured round.
+    EP_HOST_ASSERT(num_tokens_per_expert->size(0) % round == 0);
+    auto num_experts = static_cast<int64_t>(num_tokens_per_expert->size(0) / round);
     auto num_local_experts = static_cast<int>(num_experts / num_ranks);
 
     // Top-k checks
@@ -658,10 +685,13 @@ Buffer::internode_dispatch(
         num_topk = static_cast<int>(topk_idx->size(1));
         EP_HOST_ASSERT(num_experts > 0);
         EP_HOST_ASSERT(topk_idx->dim() == 2 and topk_idx->is_contiguous());
-        EP_HOST_ASSERT(topk_weights->dim() == 2 and topk_weights->is_contiguous());
         EP_HOST_ASSERT(num_tokens == expert_ids.size(0));
-        EP_HOST_ASSERT(num_topk == topk_weights->size(1));
-        EP_HOST_ASSERT(topk_weights->scalar_type() == at::kFloat);
+        if (topk_weights.has_value()) {
+            EP_HOST_ASSERT(topk_weights->dim() == 2 and topk_weights->is_contiguous());
+            EP_HOST_ASSERT(num_tokens == topk_weights->size(0));
+            EP_HOST_ASSERT(num_topk == topk_weights->size(1));
+            EP_HOST_ASSERT(topk_weights->scalar_type() == at::kFloat);
+        }
     }
 
     auto device = x.device();
@@ -670,6 +700,100 @@ Buffer::internode_dispatch(
         new_topk_weights = topk_weights.value();
     } else {
         new_topk_weights = at::ones({num_tokens, num_topk}, at::dtype(at::kFloat).device(device));
+    }
+
+    if (layered_mode) {
+        EP_HOST_ASSERT_S(!use_quant, "normal layered dispatch", " currently supports BF16/FP16 only");
+        EP_HOST_ASSERT_S(new_x.scalar_type() == at::kBFloat16 || new_x.scalar_type() == at::kHalf,
+                         "normal layered dispatch", " currently supports BF16/FP16 only");
+        EP_HOST_ASSERT_S(expert_alignment > 0, "normal layered dispatch", " expert_alignment must be positive");
+        const auto &topology = layered_topology_cache;
+        const int64_t max_bs = static_cast<int64_t>(round) * per_round_tokens;
+        const int64_t slots = max_bs;
+        EP_HOST_ASSERT_S(slots > 0, "normal layered capacity", " must be positive");
+        const int64_t physical_rounds = 1;
+        const auto layered_window = CamMoeLayered::MakeWindowLayout(
+            static_cast<uint32_t>(num_experts), static_cast<uint32_t>(num_ranks),
+            static_cast<uint32_t>(topology.ranks_per_server), static_cast<uint32_t>(topology.server_num), 1U,
+            static_cast<uint32_t>(max_bs), CamMoeLayered::DispatchRecordStride(hidden, num_topk, 2U),
+            CamMoeLayered::PartialRecordStride(hidden, 2U), static_cast<uint32_t>(num_topk));
+        EP_HOST_ASSERT_S(layered_window.requiredBytes > 0U, "normal layered window", " capacity arithmetic overflowed");
+        char hcom_ep_name[HCOMM_NAME_LEN];
+        if (!moe_all_to_all_group_name.empty()) {
+            std::memcpy(hcom_ep_name, moe_all_to_all_group_name.data(), moe_all_to_all_group_name.size() + 1);
+        } else {
+            HCCL_CHECK(HcclGetCommName(ep_comm, hcom_ep_name));
+        }
+#ifdef __DAV_C310__
+        if (!layered_roce_context.defined()) {
+            HcclComm layeredComm = ep_comm;
+            if (!moe_all_to_all_group_name.empty()) {
+                EP_HOST_ASSERT_S(HcomGetCommHandleByGroup != nullptr, "normal layered A5",
+                                 " HCCL group lookup is unavailable");
+                HCCL_CHECK(HcomGetCommHandleByGroup(moe_all_to_all_group_name.c_str(), &layeredComm));
+            }
+            LayeredRoceResource resource;
+            const std::string contextTag = std::string(hcom_ep_name) + kLayeredRoceContextTagSuffix;
+            HCCL_CHECK(BuildLayeredRoceContext(layeredComm, contextTag.c_str(),
+                                               static_cast<uint32_t>(topology.ranks_per_server),
+                                               layered_window.requiredBytes, resource));
+            layered_window_bytes = resource.windowBytes;
+            const int64_t elements =
+                static_cast<int64_t>((sizeof(CamMoeLayeredRoceContext) + sizeof(int32_t) - 1U) / sizeof(int32_t));
+            auto options = at::TensorOptions().dtype(at::kInt).device(device);
+            layered_roce_context = at_npu::native::from_blob(resource.deviceContext, {elements}, options);
+        }
+#else
+        if (!layered_roce_context.defined()) {
+            layered_roce_context = at::empty({1}, at::dtype(at::kInt).device(device));
+        }
+#endif
+        const auto plan_layout =
+            layered_plan_layout(num_tokens, max_bs, num_topk, num_experts, num_ranks, topology.server_num,
+                                topology.ranks_per_server, physical_rounds, slots);
+        auto int_options = at::dtype(at::kInt).device(device);
+        auto recv_tokens_per_expert_i32 = at::empty({num_local_experts}, int_options);
+        auto plan = at::empty({plan_layout.total}, int_options);
+        auto expert_total = at::empty({1}, int_options);
+        const int64_t epoch = static_cast<int64_t>(++layered_epoch);
+        EXEC_NPU_CMD(aclnnNotifyDispatchNormalLayered, layered_roce_context, expert_ids, hcom_ep_name, num_ranks, rank,
+                     topology.ranks_per_server, num_experts, slots, 1, epoch, hidden, max_bs, expert_alignment,
+                     recv_tokens_per_expert_i32, plan, expert_total);
+        const int32_t notify_error = plan.narrow(0, plan_layout.error, 1).to(at::kCPU).item<int32_t>();
+        EP_HOST_ASSERT_S(notify_error == 0, "normal layered notify", " transport, topology, or route planning failed");
+        const int64_t actual_total = expert_total.to(at::kCPU).item<int32_t>();
+        EP_HOST_ASSERT_S(actual_total >= 0, "normal layered notify", " returned a negative compact row count");
+        const int64_t recv_rows = std::max<int64_t>(actual_total, 1);
+        auto recv_x = at::empty({recv_rows, hidden}, x.options());
+        auto assist = at::full({recv_rows, CamMoeLayered::ASSIST_INFO_STRIDE}, -1, int_options);
+        auto recv_topk_idx_i32 = at::full({recv_rows, num_topk}, CamMoeLayered::INVALID_SLOT, int_options);
+        auto recv_topk_weights = at::zeros({recv_rows, num_topk}, at::dtype(at::kFloat).device(device));
+        EXEC_NPU_CMD(aclnnCamMoeDispatchNormalLayered, layered_roce_context, new_x, new_topk_weights, expert_ids, plan,
+                     hcom_ep_name, num_ranks, rank, hcom_ep_name, 1, 0, num_experts, topology.ranks_per_server, slots,
+                     1, max_bs, recv_x, assist, recv_topk_idx_i32, recv_topk_weights);
+        const int32_t dispatch_error = plan.narrow(0, plan_layout.error, 1).to(at::kCPU).item<int32_t>();
+        EP_HOST_ASSERT_S(dispatch_error == 0, "normal layered dispatch", " transport or server fan-out failed");
+        auto counts_cpu = recv_tokens_per_expert_i32.to(at::kCPU);
+        std::vector<int> compact_counts;
+        const auto *count_ptr = counts_cpu.data_ptr<int32_t>();
+        for (int local_expert = 0; local_expert < num_local_experts; ++local_expert) {
+            compact_counts.emplace_back(count_ptr[local_expert]);
+        }
+        constexpr int32_t kLayeredHandleMagic = static_cast<int32_t>(0x4C48444CU);  // "LHDL"
+        auto handle_marker = at::full({1}, kLayeredHandleMagic, int_options);
+        auto recv_topk_idx = recv_topk_idx_i32.to(topk_idx->scalar_type());
+        return {recv_x,
+                std::nullopt,
+                recv_topk_idx,
+                recv_topk_weights,
+                compact_counts,
+                assist,
+                plan,
+                plan.narrow(0, plan_layout.local_expert_count, num_local_experts),
+                plan.narrow(0, plan_layout.local_expert_offset, num_local_experts),
+                recv_tokens_per_expert_i32,
+                handle_marker,
+                std::nullopt};
     }
 
     // FP8 scales checks
@@ -809,6 +933,59 @@ std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<EventHandl
     const torch::Tensor &src_idx, const torch::Tensor &send_head, const torch::Tensor &offsetInner,
     const torch::Tensor &offsetOuter, const torch::Tensor &countOuter, const torch::Tensor &expand_scales)
 {
+    if (layered_mode) {
+        const auto &topology = layered_topology_cache;
+        constexpr int32_t kLayeredHandleMagic = static_cast<int32_t>(0x4C48444CU);  // "LHDL"
+        EP_HOST_ASSERT_S(expand_scales.numel() == 1 && expand_scales.scalar_type() == at::kInt &&
+                             expand_scales.to(at::kCPU).item<int32_t>() == kLayeredHandleMagic,
+                         "normal layered combine", " requires a layered dispatch handle");
+        EP_HOST_ASSERT_S(src_idx.dim() == 2 && src_idx.size(1) == CamMoeLayered::ASSIST_INFO_STRIDE,
+                         "normal layered combine", " combine route ABI is invalid");
+        EP_HOST_ASSERT_S(send_head.dim() == 1 && send_head.numel() >= CamMoeLayered::HeaderElements(),
+                         "normal layered combine", " layered plan ABI is invalid");
+        auto plan_header_cpu = send_head.narrow(0, 0, CamMoeLayered::HeaderElements()).to(at::kCPU).contiguous();
+        const auto *plan_header =
+            reinterpret_cast<const CamMoeLayered::PlanHeader *>(plan_header_cpu.data_ptr<int32_t>());
+        EP_HOST_ASSERT_S(plan_header->magic == CamMoeLayered::PLAN_MAGIC &&
+                             plan_header->version == CamMoeLayered::PLAN_VERSION &&
+                             plan_header->worldSize == static_cast<uint32_t>(num_ranks) &&
+                             plan_header->rankId == static_cast<uint32_t>(rank) &&
+                             plan_header->ranksPerServer == topology.ranks_per_server,
+                         "normal layered combine", " layered plan topology differs from the current Buffer");
+        EP_HOST_ASSERT_S(x.dim() == 2 && x.is_contiguous() && x.size(1) == plan_header->hiddenSize,
+                         "normal layered combine", " expert output shape differs from layered dispatch");
+        auto counts_cpu = countOuter.to(at::kCPU);
+        int64_t expected_rows = 0;
+        const auto *counts = counts_cpu.data_ptr<int32_t>();
+        for (int64_t i = 0; i < countOuter.numel(); ++i) {
+            EP_HOST_ASSERT_S(counts[i] >= 0, "normal layered combine", " received a negative expert row count");
+            expected_rows += counts[i];
+        }
+        EP_HOST_ASSERT_S(x.size(0) == std::max<int64_t>(expected_rows, 1), "normal layered combine",
+                         " expert output row count differs from compact layered receive layout");
+        EP_HOST_ASSERT_S(topk_idx.dim() == 2 && topk_idx.size(0) == plan_header->bs, "normal layered combine",
+                         " source token shape differs from layered dispatch");
+
+        char hcom_ep_name[HCOMM_NAME_LEN];
+        if (!moe_all_to_all_group_name.empty()) {
+            std::memcpy(hcom_ep_name, moe_all_to_all_group_name.data(), moe_all_to_all_group_name.size() + 1);
+        } else {
+            HCCL_CHECK(HcclGetCommName(ep_comm, hcom_ep_name));
+        }
+        const int64_t owner_capacity = std::max<int64_t>(plan_header->globalCombineRows, 1);
+#ifdef __DAV_C310__
+        EP_HOST_ASSERT_S(layered_window_bytes > 0 &&
+                             layered_window_bytes <= static_cast<uint64_t>(std::numeric_limits<int64_t>::max()),
+                         "normal layered combine", " registered window capacity is invalid");
+#endif
+        auto combined_x = torch::empty({plan_header->bs, plan_header->hiddenSize}, x.options());
+        EXEC_NPU_CMD(aclnnCamMoeCombineNormalLayered, layered_roce_context, x, send_head, src_idx, hcom_ep_name,
+                     num_ranks, rank, hcom_ep_name, 1, 0, plan_header->expertNum, plan_header->bs, round,
+                     per_round_tokens, topology.ranks_per_server, plan_header->maxBs, 1, topk_idx.size(1),
+                     plan_header->maxBs, owner_capacity, static_cast<int64_t>(++layered_combine_epoch),
+                     static_cast<int64_t>(layered_window_bytes), combined_x);
+        return {combined_x, std::nullopt, std::nullopt};
+    }
     EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous());
     at::Tensor recv_x = x;
     at::Tensor expert_ids = topk_idx.to(at::kInt);

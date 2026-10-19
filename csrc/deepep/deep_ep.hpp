@@ -12,6 +12,7 @@
 
 #include "config.hpp"
 #include "event.hpp"
+#include "layered_config.hpp"
 
 namespace deep_ep {
 
@@ -44,6 +45,12 @@ private:
     HcclComm ep_comm;
 
     bool available = false;
+    bool layered_mode = false;
+    LayeredTopology layered_topology_cache{};
+    uint64_t layered_epoch = 0;
+    uint64_t layered_combine_epoch = 0;
+    uint64_t layered_window_bytes = 0;
+    at::Tensor layered_roce_context;
 
 public:
     Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
@@ -103,7 +110,7 @@ public:
                        const std::optional<torch::Tensor> &num_tokens_per_rdma_rank,
                        const torch::Tensor &is_token_in_rank, const std::optional<torch::Tensor> &num_tokens_per_expert,
                        const Config &config, std::optional<EventHandle> &previous_event, bool async,
-                       bool allocate_on_comm_stream, bool use_quant);
+                       bool allocate_on_comm_stream, bool use_quant, int expert_alignment = 1);
 
     std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<EventHandle>> internode_combine(
         const torch::Tensor &x, const torch::Tensor &topk_idx, const std::optional<torch::Tensor> &topk_weights,

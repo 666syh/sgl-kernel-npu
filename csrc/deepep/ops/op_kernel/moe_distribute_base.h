@@ -240,6 +240,18 @@ struct HcclOpResParam {
 
     MemDetails1 userMemRes[768];  // 下标为rank id
     uint32_t userMemType = 0;
+
+    HcclStreamParam aicpuOrderStreamParam;  // 按序下发的stream
+    uint64_t aicpuOrderNotifyAddr;
+    uint64_t aicpuOrderNotifySize;
+    // ARS算法属性
+    uint32_t multiSuperPodDiffDeviceNumMode;
+    bool isARSDoubleRing;
+    // 读取HCCL_ENTRY_LOG_ENABLE环境变量，用于增加算子kernel展开信息
+    bool opEntry{false};
+    uint32_t hcclSdmaQos;          // HCCL SDMA QOS TAG
+    uint64_t sizeOfAiRMAInfo = 0;  // 用于内存校验
+    uint64_t aiRMAInfo = 0;        // HcclAiRMAInfo* 单个结构体指针
 };
 
 // Transport 内存类型
@@ -389,6 +401,24 @@ struct ReadTokenMetaDataStruct {
 };
 
 __aicore__ inline void cacheWriteThrough(__gm__ uint8_t *sourceAddr, uint64_t length)
+{
+    __gm__ uint8_t *start =
+        (__gm__ uint8_t *)((uint64_t)sourceAddr / AscendC::CACHE_LINE_SIZE * AscendC::CACHE_LINE_SIZE);
+    if (length == 0) {
+        return;
+    }
+    __gm__ uint8_t *end =
+        (__gm__ uint8_t *)(((uint64_t)sourceAddr + length - 1) / AscendC::CACHE_LINE_SIZE * AscendC::CACHE_LINE_SIZE);
+    AscendC::GlobalTensor<uint8_t> global;
+    global.SetGlobalBuffer(start);
+    for (uint32_t i = 0; i <= end - start; i += AscendC::CACHE_LINE_SIZE) {
+        AscendC::DataCacheCleanAndInvalid<uint8_t, AscendC::CacheLine::SINGLE_CACHE_LINE,
+                                          AscendC::DcciDst::CACHELINE_OUT>(global[i]);
+    }
+}
+// Invalidate locally cached lines before polling data written by a peer.
+// This is a read-side operation and must not be used for publishing writes.
+__aicore__ inline void cacheReadInvalidate(__gm__ uint8_t *sourceAddr, uint64_t length)
 {
     __gm__ uint8_t *start =
         (__gm__ uint8_t *)((uint64_t)sourceAddr / AscendC::CACHE_LINE_SIZE * AscendC::CACHE_LINE_SIZE);
