@@ -13,7 +13,7 @@
 #include "profiling/adapters/fused_deep_moe_a5/fused_deep_moe_a5_profile_adapter.hpp"
 #include "pytorch_npu_helper.hpp"
 #include "torch_npu/csrc/aten/common/from_blob.h"
-#include "cam_moe_layered_roce_context.hpp"
+#include "cam_moe_layered_comm_context.hpp"
 #include "ops/op_kernel/cam_moe_layered_plan.h"
 
 namespace deep_ep {
@@ -42,9 +42,24 @@ constexpr uint32_t MIN_TOKENS_PER_ROUND = 32;
 constexpr uint32_t MAX_TOKENS_PER_ROUND = 8192;
 constexpr uint32_t MAX_TOTAL_TOKENS = 131072;
 #ifdef __DAV_C310__
-constexpr char kLayeredRoceContextTagSuffix[] = "_cam_moe_layered_roce";
 extern "C" HcclResult HcomGetCommHandleByGroup(const char *groupName, HcclComm *comm) __attribute__((weak));
 #endif
+
+CamMoeLayeredProtocol GetLayeredProtocol()
+{
+#ifdef __DAV_C310__
+    const char *value = std::getenv("DEEPEP_LAYERED_PROTOCAL");
+    EP_HOST_ASSERT_S(value != nullptr, "DEEPEP_LAYERED_PROTOCAL", " must be set to roce or uboe on A5");
+    if (std::strcmp(value, "roce") == 0) {
+        return CAM_MOE_LAYERED_PROTOCOL_ROCE;
+    }
+    if (std::strcmp(value, "uboe") == 0) {
+        return CAM_MOE_LAYERED_PROTOCOL_UBOE;
+    }
+    EP_HOST_ASSERT_S(false, "DEEPEP_LAYERED_PROTOCAL", " must be exactly roce or uboe on A5");
+#endif
+    return CAM_MOE_LAYERED_PROTOCOL_UBOE;
+}
 
 Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
                std::string moe_all_to_all_group_name)
@@ -57,21 +72,52 @@ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t n
 {
     rdma_rank = rank;
     EP_HOST_ASSERT(0 <= rank and rank < num_ranks);
+    ACL_CHECK(aclrtGetDevice(&device_id));
     layered_mode = layered_enabled();
     if (layered_mode) {
         layered_topology_cache = layered_topology(rank, num_ranks);
+#ifdef __DAV_C310__
+        layered_protocol = GetLayeredProtocol();
+#endif
     }
 
     if (moe_all_to_all_group_name.empty()) {
         // ep domain
         HcclRootInfo rootInfo;
         HcclGetRootInfo(&rootInfo);
-        ACL_CHECK(aclrtGetDevice(&device_id));
         // 初始化通信域
         HcclCommInitRootInfo(num_ranks, &rootInfo, device_id, &ep_comm);
     } else {
         EP_HOST_ASSERT(moe_all_to_all_group_name.size() < HCOMM_NAME_LEN);
     }
+
+#ifdef __DAV_C310__
+    if (layered_mode) {
+        HcclComm layeredComm = ep_comm;
+        char contextGroup[HCOMM_NAME_LEN] = {};
+        if (!moe_all_to_all_group_name.empty()) {
+            EP_HOST_ASSERT_S(HcomGetCommHandleByGroup != nullptr, "normal layered A5",
+                             " HCCL group lookup is unavailable");
+            HCCL_CHECK(HcomGetCommHandleByGroup(moe_all_to_all_group_name.c_str(), &layeredComm));
+            std::memcpy(contextGroup, moe_all_to_all_group_name.data(), moe_all_to_all_group_name.size() + 1U);
+        } else {
+            HCCL_CHECK(HcclGetCommName(layeredComm, contextGroup));
+        }
+        layered_context_manager = std::make_unique<LayeredCommContextManager>();
+        const char *protocolName = layered_protocol == CAM_MOE_LAYERED_PROTOCOL_ROCE ? "roce" : "uboe";
+        const std::string contextTag = std::string("deepep_layered_v2_") + contextGroup + "_" + protocolName;
+        LayeredCommResource resource;
+        const HcclResult contextRet = layered_context_manager->Create(
+            layeredComm, contextTag, layered_protocol, static_cast<uint32_t>(layered_topology_cache.ranks_per_server),
+            1U, resource);
+        HCCL_CHECK(contextRet);
+        layered_window_bytes = resource.windowBytes;
+        const int64_t elements =
+            static_cast<int64_t>((sizeof(CamMoeLayeredCommContext) + sizeof(int32_t) - 1U) / sizeof(int32_t));
+        auto options = at::TensorOptions().dtype(at::kInt).device(at::Device(at::kPrivateUse1, device_id));
+        layered_context = at_npu::native::from_blob(resource.engineContext, {elements}, options);
+    }
+#endif
 
     this->shared_expert_rank_num = get_value_from_env("MOE_SHARED_EXPERT_RANK_NUM", 0);
     const char *roundEnv = std::getenv("DEEPEP_NORMAL_LONG_SEQ_ROUND");
@@ -716,7 +762,8 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
             static_cast<uint32_t>(num_experts), static_cast<uint32_t>(num_ranks),
             static_cast<uint32_t>(topology.ranks_per_server), static_cast<uint32_t>(topology.server_num), 1U,
             static_cast<uint32_t>(max_bs), CamMoeLayered::DispatchRecordStride(hidden, num_topk, 2U),
-            CamMoeLayered::PartialRecordStride(hidden, 2U), static_cast<uint32_t>(num_topk));
+            CamMoeLayered::PartialRecordStride(hidden, 2U), static_cast<uint32_t>(num_topk),
+            Mc2TilingUtils::IsHybridDeployment());
         EP_HOST_ASSERT_S(layered_window.requiredBytes > 0U, "normal layered window", " capacity arithmetic overflowed");
         char hcom_ep_name[HCOMM_NAME_LEN];
         if (!moe_all_to_all_group_name.empty()) {
@@ -725,27 +772,11 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
             HCCL_CHECK(HcclGetCommName(ep_comm, hcom_ep_name));
         }
 #ifdef __DAV_C310__
-        if (!layered_roce_context.defined()) {
-            HcclComm layeredComm = ep_comm;
-            if (!moe_all_to_all_group_name.empty()) {
-                EP_HOST_ASSERT_S(HcomGetCommHandleByGroup != nullptr, "normal layered A5",
-                                 " HCCL group lookup is unavailable");
-                HCCL_CHECK(HcomGetCommHandleByGroup(moe_all_to_all_group_name.c_str(), &layeredComm));
-            }
-            LayeredRoceResource resource;
-            const std::string contextTag = std::string(hcom_ep_name) + kLayeredRoceContextTagSuffix;
-            HCCL_CHECK(BuildLayeredRoceContext(layeredComm, contextTag.c_str(),
-                                               static_cast<uint32_t>(topology.ranks_per_server),
-                                               layered_window.requiredBytes, resource));
-            layered_window_bytes = resource.windowBytes;
-            const int64_t elements =
-                static_cast<int64_t>((sizeof(CamMoeLayeredRoceContext) + sizeof(int32_t) - 1U) / sizeof(int32_t));
-            auto options = at::TensorOptions().dtype(at::kInt).device(device);
-            layered_roce_context = at_npu::native::from_blob(resource.deviceContext, {elements}, options);
-        }
+        EP_HOST_ASSERT_S(layered_context.defined() && layered_window_bytes >= layered_window.requiredBytes,
+                         "normal layered window", " Buffer-owned registered context capacity is insufficient");
 #else
-        if (!layered_roce_context.defined()) {
-            layered_roce_context = at::empty({1}, at::dtype(at::kInt).device(device));
+        if (!layered_context.defined()) {
+            layered_context = at::empty({1}, at::dtype(at::kInt).device(device));
         }
 #endif
         const auto plan_layout =
@@ -756,7 +787,7 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
         auto plan = at::empty({plan_layout.total}, int_options);
         auto expert_total = at::empty({1}, int_options);
         const int64_t epoch = static_cast<int64_t>(++layered_epoch);
-        EXEC_NPU_CMD(aclnnNotifyDispatchNormalLayered, layered_roce_context, expert_ids, hcom_ep_name, num_ranks, rank,
+        EXEC_NPU_CMD(aclnnNotifyDispatchNormalLayered, layered_context, expert_ids, hcom_ep_name, num_ranks, rank,
                      topology.ranks_per_server, num_experts, slots, 1, epoch, hidden, max_bs, expert_alignment,
                      recv_tokens_per_expert_i32, plan, expert_total);
         const int32_t notify_error = plan.narrow(0, plan_layout.error, 1).to(at::kCPU).item<int32_t>();
@@ -768,7 +799,7 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
         auto assist = at::full({recv_rows, CamMoeLayered::ASSIST_INFO_STRIDE}, -1, int_options);
         auto recv_topk_idx_i32 = at::full({recv_rows, num_topk}, CamMoeLayered::INVALID_SLOT, int_options);
         auto recv_topk_weights = at::zeros({recv_rows, num_topk}, at::dtype(at::kFloat).device(device));
-        EXEC_NPU_CMD(aclnnCamMoeDispatchNormalLayered, layered_roce_context, new_x, new_topk_weights, expert_ids, plan,
+        EXEC_NPU_CMD(aclnnCamMoeDispatchNormalLayered, layered_context, new_x, new_topk_weights, expert_ids, plan,
                      hcom_ep_name, num_ranks, rank, hcom_ep_name, 1, 0, num_experts, topology.ranks_per_server, slots,
                      1, max_bs, recv_x, assist, recv_topk_idx_i32, recv_topk_weights);
         const int32_t dispatch_error = plan.narrow(0, plan_layout.error, 1).to(at::kCPU).item<int32_t>();
@@ -979,10 +1010,10 @@ std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<EventHandl
                          "normal layered combine", " registered window capacity is invalid");
 #endif
         auto combined_x = torch::empty({plan_header->bs, plan_header->hiddenSize}, x.options());
-        EXEC_NPU_CMD(aclnnCamMoeCombineNormalLayered, layered_roce_context, x, send_head, src_idx, hcom_ep_name,
-                     num_ranks, rank, hcom_ep_name, 1, 0, plan_header->expertNum, plan_header->bs, round,
-                     per_round_tokens, topology.ranks_per_server, plan_header->maxBs, 1, topk_idx.size(1),
-                     plan_header->maxBs, owner_capacity, static_cast<int64_t>(++layered_combine_epoch),
+        EXEC_NPU_CMD(aclnnCamMoeCombineNormalLayered, layered_context, x, send_head, src_idx, hcom_ep_name, num_ranks,
+                     rank, hcom_ep_name, 1, 0, plan_header->expertNum, plan_header->bs, round, per_round_tokens,
+                     topology.ranks_per_server, plan_header->maxBs, 1, topk_idx.size(1), plan_header->maxBs,
+                     owner_capacity, static_cast<int64_t>(++layered_combine_epoch),
                      static_cast<int64_t>(layered_window_bytes), combined_x);
         return {combined_x, std::nullopt, std::nullopt};
     }

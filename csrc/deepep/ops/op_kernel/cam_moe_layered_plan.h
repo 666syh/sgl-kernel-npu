@@ -3,11 +3,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "window_layout.h"
 
 namespace CamMoeLayered {
 
 constexpr uint32_t PLAN_MAGIC = 0x4C4D4F45U;  // "LMOE"
-constexpr uint32_t PLAN_VERSION = 21U;
+constexpr uint32_t PLAN_VERSION = 23U;
 constexpr uint32_t DISPATCH_CHUNK_TARGET_BYTES = 128U * 1024U;
 constexpr int32_t INVALID_SLOT = -1;
 constexpr uint32_t ALIGN_BYTES = 32U;
@@ -382,10 +383,11 @@ struct WindowLayout {
     uint64_t baseAckFanoutOwnerStride;
     uint64_t baseAckFanoutBytes;
     uint64_t baseAckFanoutFlagOffset;
-    uint64_t dispatchOffset;
-    uint64_t dispatchBytes;
-    uint64_t dispatchIngressOffset;
-    uint64_t dispatchIngressBytes;
+    // Per-invocation compact payload arena. Cross-server outbound staging
+    // occupies a prefix; inbound ingress follows the actual outbound bytes.
+    // Server-local fanout metadata lives in the separate fixed region below.
+    uint64_t dispatchPayloadOffset;
+    uint64_t dispatchPayloadCapacity;
     uint64_t dispatchPacketMetaOffset;
     uint64_t dispatchTokenRecordOffset;
     uint64_t dispatchMemberMetaOffset;
@@ -477,7 +479,7 @@ constexpr uint64_t DispatchBatchPayloadBytes(uint32_t packetCount, uint32_t memb
     const uint64_t tokenRecordOffset =
         AlignUp64(packetMetaOffset + static_cast<uint64_t>(packetCount) * sizeof(DispatchPacketMeta));
     const uint64_t memberMetaOffset = AlignUp64(tokenRecordOffset + static_cast<uint64_t>(packetCount) * recordStride);
-    return memberMetaOffset + static_cast<uint64_t>(memberCount) * sizeof(DispatchMemberMeta);
+    return AlignUp64(memberMetaOffset + static_cast<uint64_t>(memberCount) * sizeof(DispatchMemberMeta));
 }
 
 // All address calculations are byte-based. Source and target server are both
@@ -523,19 +525,9 @@ constexpr uint64_t ProxyOwnerCountOffset(uint32_t sourceServer, uint32_t round, 
 {
     return ((static_cast<uint64_t>(sourceServer) * rounds + round) * localExperts + localExpert) * sizeof(int32_t);
 }
-constexpr uint64_t DispatchBatchOffset(const WindowLayout &l, uint32_t targetServer)
+constexpr uint64_t DispatchPayloadAddress(const WindowLayout &l, uint64_t compactOffset)
 {
-    return l.dispatchOffset + static_cast<uint64_t>(targetServer) * l.dispatchBatchStride;
-}
-constexpr uint64_t DispatchIngressAddress(const WindowLayout &l, uint64_t compactOffset)
-{
-    return l.dispatchIngressOffset + compactOffset;
-}
-constexpr uint64_t DispatchBatchRecordOffset(const WindowLayout &l, uint32_t serverNum, uint32_t sourceServer,
-                                             uint32_t targetServer, uint32_t dispatchOrdinal, uint32_t recordStride)
-{
-    return DispatchBatchOffset(l, targetServer) + l.dispatchTokenRecordOffset +
-           static_cast<uint64_t>(dispatchOrdinal) * recordStride;
+    return l.dispatchPayloadOffset + compactOffset;
 }
 constexpr uint64_t DispatchMetadataFanoutOffset(const WindowLayout &l, uint32_t ranksPerServer, uint32_t sourceServer,
                                                 uint32_t proxyInServer)
@@ -599,7 +591,7 @@ constexpr uint64_t ReturnPartialLaneOffset(const WindowLayout &l, uint32_t serve
 
 constexpr WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, uint32_t ranksPerServer,
                                         uint32_t serverNum, uint32_t rounds, uint32_t slots, uint32_t recordStride,
-                                        uint32_t partialStride, uint32_t topk)
+                                        uint32_t partialStride, uint32_t topk, bool hybridDeployment = false)
 {
     WindowLayout l{};
     const uint32_t expertsPerServer = expertNum / serverNum;
@@ -637,9 +629,16 @@ constexpr WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, 
     l.baseAckFanoutOwnerStride = l.baseAckStageProxyStride;
     l.baseAckFanoutBytes = l.baseAckFanoutOwnerStride * ranksPerServer;
     l.baseAckFanoutFlagOffset = AlignUp64(l.baseAckFanoutOffset + l.baseAckFanoutBytes);
-    l.dispatchOffset = AlignUp64(l.baseAckFanoutFlagOffset + static_cast<uint64_t>(ranksPerServer) * sizeof(uint64_t));
-    // Outbound staging and inbound ingress are disjoint so self-targeted
-    // copies cannot overwrite batches still being sent to other servers.
+    const uint64_t metadataEnd =
+        AlignUp64(l.baseAckFanoutFlagOffset + static_cast<uint64_t>(ranksPerServer) * sizeof(uint64_t));
+#ifdef __DAV_C310__
+    l.dispatchPayloadOffset = hybridDeployment ? Moe::A5WindowLayout::kDataOffset : metadataEnd;
+#else
+    (void)hybridDeployment;
+    l.dispatchPayloadOffset = metadataEnd;
+#endif
+    // Reserve one worst-case arena for compact per-call outbound staging and
+    // inbound ingress. Notify computes their actual, non-overlapping ranges.
     l.dispatchPacketMetaOffset = sizeof(DispatchBatchMeta);
     l.dispatchTokenRecordOffset =
         AlignUp64(l.dispatchPacketMetaOffset + static_cast<uint64_t>(slots) * sizeof(DispatchPacketMeta));
@@ -648,13 +647,11 @@ constexpr WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, 
     l.dispatchMemberMetaStride = sizeof(DispatchMemberMeta);
     const uint64_t maxMembers = static_cast<uint64_t>(slots) * topk;
     l.dispatchBatchStride = AlignUp64(l.dispatchMemberMetaOffset + maxMembers * sizeof(DispatchMemberMeta));
-    l.dispatchBytes = static_cast<uint64_t>(serverNum) * l.dispatchBatchStride;
-    l.dispatchIngressOffset = AlignUp64(l.dispatchOffset + l.dispatchBytes);
-    l.dispatchIngressBytes = static_cast<uint64_t>(serverNum) * l.dispatchBatchStride;
+    l.dispatchPayloadCapacity = static_cast<uint64_t>(2U) * serverNum * l.dispatchBatchStride;
     l.dispatchFanoutMemberMetaOffset =
         AlignUp64(sizeof(DispatchBatchMeta) + static_cast<uint64_t>(slots) * sizeof(DispatchPacketMeta));
     l.dispatchFanoutBatchStride = AlignUp64(l.dispatchFanoutMemberMetaOffset + maxMembers * sizeof(DispatchMemberMeta));
-    l.dispatchFanoutOffset = AlignUp64(l.dispatchIngressOffset + l.dispatchIngressBytes);
+    l.dispatchFanoutOffset = AlignUp64(l.dispatchPayloadOffset + l.dispatchPayloadCapacity);
     l.dispatchFanoutBytes = static_cast<uint64_t>(serverNum) * ranksPerServer * l.dispatchFanoutBatchStride;
     l.dispatchMaxChunks = DispatchMaxChunks(slots, recordStride);
     l.dispatchPipelineFlagOffset = AlignUp64(l.dispatchFanoutOffset + l.dispatchFanoutBytes);
@@ -774,6 +771,9 @@ struct PlanLayout {
     uint32_t packetDesc;
     uint32_t memberDesc;
     uint32_t sourceReturnBase;
+    uint32_t outboundBase;
+    uint32_t outboundBytes;
+    uint32_t outboundTotalBytes;
     uint32_t sendIngressBase;
     uint32_t sendIngressBytes;
     uint32_t recvIngressBase;
@@ -805,7 +805,10 @@ constexpr PlanLayout MakePlanLayout(uint32_t bs, uint32_t maxBs, uint32_t k, uin
     l.packetDesc = l.localExpertCount + LocalExpertNum(expertNum, worldSize);
     l.memberDesc = l.packetDesc + rounds * serverNum * slots * PacketElements();
     l.sourceReturnBase = l.memberDesc + rounds * serverNum * slots * k * MemberElements();
-    l.sendIngressBase = l.sourceReturnBase + serverNum;
+    l.outboundBase = l.sourceReturnBase + serverNum;
+    l.outboundBytes = l.outboundBase + 2U * serverNum;
+    l.outboundTotalBytes = l.outboundBytes + 2U * serverNum;
+    l.sendIngressBase = l.outboundTotalBytes + 2U;
     l.sendIngressBytes = l.sendIngressBase + 2U * serverNum;
     l.recvIngressBase = l.sendIngressBytes + 2U * serverNum;
     l.recvIngressBytes = l.recvIngressBase + 2U * serverNum;

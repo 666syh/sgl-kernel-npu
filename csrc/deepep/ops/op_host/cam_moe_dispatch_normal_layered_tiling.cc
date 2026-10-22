@@ -148,6 +148,7 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
     l.k = static_cast<uint32_t>(topk);
     l.h = static_cast<uint32_t>(hidden);
     l.elementBytes = 2U;
+    l.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment() ? 1U : 0U;
     l.slotsPerServer = static_cast<uint32_t>(slots);
     l.ipcTilePackets = static_cast<uint32_t>(ipcTile);
     l.validRounds = 1U;
@@ -167,9 +168,9 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
     OP_TILING_CHECK(controlStride > std::numeric_limits<uint32_t>::max(),
                     OP_LOGE(node, "normal-layered dispatch control stride overflow"), return GRAPH_FAILED);
     l.controlStride = static_cast<uint32_t>(controlStride);
-    const auto window =
-        CamMoeLayered::MakeWindowLayout(l.moeExpertNum, l.epWorldSize, l.ranksPerServer, l.serverNum, l.physicalRounds,
-                                        l.slotsPerServer, l.recordStride, l.partialStride, l.k);
+    const auto window = CamMoeLayered::MakeWindowLayout(l.moeExpertNum, l.epWorldSize, l.ranksPerServer, l.serverNum,
+                                                        l.physicalRounds, l.slotsPerServer, l.recordStride,
+                                                        l.partialStride, l.k, l.isHybridDeployment != 0U);
     l.totalWinSize = Mc2TilingUtils::GetMaxWindowSize();
     const uint64_t maxProxyRank =
         (static_cast<uint64_t>(l.serverNum) - 1U) * l.ranksPerServer + (l.ranksPerServer - 1U);
@@ -208,7 +209,8 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
         CamMoeLayeredHost::MulFits(memberDescElements, l.k, memberDescElements) &&
         CamMoeLayeredHost::MulFits(memberDescElements, CamMoeLayered::MemberElements(), memberDescElements) &&
         CamMoeLayeredHost::AddFits(planMemberDesc, memberDescElements, planSourceReturnBase) &&
-        CamMoeLayeredHost::MulFits(servers, 9U, planIngressElements) &&
+        CamMoeLayeredHost::MulFits(servers, 13U, planIngressElements) &&
+        CamMoeLayeredHost::AddFits(planIngressElements, 2U, planIngressElements) &&
         CamMoeLayeredHost::AddFits(planSourceReturnBase, planIngressElements, planReverseCount) &&
         CamMoeLayeredHost::AddFits(planReverseCount, servers, planReverseReturnBase) &&
         CamMoeLayeredHost::AddFits(planReverseReturnBase, servers, planReversePacket) &&
@@ -225,10 +227,13 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
         planLocalExpertOffset == planLayout.localExpertOffset && planLocalExpertCount == planLayout.localExpertCount &&
         planPacketDesc == planLayout.packetDesc && planMemberDesc == planLayout.memberDesc &&
         planSourceReturnBase == planLayout.sourceReturnBase &&
-        planLayout.sendIngressBase == planSourceReturnBase + servers &&
-        planLayout.sendIngressBytes == planSourceReturnBase + 3U * servers &&
-        planLayout.recvIngressBase == planSourceReturnBase + 5U * servers &&
-        planLayout.recvIngressBytes == planSourceReturnBase + 7U * servers &&
+        planLayout.outboundBase == planSourceReturnBase + servers &&
+        planLayout.outboundBytes == planSourceReturnBase + 3U * servers &&
+        planLayout.outboundTotalBytes == planSourceReturnBase + 5U * servers &&
+        planLayout.sendIngressBase == planSourceReturnBase + 5U * servers + 2U &&
+        planLayout.sendIngressBytes == planSourceReturnBase + 7U * servers + 2U &&
+        planLayout.recvIngressBase == planSourceReturnBase + 9U * servers + 2U &&
+        planLayout.recvIngressBytes == planSourceReturnBase + 11U * servers + 2U &&
         planReverseCount == planLayout.reverseCount && planReverseReturnBase == planLayout.reverseReturnBase &&
         planReversePacket == planLayout.reversePacket && planReverseMember == planLayout.reverseMember &&
         planOverflow == planLayout.overflow && planTotal == planLayout.total;

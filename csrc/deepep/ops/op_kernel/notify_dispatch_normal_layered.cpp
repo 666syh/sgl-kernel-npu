@@ -54,10 +54,10 @@ public:
         localExperts_ = info_.moeExpertNum / info_.epWorldSize;
         expertsPerServer_ = info_.moeExpertNum / info_.serverNum;
         sourceServer_ = info_.epRankId / info_.ranksPerServer;
-        comm_.Init(info_.epRankId, roceContext, hcommUb);
-        layout_ = CamMoeLayered::MakeWindowLayout(info_.moeExpertNum, info_.epWorldSize, info_.ranksPerServer,
-                                                  info_.serverNum, info_.physicalRounds, info_.slotsPerServer,
-                                                  info_.recordStride, info_.partialStride, info_.k);
+        comm_.Init(info_.epRankId, roceContext, hcommUb, info_.isHybridDeployment != 0U);
+        layout_ = CamMoeLayered::MakeWindowLayout(
+            info_.moeExpertNum, info_.epWorldSize, info_.ranksPerServer, info_.serverNum, info_.physicalRounds,
+            info_.slotsPerServer, info_.recordStride, info_.partialStride, info_.k, info_.isHybridDeployment != 0U);
         countSlice_ = info_.physicalRounds * info_.serverNum * expertsPerServer_;
         packetSlice_ = info_.physicalRounds * info_.serverNum;
         countSlicePadded_ = AlignWorkspaceElements(countSlice_);
@@ -82,6 +82,7 @@ public:
         SyncAll<true>();
         ReduceLocalExpertCounts();  // 合并多 AIV 计数，并修正全局 ordinal（按token分核，但需要依赖其他AIV计算的数据）
         SyncAll<true>();
+        PlanOutboundPayloads();
         PublishAllRoundCountControls();  // server间发送给同号卡（按server分核）
         AggregateServerCounts();         // 本地rank重排并转发给server内其他rank
         ApplyProxyAggregatesToOwner();   // 等待数据到达，本地按照专家重排，记录recv_x
@@ -95,6 +96,39 @@ public:
     }
 
 private:
+    __aicore__ inline void PlanOutboundPayloads()
+    {
+        const auto p = MakePlanLayout(info_.bs, info_.maxBs, info_.k, info_.moeExpertNum, info_.epWorldSize,
+                                      info_.serverNum, info_.ranksPerServer, 1U, info_.maxBs);
+        const uint32_t aiv = GetBlockIdx();
+        const uint32_t n = info_.aivNum == 0U ? 1U : info_.aivNum;
+        for (uint32_t target = aiv; target < info_.serverNum; target += n) {
+            uint64_t base = 0U;
+            for (uint32_t previous = 0U; previous < target; ++previous) {
+                base += DispatchBatchPayloadBytes(
+                    static_cast<uint32_t>(plan_[info_.packetCountOffset + previous]),
+                    static_cast<uint32_t>(plan_[info_.dispatchMemberCountOffset + previous]), info_.recordStride);
+            }
+            const uint64_t bytes = DispatchBatchPayloadBytes(
+                static_cast<uint32_t>(plan_[info_.packetCountOffset + target]),
+                static_cast<uint32_t>(plan_[info_.dispatchMemberCountOffset + target]), info_.recordStride);
+            plan_[p.outboundBase + 2U * target] = static_cast<int32_t>(base);
+            plan_[p.outboundBase + 2U * target + 1U] = static_cast<int32_t>(base >> 32U);
+            plan_[p.outboundBytes + 2U * target] = static_cast<int32_t>(bytes);
+            plan_[p.outboundBytes + 2U * target + 1U] = static_cast<int32_t>(bytes >> 32U);
+            if (base > layout_.dispatchPayloadCapacity || bytes > layout_.dispatchPayloadCapacity - base ||
+                bytes > 0xffffffffU) {
+                plan_[info_.errorOffset] = static_cast<int32_t>(Phase::ERROR_OVERFLOW);
+            }
+            if (target + 1U == info_.serverNum) {
+                const uint64_t total = base + bytes;
+                plan_[p.outboundTotalBytes] = static_cast<int32_t>(total);
+                plan_[p.outboundTotalBytes + 1U] = static_cast<int32_t>(total >> 32U);
+            }
+        }
+        SyncAll<true>();
+    }
+
     __aicore__ inline uint64_t CountSlice(uint32_t aiv) const
     {
         return (uint64_t)aiv * countSlicePadded_;
@@ -685,6 +719,11 @@ private:
         auto *out = (__gm__ uint8_t *)comm_.WindowOut(info_.epRankId);
         const uint32_t aiv = GetBlockIdx();
         const uint32_t aivNum = info_.aivNum == 0U ? 1U : info_.aivNum;
+        const auto p = MakePlanLayout(info_.bs, info_.maxBs, info_.k, info_.moeExpertNum, info_.epWorldSize,
+                                      info_.serverNum, info_.ranksPerServer, 1U, info_.maxBs);
+        const uint64_t outboundBytes =
+            static_cast<uint32_t>(plan_[p.outboundTotalBytes]) |
+            (static_cast<uint64_t>(static_cast<uint32_t>(plan_[p.outboundTotalBytes + 1U])) << 32U);
         for (uint32_t sourceServer = aiv; sourceServer < info_.serverNum; sourceServer += aivNum) {
             const uint32_t sourceRank = sourceServer * info_.ranksPerServer + info_.rankInServer;
             // ack[ownerInServer][localExpert][round]
@@ -696,7 +735,10 @@ private:
             }
             auto *control = (__gm__ BaseAckControlMeta *)ack;
             control->serverMaxRows = serverMaxRows;
-            uint64_t ingressBase = 0U;
+            // Outbound staging occupies a compact prefix of this rank's
+            // payload arena. Ingress starts immediately after the actual
+            // outbound bytes, not after a worst-case per-server reservation.
+            uint64_t ingressBase = outboundBytes;
             for (uint32_t preceding = 0U; preceding < sourceServer; ++preceding) {
                 const uint32_t rank = preceding * info_.ranksPerServer + info_.rankInServer;
                 auto *lane = in + ControlLaneOffset(layout_, info_.epWorldSize, rank, sourceServer_, 0U);
@@ -720,8 +762,6 @@ private:
                 memberCount += static_cast<uint32_t>(expertCounts[expert]);
             }
             const uint64_t payloadBytes = DispatchBatchPayloadBytes(packetCount, memberCount, info_.recordStride);
-            const auto p = MakePlanLayout(info_.bs, info_.maxBs, info_.k, info_.moeExpertNum, info_.epWorldSize,
-                                          info_.serverNum, info_.ranksPerServer, 1U, info_.maxBs);
             plan_[p.recvIngressBase + 2U * sourceServer] = static_cast<int32_t>(ingressBase);
             plan_[p.recvIngressBase + 2U * sourceServer + 1U] = static_cast<int32_t>(ingressBase >> 32U);
             plan_[p.recvIngressBytes + 2U * sourceServer] = static_cast<int32_t>(payloadBytes);
@@ -815,7 +855,7 @@ private:
             const uint64_t ingress =
                 (static_cast<uint64_t>(control->ingressOffsetHi) << 32U) | control->ingressOffsetLo;
             const uint64_t bytes = (static_cast<uint64_t>(control->payloadBytesHi) << 32U) | control->payloadBytesLo;
-            if (ingress > layout_.dispatchIngressBytes || bytes > layout_.dispatchIngressBytes - ingress ||
+            if (ingress > layout_.dispatchPayloadCapacity || bytes > layout_.dispatchPayloadCapacity - ingress ||
                 bytes > 0xffffffffU) {
                 plan_[info_.errorOffset] = static_cast<int32_t>(Phase::ERROR_OVERFLOW);
             }

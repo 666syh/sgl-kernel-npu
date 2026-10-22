@@ -44,10 +44,10 @@ public:
         localExperts_ = info_.moeExpertNum / info_.epWorldSize;
         const auto base = MakeWindowLayout(info_.moeExpertNum, info_.epWorldSize, info_.ranksPerServer, info_.serverNum,
                                            info_.physicalRounds, info_.slotsPerServer, info_.recordStride,
-                                           info_.partialStride, info_.k);
+                                           info_.partialStride, info_.k, info_.isHybridDeployment != 0U);
         layout_ = MakeCombineWindowLayout(base, info_.serverNum, info_.ranksPerServer, localExperts_, ownerCapacity,
                                           info_.realMaxBs, info_.h, info_.elementBytes);
-        comm_.Init(info_.epRankId, roceContext, hcommUb);
+        comm_.Init(info_.epRankId, roceContext, hcommUb, info_.isHybridDeployment != 0U);
         in_ = (__gm__ uint8_t *)comm_.WindowIn(info_.epRankId);
         outWindow_ = (__gm__ uint8_t *)comm_.WindowOut(info_.epRankId);
         epoch_ = info_.epoch;
@@ -67,7 +67,7 @@ public:
         }
         SyncAll<true>();
 
-        RunPartialPipeline();
+        RunPartialPipeline();  // 发送
         SyncAll<true>();
         if (GetBlockIdx() == 0U) {
             PublishOwnerConsumed();  // proxy已全部读取，对端stage可复用
@@ -255,11 +255,12 @@ private:
         auto *members =
             (__gm__ ReverseMember *)(plan_ + p.reverseMember) + static_cast<uint64_t>(packetIndex) * info_.k;
         auto *partial = (__gm__ float *)(outWindow_ + layout_.proxyPartialOffset +
-                                         static_cast<uint64_t>(base + ordinal) * layout_.partialStride);
+                                         static_cast<uint64_t>(base + ordinal) *
+                                             layout_.partialStride);  // 拷贝到最终目的地，准备发给server
         __gm__ T *ownerRows[kMaxTopk];
         float weights[kMaxTopk];
         uint32_t validMembers = 0U;
-        for (uint32_t slot = 0U; slot < info_.k; ++slot) {
+        for (uint32_t slot = 0U; slot < info_.k; ++slot) {  // 获取有效专家的token
             const auto member = members[slot];
             if (member.expertId < 0) {
                 continue;
@@ -284,7 +285,7 @@ private:
         }
         AscendC::Duplicate(*partialUb_, 0.0F, static_cast<uint32_t>(layout_.partialStride / sizeof(float)));
         PipeBarrier<PIPE_V>();
-        for (uint32_t member = 0U; member < validMembers; ++member) {
+        for (uint32_t member = 0U; member < validMembers; ++member) {  // 远端读+加权求和
             GlobalTensor<T> sourceRow;
             sourceRow.SetGlobalBuffer(ownerRows[member]);
             DataCopyPad(*ownerRowUb_, sourceRow, DataCopyExtParams{1U, info_.h * sizeof(T), 0U, 0U, 0U},
@@ -364,7 +365,7 @@ private:
 
     __aicore__ inline bool ChunkComplete(uint32_t source, uint32_t completed, uint32_t workers) const
     {
-        for (uint32_t worker = 0U; worker < workers; ++worker) {
+        for (uint32_t worker = 0U; worker < workers; ++worker) {  // 遍历worker是否均已完成
             auto *progress = CompletedChunks(source, worker);
             GlobalTensor<uint32_t> source;
             source.SetGlobalBuffer(progress);
@@ -388,6 +389,7 @@ private:
     __aicore__ inline void BuildNextChunkPacket(uint32_t source, uint32_t count, uint64_t base, const PlanLayout &p,
                                                 uint32_t worker, uint32_t workers, uint32_t &chunk, uint32_t &ordinal)
     {
+        // 当前chunk范围
         const uint32_t begin = chunk * chunkPackets_;
         const uint32_t end = begin + min(chunkPackets_, count - begin);
         if (ordinal < end) {
@@ -395,7 +397,7 @@ private:
             ordinal += workers;
         }
         if (ordinal >= end) {
-            PublishChunkComplete(source, worker, chunk + 1U);
+            PublishChunkComplete(source, worker, chunk + 1U);  // 当前chunk完成，通知server可发送
             ++chunk;
             if (chunk < ChunkCount(count)) {
                 const uint32_t nextBegin = chunk * chunkPackets_;
@@ -407,8 +409,8 @@ private:
     __aicore__ inline bool TrySendPartialChunk(uint32_t source, uint32_t count, uint64_t base, const PlanLayout &p,
                                                uint32_t workers, uint32_t &nextChunk)
     {
-        const uint32_t chunks = ChunkCount(count);
-        if (nextChunk < chunks && !ChunkComplete(source, nextChunk + 1U, workers)) {
+        const uint32_t chunks = ChunkCount(count);                                    // chunk的数量
+        if (nextChunk < chunks && !ChunkComplete(source, nextChunk + 1U, workers)) {  // 等待worker收齐
             return false;
         }
         const uint32_t rank = source * info_.ranksPerServer + info_.rankInServer;
@@ -420,12 +422,14 @@ private:
                 outWindow_ + layout_.proxyPartialOffset + static_cast<uint64_t>(base + begin) * layout_.partialStride;
             auto *destination = (__gm__ uint8_t *)comm_.WindowIn(rank) + layout_.sourcePartialOffset +
                                 (static_cast<uint64_t>(returnBase) + begin) * layout_.partialStride;
-            SendPayload(rank, payload, destination, static_cast<uint32_t>((end - begin) * layout_.partialStride));
+            SendPayload(rank, payload, destination,
+                        static_cast<uint32_t>((end - begin) * layout_.partialStride));  // 跨server发送
             ++nextChunk;
         }
         if (nextChunk == chunks) {
             SendFlag(rank, layout_.sourceReadyOffset + server_ * COMBINE_FLAG_STRIDE,
-                     layout_.sourceFlagStageOffset + source * COMBINE_FLAG_STRIDE, Phase::COMBINE_SOURCE_READY);
+                     layout_.sourceFlagStageOffset + source * COMBINE_FLAG_STRIDE,
+                     Phase::COMBINE_SOURCE_READY);  // 发送完成
             return true;
         }
         return false;

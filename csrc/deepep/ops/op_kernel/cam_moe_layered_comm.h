@@ -5,25 +5,37 @@
 #ifdef __DAV_C310__
 #include "adv_api/hcomm/hcomm.h"
 #endif
-#include "cam_moe_layered_roce_context.h"
+#include "cam_moe_layered_comm_context.h"
 #include "moe_distribute_base.h"
 #include "cam_moe_layered_plan.h"
+#include "window_layout.h"
 
 namespace CamMoeLayered {
+
+#ifdef __DAV_C310__
+static_assert(CAM_MOE_LAYERED_A5_STATE_BYTES == A5_MTE_STATE_WIN_SIZE,
+              "Layered registered window and MC2 window offsets differ");
+#endif
 
 class CommAdapter
 {
 public:
-    __aicore__ inline void Init(uint32_t rankId, GM_ADDR roceContext, LocalTensor<uint8_t> &hcommUb)
+    __aicore__ inline void Init(uint32_t rankId, GM_ADDR roceContext, LocalTensor<uint8_t> &hcommUb,
+                                bool isHybridDeployment = false)
     {
         rankId_ = rankId;
+        (void)isHybridDeployment;
         context_ = (__gm__ HcclOpParam *)AscendC::GetHcclContext<HCCL_GROUP_ID_0>();
 #ifndef __DAV_C310__  // A3 AiRMA transport
         rdmaInfo_ = (__gm__ HcclAiRMAInfo *)context_->aiRMAInfo;
         (void)roceContext;
-#else  // A5 platform_v310 RoCE transport
-        rdmaContext_ = (__gm__ CamMoeLayeredRoceContext *)roceContext;
-        roce_.Init(hcommUb, AscendC::HCOMM_UB_BUF_SIZE);
+#else  // A5 Hcomm transport
+        rdmaContext_ = (__gm__ CamMoeLayeredCommContext *)roceContext;
+        if (rdmaContext_->protocol == CAM_MOE_LAYERED_PROTOCOL_ROCE) {
+            hcommInitOk_ = roce_.Init(hcommUb, AscendC::HCOMM_UB_BUF_SIZE) == 0;
+        } else {
+            hcommInitOk_ = uboe_.Init(hcommUb, AscendC::HCOMM_UB_BUF_SIZE) == 0;
+        }
 #endif
     }
 
@@ -43,14 +55,21 @@ public:
         return 0U;
 #endif
     }
+    __aicore__ inline GM_ADDR GetBufferAddrByRankId(uint32_t rank) const
+    {
+#ifdef __DAV_C310__
+        return (GM_ADDR)rdmaContext_->ipcBuffer[rank] + CAM_MOE_LAYERED_A5_STATE_BYTES;
+#endif
+        return GetBaseWindAddrByRankId(context_, rank, rankId_);
+    }
     __aicore__ inline GM_ADDR WindowIn(uint32_t rank) const
     {
-        return GetBaseWindAddrByRankId(context_, rank, rankId_);
+        return GetBufferAddrByRankId(rank);
     }
     __aicore__ inline GM_ADDR WindowOut(uint32_t rank) const
     {
 #ifdef __DAV_C310__
-        return GetBaseWindAddrByRankId(context_, rank, rankId_);
+        return WindowIn(rank);
 #else
         if (rank == rankId_) {
             return (GM_ADDR)context_->localWindowsOut;
@@ -59,17 +78,24 @@ public:
         return (GM_ADDR)relation->windowsOut;
 #endif
     }
+    __aicore__ inline GM_ADDR GetStateAddrByRankId(uint32_t rank) const
+    {
+#ifdef __DAV_C310__
+        return (GM_ADDR)rdmaContext_->ipcBuffer[rank];
+#else
+        return GetBaseWindStateAddrByRankId(context_, rank, rankId_);
+#endif
+    }
     __aicore__ inline GM_ADDR State(uint32_t rank) const
     {
-        return GetBaseWindStateAddrByRankId(context_, rank, rankId_);
+        return GetStateAddrByRankId(rank);
     }
 
     __aicore__ inline AscendC::ChannelHandle GetChannel(uint32_t dstRank) const
     {
 #ifdef __DAV_C310__
-        const uint32_t channelsPerRank = rdmaContext_->channelsPerRank == 0U ? 1U : rdmaContext_->channelsPerRank;
-        return static_cast<AscendC::ChannelHandle>(
-            rdmaContext_->hcommHandle[static_cast<uint64_t>(dstRank) * channelsPerRank]);
+        const uint32_t peerIndex = dstRank < rankId_ ? dstRank : dstRank - 1U;
+        return static_cast<AscendC::ChannelHandle>(rdmaContext_->hcommHandle[peerIndex]);
 #else
         (void)dstRank;
         return 0U;
@@ -143,8 +169,13 @@ public:
         (void)doorbellUb;
         (void)headUb;
         (void)timeoutCycles;
-        (void)roce_.WriteNbi<true, PIPE_S, PIPE_MTE3>(GetChannel(dstRank), dst, src, bytes);
-        return true;
+        if (!hcommInitOk_) {
+            return false;
+        }
+        if (rdmaContext_->protocol == CAM_MOE_LAYERED_PROTOCOL_ROCE) {
+            return roce_.WriteNbi<true, PIPE_S, PIPE_MTE3>(GetChannel(dstRank), dst, src, bytes) == 0;
+        }
+        return uboe_.WriteNbi<true, PIPE_S, PIPE_MTE3>(GetChannel(dstRank), dst, src, bytes) == 0;
 #endif
     }
 
@@ -178,15 +209,23 @@ public:
         }
 #else
         (void)timeoutCycles;
-        return roce_.Drain(GetChannel(dstRank)) == 0;
+        if (!hcommInitOk_) {
+            return false;
+        }
+        if (rdmaContext_->protocol == CAM_MOE_LAYERED_PROTOCOL_ROCE) {
+            return roce_.Drain(GetChannel(dstRank)) == 0;
+        }
+        return uboe_.Drain(GetChannel(dstRank)) == 0;
 #endif
     }
 
 private:
     __gm__ HcclOpParam *context_{nullptr};
 #ifdef __DAV_C310__
-    __gm__ CamMoeLayeredRoceContext *rdmaContext_{nullptr};
+    __gm__ CamMoeLayeredCommContext *rdmaContext_{nullptr};
     mutable AscendC::Hcomm<AscendC::COMM_PROTOCOL_ROCE> roce_;
+    mutable AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> uboe_;
+    bool hcommInitOk_{false};
 #else
     __gm__ HcclAiRMAInfo *rdmaInfo_{nullptr};
 #endif

@@ -173,7 +173,7 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
         MulFits(planMemberElements, static_cast<uint64_t>(k), planMemberElements) &&
         MulFits(planMemberElements, CamMoeLayered::MemberElements(), planMemberElements) &&
         AddFits(planMemberDesc, planMemberElements, planSourceReturnBase) &&
-        MulFits(serversU, 9U, planIngressElements) &&
+        MulFits(serversU, 13U, planIngressElements) && AddFits(planIngressElements, 2U, planIngressElements) &&
         AddFits(planSourceReturnBase, planIngressElements, planReverseCount) &&
         AddFits(planReverseCount, serversU, planReverseReturnBase) &&
         AddFits(planReverseReturnBase, serversU, planReversePacket) &&
@@ -206,6 +206,7 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     l.expertAlignment = static_cast<uint32_t>(expertAlignment);
     l.epoch = epoch < 0 ? 0 : epoch;
     l.elementBytes = 2;
+    l.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment() ? 1U : 0U;
     OP_TILING_CHECK(
         !CamMoeLayeredHost::ValidWindowInputArithmetic(l.moeExpertNum, l.epWorldSize, l.ranksPerServer, servers, rounds,
                                                        slots, k, recordStride, partialStride),
@@ -218,11 +219,10 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     l.partialStride = static_cast<uint32_t>(partialStride);
     l.controlStride = static_cast<uint32_t>(controlStride);
     auto w = CamMoeLayered::MakeWindowLayout(l.moeExpertNum, l.epWorldSize, l.ranksPerServer, servers, rounds, slots,
-                                             l.recordStride, l.partialStride, l.k);
+                                             l.recordStride, l.partialStride, l.k, l.isHybridDeployment != 0U);
     l.totalWinSize = Mc2TilingUtils::GetMaxWindowSize();
     OP_TILING_CHECK(!CamMoeLayeredHost::ValidWindowLayout(w, worldU, serversU, ranksU, roundsU) ||
-                        w.dispatchBytes != dispatchWindowBytes / 2U ||
-                        w.dispatchIngressBytes != dispatchWindowBytes / 2U ||
+                        w.dispatchPayloadCapacity != dispatchWindowBytes ||
                         w.localPartialBytes != localPartialWindowBytes ||
                         w.returnPartialBytes != returnPartialWindowBytes || w.stateLaneStride != stateLaneStride ||
                         w.requiredBytes < w.stateOffset || w.requiredBytes - w.stateOffset < stateWindowBytes ||
@@ -241,10 +241,13 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
             p.packetSlot != planPacketSlot || p.expertCount != planExpertCount ||
             p.localExpertOffset != planLocalExpertOffset || p.localExpertCount != planLocalExpertCount ||
             p.packetDesc != planPacketDesc || p.memberDesc != planMemberDesc ||
-            p.sourceReturnBase != planSourceReturnBase || p.sendIngressBase != planSourceReturnBase + serversU ||
-            p.sendIngressBytes != planSourceReturnBase + 3U * serversU ||
-            p.recvIngressBase != planSourceReturnBase + 5U * serversU ||
-            p.recvIngressBytes != planSourceReturnBase + 7U * serversU || p.reverseCount != planReverseCount ||
+            p.sourceReturnBase != planSourceReturnBase || p.outboundBase != planSourceReturnBase + serversU ||
+            p.outboundBytes != planSourceReturnBase + 3U * serversU ||
+            p.outboundTotalBytes != planSourceReturnBase + 5U * serversU ||
+            p.sendIngressBase != planSourceReturnBase + 5U * serversU + 2U ||
+            p.sendIngressBytes != planSourceReturnBase + 7U * serversU + 2U ||
+            p.recvIngressBase != planSourceReturnBase + 9U * serversU + 2U ||
+            p.recvIngressBytes != planSourceReturnBase + 11U * serversU + 2U || p.reverseCount != planReverseCount ||
             p.reverseReturnBase != planReverseReturnBase || p.reversePacket != planReversePacket ||
             p.reverseMember != planReverseMember || p.overflow != planOverflow,
         OP_LOGE(n, "normal layered plan layout is invalid"), return GRAPH_FAILED);

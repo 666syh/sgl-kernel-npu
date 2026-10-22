@@ -6,6 +6,7 @@
 #include <vector>
 #include <optional>
 #include <string>
+#include <memory>
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
 #include "aclnn/opdev/platform.h"
@@ -13,8 +14,11 @@
 #include "config.hpp"
 #include "event.hpp"
 #include "layered_config.hpp"
+#include "ops/op_kernel/cam_moe_layered_comm_context.h"
 
 namespace deep_ep {
+
+class LayeredCommContextManager;
 
 struct Buffer {
     int64_t rank, rdma_rank, nvl_rank;
@@ -42,7 +46,7 @@ private:
 
     int device_id;
 
-    HcclComm ep_comm;
+    HcclComm ep_comm = nullptr;
 
     bool available = false;
     bool layered_mode = false;
@@ -50,7 +54,9 @@ private:
     uint64_t layered_epoch = 0;
     uint64_t layered_combine_epoch = 0;
     uint64_t layered_window_bytes = 0;
-    at::Tensor layered_roce_context;
+    CamMoeLayeredProtocol layered_protocol = CAM_MOE_LAYERED_PROTOCOL_UBOE;
+    at::Tensor layered_context;
+    std::unique_ptr<LayeredCommContextManager> layered_context_manager;
 
 public:
     Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,

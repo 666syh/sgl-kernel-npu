@@ -38,8 +38,8 @@ public:
         localExperts_ = info_.moeExpertNum / info_.epWorldSize;
         layout_ = MakeWindowLayout(info_.moeExpertNum, info_.epWorldSize, info_.ranksPerServer, info_.serverNum,
                                    info_.physicalRounds, info_.slotsPerServer, info_.recordStride, info_.partialStride,
-                                   info_.k);
-        comm_.Init(info_.epRankId, roceContext, hcommUb);
+                                   info_.k, info_.isHybridDeployment != 0U);
+        comm_.Init(info_.epRankId, roceContext, hcommUb, info_.isHybridDeployment != 0U);
         localOut_ = (__gm__ uint8_t *)comm_.WindowOut(info_.epRankId);
         epoch_ = static_cast<uint64_t>(header_->epochLo) | (static_cast<uint64_t>(header_->epochHi) << 32U);
     }
@@ -66,6 +66,16 @@ private:
     __aicore__ inline uint32_t PacketIndex(uint32_t server, uint32_t slot) const
     {
         return server * info_.slotsPerServer + slot;
+    }
+
+    __aicore__ inline uint64_t BatchOffset(uint32_t targetServer) const
+    {
+        const auto p = MakePlanLayout(info_.bs, info_.maxBs, info_.k, info_.moeExpertNum, info_.epWorldSize,
+                                      info_.serverNum, info_.ranksPerServer, 1U, info_.maxBs);
+        const uint32_t base = p.outboundBase + 2U * targetServer;
+        const uint64_t compactOffset = static_cast<uint32_t>(plan_[base]) |
+                                       (static_cast<uint64_t>(static_cast<uint32_t>(plan_[base + 1U])) << 32U);
+        return DispatchPayloadAddress(layout_, compactOffset);
     }
 
     __aicore__ inline uint64_t IngressOffset(uint32_t sourceServer, bool send) const
@@ -178,7 +188,7 @@ private:
                 ├── 32B padding
                 └── MemberMeta[memberCount]  (expertId/expertRow/topkSlot)
              */
-            auto *batch = localOut_ + DispatchBatchOffset(layout_, destinationServer);
+            auto *batch = localOut_ + BatchOffset(destinationServer);
             const uint32_t packets = static_cast<uint32_t>(plan_[header_->packetCountOffset + destinationServer]);
             const uint32_t members =
                 static_cast<uint32_t>(plan_[header_->dispatchMemberCountOffset + destinationServer]);
@@ -227,7 +237,7 @@ private:
             └── MemberMeta[0 .. memberCount - 1]
          */
         const uint32_t ordinal = static_cast<uint32_t>(packetDesc->dispatchOrdinal);  // dispatch时的本地紧凑偏移
-        auto *batch = localOut_ + DispatchBatchOffset(layout_, destinationServer);
+        auto *batch = localOut_ + BatchOffset(destinationServer);
         const uint32_t packets = PacketCount(destinationServer);
         const uint32_t packetMetaOffset = sizeof(DispatchBatchMeta);
         const uint32_t tokenRecordOffset = AlignUp(packetMetaOffset + packets * sizeof(DispatchPacketMeta));
@@ -374,7 +384,7 @@ private:
     __aicore__ inline void SendMetadata(uint32_t destinationServer)
     {
         const uint32_t rank = destinationServer * info_.ranksPerServer + info_.rankInServer;  // 同号rank
-        auto *batch = localOut_ + DispatchBatchOffset(layout_, destinationServer);
+        auto *batch = localOut_ + BatchOffset(destinationServer);
         const uint32_t packets = PacketCount(destinationServer);
         const uint32_t members = static_cast<uint32_t>(plan_[header_->dispatchMemberCountOffset + destinationServer]);
         const uint32_t tokenOffset = AlignUp(sizeof(DispatchBatchMeta) + packets * sizeof(DispatchPacketMeta));
@@ -382,7 +392,7 @@ private:
         const uint64_t bytes = DispatchBatchPayloadBytes(packets, members, info_.recordStride);
         const uint64_t ingress = IngressOffset(destinationServer, true);
         if (bytes != 0U) {
-            auto *remote = (__gm__ uint8_t *)comm_.WindowIn(rank) + DispatchIngressAddress(layout_, ingress);
+            auto *remote = (__gm__ uint8_t *)comm_.WindowIn(rank) + DispatchPayloadAddress(layout_, ingress);
             if (ChunkCount(packets) <= 1U) {
                 /* 单chunk，一次将数据全部写过去 */
                 WriteBatchRange(rank, remote, batch, static_cast<uint32_t>(bytes));
@@ -399,7 +409,7 @@ private:
     __aicore__ inline void SendChunk(uint32_t destinationServer, uint32_t chunk)
     {
         const uint32_t rank = destinationServer * info_.ranksPerServer + info_.rankInServer;
-        auto *batch = localOut_ + DispatchBatchOffset(layout_, destinationServer);
+        auto *batch = localOut_ + BatchOffset(destinationServer);
         const uint32_t packets = PacketCount(destinationServer);
         if (ChunkCount(packets) > 1U) {
             const uint32_t begin = chunk * info_.dispatchChunkPackets;
@@ -408,7 +418,7 @@ private:
             /* 计算chunk的偏移 */
             const uint32_t tokenOffset = AlignUp(sizeof(DispatchBatchMeta) + packets * sizeof(DispatchPacketMeta));
             const uint64_t offset = tokenOffset + static_cast<uint64_t>(begin) * info_.recordStride;
-            auto *dst = (__gm__ uint8_t *)comm_.WindowIn(rank) + DispatchIngressAddress(layout_, ingress) + offset;
+            auto *dst = (__gm__ uint8_t *)comm_.WindowIn(rank) + DispatchPayloadAddress(layout_, ingress) + offset;
             WriteBatchRange(rank, dst, batch + offset, (end - begin) * info_.recordStride);
         }
         SendFlagToRank(rank, SourcePipelineAddress(sourceServer_, destinationServer, chunk),
@@ -528,7 +538,7 @@ private:
                 return true;
             }
             // 读取收到的元数据
-            auto *batch = in + DispatchIngressAddress(layout_, IngressOffset(sourceServer, false));
+            auto *batch = in + DispatchPayloadAddress(layout_, IngressOffset(sourceServer, false));
             LoadPeerBytes(batch, sizeof(DispatchBatchMeta));
             auto words = copyUb_->template ReinterpretCast<uint32_t>();
             DispatchBatchMeta meta{};
@@ -559,7 +569,7 @@ private:
             return false;
         }
         // 读取收到的元数据
-        auto *batch = in + DispatchIngressAddress(layout_, IngressOffset(sourceServer, false));
+        auto *batch = in + DispatchPayloadAddress(layout_, IngressOffset(sourceServer, false));
         LoadPeerBytes(batch, sizeof(DispatchBatchMeta));
         auto words = copyUb_->template ReinterpretCast<uint32_t>();
         DispatchBatchMeta meta{};
@@ -658,7 +668,7 @@ private:
         const uint32_t myBegin = begin + static_cast<uint64_t>(end - begin) * worker / workers;
         const uint32_t myEnd = begin + static_cast<uint64_t>(end - begin) * (worker + 1U) / workers;
         const uint32_t proxyRank = sourceServer * info_.ranksPerServer + proxy;
-        auto *proxyBatch = (__gm__ uint8_t *)comm_.WindowIn(proxyRank) + DispatchIngressAddress(layout_, ingress);
+        auto *proxyBatch = (__gm__ uint8_t *)comm_.WindowIn(proxyRank) + DispatchPayloadAddress(layout_, ingress);
         const uint32_t tokenOffset = AlignUp(packetOffset + packets * sizeof(DispatchPacketMeta));
         ConsumeMetadataLaneSlice(batch, packetOffset, memberOffset, proxyBatch, tokenOffset, sourceServer, proxy,
                                  myBegin, myEnd);  // 拷贝实际token

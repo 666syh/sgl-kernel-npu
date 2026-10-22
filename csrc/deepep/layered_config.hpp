@@ -46,6 +46,9 @@ struct LayeredPlanLayout {
     // 的 expert、top-k 位置和当前/最终 expert row。
     int64_t member_desc;
     int64_t source_return_base;
+    int64_t outbound_base;
+    int64_t outbound_bytes;
+    int64_t outbound_total_bytes;
     int64_t send_ingress_base;
     int64_t send_ingress_bytes;
     int64_t recv_ingress_base;
@@ -80,7 +83,10 @@ constexpr LayeredPlanLayout layered_plan_layout(int64_t bs, int64_t max_bs, int6
     layout.packet_desc = layout.local_expert_count + local_experts;
     layout.member_desc = layout.packet_desc + rounds * servers * slots * kLayeredSourcePacketDescElements;
     layout.source_return_base = layout.member_desc + rounds * servers * slots * topk * kLayeredMemberDescElements;
-    layout.send_ingress_base = layout.source_return_base + servers;
+    layout.outbound_base = layout.source_return_base + servers;
+    layout.outbound_bytes = layout.outbound_base + 2 * servers;
+    layout.outbound_total_bytes = layout.outbound_bytes + 2 * servers;
+    layout.send_ingress_base = layout.outbound_total_bytes + 2;
     layout.send_ingress_bytes = layout.send_ingress_base + 2 * servers;
     layout.recv_ingress_base = layout.send_ingress_bytes + 2 * servers;
     layout.recv_ingress_bytes = layout.recv_ingress_base + 2 * servers;

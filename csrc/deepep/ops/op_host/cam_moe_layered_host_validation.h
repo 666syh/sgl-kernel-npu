@@ -137,9 +137,9 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
     uint64_t baseAckEnd = 0U, controlFlagEnd = 0U, baseAckFlagEnd = 0U;
     uint64_t proxyStageEnd = 0U, proxyAggregateEnd = 0U, proxyStageFlagEnd = 0U;
     uint64_t baseAckStageEnd = 0U, baseAckFanoutEnd = 0U, baseAckFanoutFlagEnd = 0U;
-    uint64_t dispatchEnd = 0U, ingressEnd = 0U, dispatchFanoutEnd = 0U;
+    uint64_t dispatchPayloadEnd = 0U, dispatchFanoutEnd = 0U;
     uint64_t pipelineFlagEnd = 0U;
-    uint64_t expectedDispatchBytes = 0U, expectedFanoutBytes = 0U;
+    uint64_t expectedDispatchBytes = 0U, expectedDispatchArenaBytes = 0U, expectedFanoutBytes = 0U;
     uint64_t expectedPipelineFlagBytes = 0U;
     uint64_t partialEnd = 0U, returnPartialEnd = 0U, stateEnd = 0U;
     uint64_t serverRoundLanes = 0U, stateStrideBytes = 0U;
@@ -163,6 +163,7 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
         !AddFits(w.baseAckFanoutFlagOffset, baseAckFanoutFlags, baseAckFanoutFlagEnd) ||
         !MulFits(servers, servers, serverRoundLanes) || !MulFits(serverRoundLanes, rounds, serverRoundLanes) ||
         !MulFits(servers, w.dispatchBatchStride, expectedDispatchBytes) ||
+        !MulFits(expectedDispatchBytes, 2U, expectedDispatchArenaBytes) ||
         !MulFits(servers, ranks, expectedFanoutBytes) ||
         !MulFits(expectedFanoutBytes, w.dispatchFanoutBatchStride, expectedFanoutBytes) ||
         !MulFits(servers, ranks, expectedPipelineFlagBytes) ||
@@ -175,8 +176,7 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
         !AddFits(w.controlFlagOffset, flagBytes, controlFlagEnd) ||
         !AddFits(w.baseAckFlagOffset, flagBytes, baseAckFlagEnd) ||
         !AddFits(w.proxyAggregateOffset, proxyBytes, proxyAggregateEnd) ||
-        !AddFits(w.dispatchOffset, w.dispatchBytes, dispatchEnd) ||
-        !AddFits(w.dispatchIngressOffset, w.dispatchIngressBytes, ingressEnd) ||
+        !AddFits(w.dispatchPayloadOffset, w.dispatchPayloadCapacity, dispatchPayloadEnd) ||
         !AddFits(w.dispatchFanoutOffset, w.dispatchFanoutBytes, dispatchFanoutEnd) ||
         !AddFits(w.dispatchPipelineFlagOffset, w.dispatchPipelineFlagBytes, pipelineFlagEnd) ||
         !AddFits(w.partialOffset, w.localPartialBytes, partialEnd) ||
@@ -195,15 +195,14 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
            (w.baseAckStageOffset % 32U) == 0U && (w.baseAckStageSliceStride % 32U) == 0U &&
            (w.baseAckStageProxyStride % 32U) == 0U && (w.baseAckFanoutOffset % 32U) == 0U &&
            (w.baseAckFanoutOwnerStride % 32U) == 0U && (w.baseAckFanoutFlagOffset % 32U) == 0U &&
-           (w.dispatchOffset % 32U) == 0U && (w.dispatchBatchStride % 32U) == 0U && (w.dispatchBytes % 32U) == 0U &&
-           (w.dispatchIngressOffset % 32U) == 0U && (w.dispatchIngressBytes % 32U) == 0U &&
-           (w.dispatchFanoutBatchStride % 32U) == 0U && (w.dispatchFanoutBytes % 32U) == 0U &&
-           (w.dispatchFanoutOffset % 32U) == 0U && (w.dispatchPipelineFlagOffset % 32U) == 0U &&
-           (w.partialOffset % 32U) == 0U && (w.localPartialBytes % 32U) == 0U && (w.returnPartialOffset % 32U) == 0U &&
+           (w.dispatchPayloadOffset % 32U) == 0U && (w.dispatchBatchStride % 32U) == 0U &&
+           (w.dispatchPayloadCapacity % 32U) == 0U && (w.dispatchFanoutBatchStride % 32U) == 0U &&
+           (w.dispatchFanoutBytes % 32U) == 0U && (w.dispatchFanoutOffset % 32U) == 0U &&
+           (w.dispatchPipelineFlagOffset % 32U) == 0U && (w.partialOffset % 32U) == 0U &&
+           (w.localPartialBytes % 32U) == 0U && (w.returnPartialOffset % 32U) == 0U &&
            (w.returnPartialBytes % 32U) == 0U && (w.stateOffset % 32U) == 0U && (w.requiredBytes % 32U) == 0U &&
-           w.dispatchBytes == expectedDispatchBytes && w.dispatchIngressBytes == expectedDispatchBytes &&
-           w.dispatchFanoutBytes == expectedFanoutBytes && w.controlBytes == controlBytes &&
-           w.dispatchPipelineFlagBytes == expectedPipelineFlagBytes &&
+           w.dispatchPayloadCapacity == expectedDispatchArenaBytes && w.dispatchFanoutBytes == expectedFanoutBytes &&
+           w.controlBytes == controlBytes && w.dispatchPipelineFlagBytes == expectedPipelineFlagBytes &&
            w.stateLaneStride == 16U + ranks * ranks + w.dispatchMaxChunks && w.baseAckOffset >= w.controlBytes &&
            w.baseAckBytes == baseAckBytes && w.controlFlagOffset >= baseAckEnd &&
            w.baseAckFlagOffset >= controlFlagEnd && w.proxyAggregateStageOffset >= baseAckFlagEnd &&
@@ -214,8 +213,11 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
            w.baseAckStageProxyStride == baseAckStageProxyStride && w.baseAckStageBytes == baseAckStageBytes &&
            w.baseAckFanoutOffset >= baseAckStageEnd && w.baseAckFanoutOwnerStride == baseAckFanoutOwnerStride &&
            w.baseAckFanoutBytes == baseAckFanoutBytes && w.baseAckFanoutFlagOffset >= baseAckFanoutEnd &&
-           w.dispatchOffset >= baseAckFanoutFlagEnd && w.dispatchIngressOffset >= dispatchEnd &&
-           w.dispatchFanoutOffset >= ingressEnd && w.dispatchPipelineFlagOffset >= dispatchFanoutEnd &&
+           w.dispatchPayloadOffset >= baseAckFanoutFlagEnd &&
+#ifdef __DAV_C310__
+           w.dispatchPayloadOffset >= Moe::A5WindowLayout::kDataOffset &&
+#endif
+           w.dispatchFanoutOffset >= dispatchPayloadEnd && w.dispatchPipelineFlagOffset >= dispatchFanoutEnd &&
            w.partialOffset >= pipelineFlagEnd && w.returnPartialOffset >= partialEnd &&
            w.stateOffset >= returnPartialEnd && w.requiredBytes >= stateEnd;
 }

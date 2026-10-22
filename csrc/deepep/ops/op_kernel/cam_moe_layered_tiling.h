@@ -27,6 +27,7 @@ struct CamMoeLayeredInfo {
     uint32_t ipcTilePackets;
     uint32_t expertAlignment;
     uint32_t elementBytes;
+    uint32_t isHybridDeployment;
     uint32_t planElements;
     uint32_t packetCountOffset;
     uint32_t dispatchMemberCountOffset;

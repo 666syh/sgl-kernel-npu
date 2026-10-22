@@ -159,6 +159,7 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
     l.k = static_cast<uint32_t>(topk);
     l.h = static_cast<uint32_t>(hidden);
     l.elementBytes = 2U;
+    l.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment() ? 1U : 0U;
     l.slotsPerServer = static_cast<uint32_t>(maxBs);
     l.ipcTilePackets = static_cast<uint32_t>(ipcTile);
     l.validRounds = 1U;
@@ -174,9 +175,9 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
     OP_TILING_CHECK(controlStride > std::numeric_limits<uint32_t>::max(),
                     OP_LOGE(node, "normal-layered combine control stride overflow"), return GRAPH_FAILED);
     l.controlStride = static_cast<uint32_t>(controlStride);
-    const auto window =
-        CamMoeLayered::MakeWindowLayout(l.moeExpertNum, l.epWorldSize, l.ranksPerServer, l.serverNum, l.physicalRounds,
-                                        l.slotsPerServer, l.recordStride, l.partialStride, l.k);
+    const auto window = CamMoeLayered::MakeWindowLayout(l.moeExpertNum, l.epWorldSize, l.ranksPerServer, l.serverNum,
+                                                        l.physicalRounds, l.slotsPerServer, l.recordStride,
+                                                        l.partialStride, l.k, l.isHybridDeployment != 0U);
     l.totalWinSize = Mc2TilingUtils::GetMaxWindowSize();
     if (windowCapacity > 0) {
         l.totalWinSize = std::min(l.totalWinSize, static_cast<uint64_t>(windowCapacity));
