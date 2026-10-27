@@ -49,11 +49,7 @@ std::shared_ptr<SharedLayeredWindow> GetSharedWindow(HcclComm comm, const std::s
 
 void FillResource(const SharedLayeredWindow &entry, void *engineContext, LayeredCommResource &resource)
 {
-    resource.rankId = entry.host.rankId;
-    resource.rankNum = entry.host.rankNum;
-    resource.context = entry.host;
     resource.engineContext = engineContext;
-    resource.deviceWindow = entry.buffer;
     resource.windowBytes = entry.payloadBytes;
 }
 
@@ -246,9 +242,6 @@ HcclResult LayeredCommContextManager::Create(HcclComm comm, const std::string &c
     }
 
     CamMoeLayeredCommContext host{};
-    host.rankNum = world;
-    host.rankId = rank;
-    host.ranksPerServer = ranksPerServer;
     host.protocol = static_cast<uint32_t>(protocol);
     host.windowBytes = shared->payloadBytes;
     host.ipcBuffer[rank] = reinterpret_cast<uint64_t>(shared->buffer);

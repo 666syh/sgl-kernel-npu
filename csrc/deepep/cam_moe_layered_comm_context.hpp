@@ -11,11 +11,7 @@
 namespace deep_ep {
 
 struct LayeredCommResource {
-    uint32_t rankId = 0;
-    uint32_t rankNum = 0;
-    CamMoeLayeredCommContext context{};
     void *engineContext = nullptr;
-    void *deviceWindow = nullptr;
     uint64_t windowBytes = 0U;
 };
 

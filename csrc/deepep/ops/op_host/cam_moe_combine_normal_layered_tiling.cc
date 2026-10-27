@@ -171,7 +171,8 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
                                                                    l.recordStride, l.partialStride),
                     OP_LOGE(node, "normal-layered combine window arithmetic overflows"), return GRAPH_FAILED);
     const uint64_t controlStride = CamMoeLayered::AlignUp64(
-        CamMoeLayered::AllRoundCountPayloadBytes(l.physicalRounds, l.moeExpertNum / l.serverNum));
+        CamMoeLayered::AllRoundCountPayloadBytes(l.physicalRounds, l.moeExpertNum / l.serverNum),
+        CamMoeLayered::CACHE_LINE_ISOLATION_BYTES);
     OP_TILING_CHECK(controlStride > std::numeric_limits<uint32_t>::max(),
                     OP_LOGE(node, "normal-layered combine control stride overflow"), return GRAPH_FAILED);
     l.controlStride = static_cast<uint32_t>(controlStride);

@@ -105,7 +105,7 @@ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t n
         }
         layered_context_manager = std::make_unique<LayeredCommContextManager>();
         const char *protocolName = layered_protocol == CAM_MOE_LAYERED_PROTOCOL_ROCE ? "roce" : "uboe";
-        const std::string contextTag = std::string("deepep_layered_v2_") + contextGroup + "_" + protocolName;
+        const std::string contextTag = std::string("deepep_layered_v3_") + contextGroup + "_" + protocolName;
         LayeredCommResource resource;
         const HcclResult contextRet = layered_context_manager->Create(
             layeredComm, contextTag, layered_protocol, static_cast<uint32_t>(layered_topology_cache.ranks_per_server),

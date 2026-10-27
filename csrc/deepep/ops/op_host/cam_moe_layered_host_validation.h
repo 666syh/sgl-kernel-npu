@@ -30,6 +30,15 @@ inline bool Align32Fits(uint64_t value, uint64_t &result)
     return true;
 }
 
+inline bool AlignCacheLineFits(uint64_t value, uint64_t &result)
+{
+    uint64_t padded = 0U;
+    constexpr uint64_t alignment = CamMoeLayered::CACHE_LINE_ISOLATION_BYTES;
+    if (!AddFits(value, alignment - 1U, padded)) return false;
+    result = (padded / alignment) * alignment;
+    return true;
+}
+
 inline bool AlignCombineFlagFits(uint64_t value, uint64_t &result)
 {
     uint64_t padded = 0U;
@@ -56,14 +65,14 @@ inline bool ValidWindowInputArithmetic(uint64_t expertNum, uint64_t world, uint6
     if (!MulFits(expertsPerServer, sizeof(int32_t), countRow) || !AddFits(sizeof(uint32_t), countRow, countRow) ||
         !MulFits(rounds, countRow, countPayload) ||
         !AddFits(sizeof(CamMoeLayered::CountControlMeta), countPayload, countPayload) ||
-        !Align32Fits(countPayload, controlStride) || !MulFits(rounds, expertsPerServer, basePayload) ||
+        !AlignCacheLineFits(countPayload, controlStride) || !MulFits(rounds, expertsPerServer, basePayload) ||
         !MulFits(basePayload, sizeof(int32_t), basePayload) ||
         !AddFits(sizeof(CamMoeLayered::BaseAckControlMeta), basePayload, basePayload) ||
-        !Align32Fits(basePayload, baseAckStride) || !MulFits(servers, world, laneCount) ||
+        !AlignCacheLineFits(basePayload, baseAckStride) || !MulFits(servers, world, laneCount) ||
         !MulFits(controlStride, laneCount, countPayload) || !MulFits(baseAckStride, laneCount, basePayload))
         return false;
 
-    uint64_t proxyStride = 0U, proxyStageStride = 0U, proxyStageBytes = 0U;
+    uint64_t proxyStride = 0U, proxyStageBytes = 0U;
     uint64_t baseAckSliceStride = 0U, baseAckStageProxyStride = 0U, baseAckStageBytes = 0U;
     uint64_t baseAckFanoutOwnerStride = 0U, baseAckFanoutBytes = 0U;
     uint64_t dispatchRecordArea = 0U, dispatchBatchStride = 0U, dispatchBytes = 0U;
@@ -75,18 +84,17 @@ inline bool ValidWindowInputArithmetic(uint64_t expertNum, uint64_t world, uint6
     uint64_t partialBytes = 0U, returnPartialBytes = 0U;
     uint64_t stateLaneStride = 0U, stateBytes = 0U;
     if (!MulFits(servers, rounds, proxyStride) || !MulFits(proxyStride, localExperts, proxyStride) ||
-        !MulFits(proxyStride, sizeof(int32_t), proxyStride) || !Align32Fits(proxyStride, proxyStride) ||
-        !MulFits(proxyStride, ranks, proxyStageStride) || !MulFits(proxyStageStride, ranks, proxyStageBytes) ||
-        !MulFits(rounds, localExperts, baseAckSliceStride) ||
+        !MulFits(proxyStride, sizeof(int32_t), proxyStride) || !AlignCacheLineFits(proxyStride, proxyStride) ||
+        !MulFits(proxyStride, ranks, proxyStageBytes) || !MulFits(rounds, localExperts, baseAckSliceStride) ||
         !MulFits(baseAckSliceStride, sizeof(int32_t), baseAckSliceStride) ||
-        !Align32Fits(baseAckSliceStride, baseAckSliceStride) ||
+        !AlignCacheLineFits(baseAckSliceStride, baseAckSliceStride) ||
         !MulFits(baseAckSliceStride, servers, baseAckStageProxyStride) ||
-        !AddFits(baseAckStageProxyStride, CamMoeLayered::ALIGN_BYTES, baseAckStageProxyStride) ||
-        !Align32Fits(baseAckStageProxyStride, baseAckStageProxyStride) ||
+        !AddFits(baseAckStageProxyStride, CamMoeLayered::CACHE_LINE_ISOLATION_BYTES, baseAckStageProxyStride) ||
+        !AlignCacheLineFits(baseAckStageProxyStride, baseAckStageProxyStride) ||
         !MulFits(baseAckStageProxyStride, ranks, baseAckStageBytes) ||
         !MulFits(baseAckSliceStride, servers, baseAckFanoutOwnerStride) ||
-        !AddFits(baseAckFanoutOwnerStride, CamMoeLayered::ALIGN_BYTES, baseAckFanoutOwnerStride) ||
-        !Align32Fits(baseAckFanoutOwnerStride, baseAckFanoutOwnerStride) ||
+        !AddFits(baseAckFanoutOwnerStride, CamMoeLayered::CACHE_LINE_ISOLATION_BYTES, baseAckFanoutOwnerStride) ||
+        !AlignCacheLineFits(baseAckFanoutOwnerStride, baseAckFanoutOwnerStride) ||
         !MulFits(baseAckFanoutOwnerStride, ranks, baseAckFanoutBytes) ||
         !MulFits(slots, sizeof(CamMoeLayered::DispatchPacketMeta), dispatchPacketMetaBytes) ||
         !AddFits(sizeof(CamMoeLayered::DispatchBatchMeta), dispatchPacketMetaBytes, dispatchTokenOffset) ||
@@ -125,14 +133,17 @@ inline bool ValidWindowInputArithmetic(uint64_t expertNum, uint64_t world, uint6
 inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t world, uint64_t servers, uint64_t ranks,
                               uint64_t rounds)
 {
-    uint64_t laneCount = 0U, controlBytes = 0U, baseAckBytes = 0U, flagBytes = 0U;
+    uint64_t laneCount = 0U, controlBytes = 0U, baseAckBytes = 0U;
+    uint64_t controlFlagBytes = 0U, baseAckFlagBytes = 0U;
     if (!MulFits(servers, world, laneCount) || !MulFits(w.controlStride, laneCount, controlBytes) ||
-        !MulFits(w.baseAckStride, laneCount, baseAckBytes) || !MulFits(laneCount, sizeof(uint64_t), flagBytes))
+        !MulFits(w.baseAckStride, laneCount, baseAckBytes) ||
+        !MulFits(laneCount, CamMoeLayered::CONTROL_FLAG_STRIDE, controlFlagBytes) ||
+        !MulFits(laneCount, CamMoeLayered::CONTROL_FLAG_STRIDE, baseAckFlagBytes))
         return false;
 
     uint64_t proxyBytes = 0U, proxyStageBytes = 0U, proxyFlags = 0U, stateBytes = 0U;
     uint64_t baseAckStageBytes = 0U, baseAckFanoutBytes = 0U, baseAckFanoutFlags = 0U;
-    uint64_t proxyStageStride = 0U, baseAckStageProxyStride = 0U, baseAckFanoutOwnerStride = 0U;
+    uint64_t baseAckStageProxyStride = 0U, baseAckFanoutOwnerStride = 0U;
     uint64_t baseAckOwnerRowsOffset = 0U, baseAckOwnerRowsEnd = 0U;
     uint64_t baseAckEnd = 0U, controlFlagEnd = 0U, baseAckFlagEnd = 0U;
     uint64_t proxyStageEnd = 0U, proxyAggregateEnd = 0U, proxyStageFlagEnd = 0U;
@@ -144,18 +155,16 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
     uint64_t partialEnd = 0U, returnPartialEnd = 0U, stateEnd = 0U;
     uint64_t serverRoundLanes = 0U, stateStrideBytes = 0U;
     if (!MulFits(w.proxyAggregateStride, ranks, proxyBytes) ||
-        !MulFits(w.proxyAggregateStageStride, ranks, proxyStageBytes) ||
-        !MulFits(ranks, sizeof(uint64_t), proxyFlags) ||
+        !MulFits(w.proxyAggregateStride, ranks, proxyStageBytes) || !MulFits(ranks, sizeof(uint64_t), proxyFlags) ||
         !MulFits(w.baseAckStageProxyStride, ranks, baseAckStageBytes) ||
         !MulFits(w.baseAckFanoutOwnerStride, ranks, baseAckFanoutBytes) ||
         !MulFits(ranks, sizeof(uint64_t), baseAckFanoutFlags) ||
-        !MulFits(w.proxyAggregateStride, ranks, proxyStageStride) ||
         !MulFits(w.baseAckStageSliceStride, servers, baseAckOwnerRowsOffset) ||
-        !AddFits(baseAckOwnerRowsOffset, CamMoeLayered::ALIGN_BYTES, baseAckOwnerRowsEnd) ||
-        !Align32Fits(baseAckOwnerRowsEnd, baseAckStageProxyStride) ||
+        !AddFits(baseAckOwnerRowsOffset, CamMoeLayered::CACHE_LINE_ISOLATION_BYTES, baseAckOwnerRowsEnd) ||
+        !AlignCacheLineFits(baseAckOwnerRowsEnd, baseAckStageProxyStride) ||
         !MulFits(w.baseAckStageSliceStride, servers, baseAckFanoutOwnerStride) ||
-        !AddFits(baseAckFanoutOwnerStride, CamMoeLayered::ALIGN_BYTES, baseAckFanoutOwnerStride) ||
-        !Align32Fits(baseAckFanoutOwnerStride, baseAckFanoutOwnerStride) ||
+        !AddFits(baseAckFanoutOwnerStride, CamMoeLayered::CACHE_LINE_ISOLATION_BYTES, baseAckFanoutOwnerStride) ||
+        !AlignCacheLineFits(baseAckFanoutOwnerStride, baseAckFanoutOwnerStride) ||
         !AddFits(w.proxyAggregateStageOffset, proxyStageBytes, proxyStageEnd) ||
         !AddFits(w.proxyAggregateFlagOffset, proxyFlags, proxyStageFlagEnd) ||
         !AddFits(w.baseAckStageOffset, baseAckStageBytes, baseAckStageEnd) ||
@@ -173,8 +182,8 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
         !MulFits(w.stateLaneStride, sizeof(uint64_t), stateStrideBytes) ||
         !MulFits(serverRoundLanes, stateStrideBytes, stateBytes) ||
         !AddFits(w.baseAckOffset, w.baseAckBytes, baseAckEnd) ||
-        !AddFits(w.controlFlagOffset, flagBytes, controlFlagEnd) ||
-        !AddFits(w.baseAckFlagOffset, flagBytes, baseAckFlagEnd) ||
+        !AddFits(w.controlFlagOffset, controlFlagBytes, controlFlagEnd) ||
+        !AddFits(w.baseAckFlagOffset, baseAckFlagBytes, baseAckFlagEnd) ||
         !AddFits(w.proxyAggregateOffset, proxyBytes, proxyAggregateEnd) ||
         !AddFits(w.dispatchPayloadOffset, w.dispatchPayloadCapacity, dispatchPayloadEnd) ||
         !AddFits(w.dispatchFanoutOffset, w.dispatchFanoutBytes, dispatchFanoutEnd) ||
@@ -187,29 +196,36 @@ inline bool ValidWindowLayout(const CamMoeLayered::WindowLayout &w, uint64_t wor
     return w.controlStride != 0U && w.baseAckStride != 0U && w.dispatchBatchStride != 0U &&
            w.dispatchBatchStride >= sizeof(CamMoeLayered::DispatchBatchMeta) &&
            w.dispatchBatchStride <= std::numeric_limits<uint32_t>::max() && w.requiredBytes != 0U &&
-           (w.controlStride % 32U) == 0U && (w.baseAckStride % 32U) == 0U && (w.controlBytes % 32U) == 0U &&
-           (w.baseAckOffset % 32U) == 0U && (w.baseAckBytes % 32U) == 0U && (w.controlFlagOffset % 32U) == 0U &&
-           (w.baseAckFlagOffset % 32U) == 0U && (w.proxyAggregateStageOffset % 32U) == 0U &&
-           (w.proxyAggregateStageStride % 32U) == 0U && (w.proxyAggregateOffset % 32U) == 0U &&
-           (w.proxyAggregateStride % 32U) == 0U && (w.proxyAggregateFlagOffset % 32U) == 0U &&
-           (w.baseAckStageOffset % 32U) == 0U && (w.baseAckStageSliceStride % 32U) == 0U &&
-           (w.baseAckStageProxyStride % 32U) == 0U && (w.baseAckFanoutOffset % 32U) == 0U &&
-           (w.baseAckFanoutOwnerStride % 32U) == 0U && (w.baseAckFanoutFlagOffset % 32U) == 0U &&
-           (w.dispatchPayloadOffset % 32U) == 0U && (w.dispatchBatchStride % 32U) == 0U &&
-           (w.dispatchPayloadCapacity % 32U) == 0U && (w.dispatchFanoutBatchStride % 32U) == 0U &&
-           (w.dispatchFanoutBytes % 32U) == 0U && (w.dispatchFanoutOffset % 32U) == 0U &&
-           (w.dispatchPipelineFlagOffset % 32U) == 0U && (w.partialOffset % 32U) == 0U &&
-           (w.localPartialBytes % 32U) == 0U && (w.returnPartialOffset % 32U) == 0U &&
+           (w.controlStride % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckStride % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.controlBytes % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckOffset % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckBytes % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.controlFlagOffset % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckFlagOffset % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.proxyAggregateStageOffset % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.proxyAggregateOffset % 32U) == 0U &&
+           (w.proxyAggregateStride % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.proxyAggregateFlagOffset % 32U) == 0U &&
+           (w.baseAckStageOffset % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckStageSliceStride % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckStageProxyStride % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckFanoutOffset % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckFanoutOwnerStride % CamMoeLayered::CACHE_LINE_ISOLATION_BYTES) == 0U &&
+           (w.baseAckFanoutFlagOffset % 32U) == 0U && (w.dispatchPayloadOffset % 32U) == 0U &&
+           (w.dispatchBatchStride % 32U) == 0U && (w.dispatchPayloadCapacity % 32U) == 0U &&
+           (w.dispatchFanoutBatchStride % 32U) == 0U && (w.dispatchFanoutBytes % 32U) == 0U &&
+           (w.dispatchFanoutOffset % 32U) == 0U && (w.dispatchPipelineFlagOffset % 32U) == 0U &&
+           (w.partialOffset % 32U) == 0U && (w.localPartialBytes % 32U) == 0U && (w.returnPartialOffset % 32U) == 0U &&
            (w.returnPartialBytes % 32U) == 0U && (w.stateOffset % 32U) == 0U && (w.requiredBytes % 32U) == 0U &&
            w.dispatchPayloadCapacity == expectedDispatchArenaBytes && w.dispatchFanoutBytes == expectedFanoutBytes &&
            w.controlBytes == controlBytes && w.dispatchPipelineFlagBytes == expectedPipelineFlagBytes &&
            w.stateLaneStride == 16U + ranks * ranks + w.dispatchMaxChunks && w.baseAckOffset >= w.controlBytes &&
            w.baseAckBytes == baseAckBytes && w.controlFlagOffset >= baseAckEnd &&
            w.baseAckFlagOffset >= controlFlagEnd && w.proxyAggregateStageOffset >= baseAckFlagEnd &&
-           w.proxyAggregateStageStride == proxyStageStride && w.proxyAggregateStageBytes == proxyStageBytes &&
-           w.proxyAggregateOffset >= proxyStageEnd && w.proxyAggregateBytes == proxyBytes &&
-           w.proxyAggregateFlagOffset >= proxyAggregateEnd && w.baseAckStageOffset >= proxyStageFlagEnd &&
-           w.baseAckStageOwnerRowsOffset == baseAckOwnerRowsOffset &&
+           w.proxyAggregateStageBytes == proxyStageBytes && w.proxyAggregateOffset >= proxyStageEnd &&
+           w.proxyAggregateBytes == proxyBytes && w.proxyAggregateFlagOffset >= proxyAggregateEnd &&
+           w.baseAckStageOffset >= proxyStageFlagEnd && w.baseAckStageOwnerRowsOffset == baseAckOwnerRowsOffset &&
            w.baseAckStageProxyStride == baseAckStageProxyStride && w.baseAckStageBytes == baseAckStageBytes &&
            w.baseAckFanoutOffset >= baseAckStageEnd && w.baseAckFanoutOwnerStride == baseAckFanoutOwnerStride &&
            w.baseAckFanoutBytes == baseAckFanoutBytes && w.baseAckFanoutFlagOffset >= baseAckFanoutEnd &&

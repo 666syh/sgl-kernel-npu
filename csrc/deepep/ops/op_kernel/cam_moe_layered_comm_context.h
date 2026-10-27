@@ -18,19 +18,19 @@ enum CamMoeLayeredProtocol : uint32_t {
 // Host and device ABI for an EP-wide layered communication domain. Channel
 // handles use the compact peer index: peer < rankId ? peer : peer - 1.
 struct CamMoeLayeredCommContext {
-    uint32_t rankNum;
-    uint32_t rankId;
-    uint32_t ranksPerServer;
     uint32_t protocol;
     uint64_t ipcBuffer[CAM_MOE_LAYERED_MAX_RANK_NUM];
     uint64_t hcommHandle[CAM_MOE_LAYERED_MAX_RANK_NUM - 1U];
     uint64_t windowBytes;
 };
 
-static_assert(offsetof(CamMoeLayeredCommContext, ipcBuffer) == 16U, "layered context ABI mismatch");
-static_assert(offsetof(CamMoeLayeredCommContext, hcommHandle) == 16U + sizeof(uint64_t) * CAM_MOE_LAYERED_MAX_RANK_NUM,
+static_assert(offsetof(CamMoeLayeredCommContext, protocol) == 0U, "layered context ABI mismatch");
+static_assert(offsetof(CamMoeLayeredCommContext, ipcBuffer) == 8U, "layered context ABI mismatch");
+static_assert(offsetof(CamMoeLayeredCommContext, hcommHandle) == 8U + sizeof(uint64_t) * CAM_MOE_LAYERED_MAX_RANK_NUM,
               "layered context handles ABI mismatch");
-static_assert(sizeof(CamMoeLayeredCommContext) == 24U + sizeof(uint64_t) * (2U * CAM_MOE_LAYERED_MAX_RANK_NUM - 1U),
+static_assert(offsetof(CamMoeLayeredCommContext, windowBytes) == 16U * CAM_MOE_LAYERED_MAX_RANK_NUM,
+              "layered context window size ABI mismatch");
+static_assert(sizeof(CamMoeLayeredCommContext) == 16U * CAM_MOE_LAYERED_MAX_RANK_NUM + 8U,
               "layered context size mismatch");
 
 #endif

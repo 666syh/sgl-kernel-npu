@@ -14,6 +14,7 @@ namespace {
 constexpr uint32_t GROUP = 0, WORLD = 1, RANK = 2, RANKS = 3, EXPERTS = 4, SLOTS = 5, TILE = 6, EPOCH = 7, HIDDEN = 8,
                    MAX_BS = 9, EXPERT_ALIGNMENT = 10;
 constexpr uint32_t MAX_WORLD = 384, MAX_SERVERS = 32, MAX_TOPK = 16;
+constexpr uint32_t MAX_PREFIX_EXPERTS = 1024;
 constexpr uint64_t WORKSPACE_BYTES = 16ULL * 1024ULL * 1024ULL;
 constexpr uint64_t SHARED_WORK_UB_BYTES = 120ULL * 1024ULL;
 #ifdef __DAV_C310__
@@ -55,8 +56,10 @@ bool AddFits(uint64_t a, uint64_t b, uint64_t &result)
 }
 bool AlignElements(uint64_t value, uint64_t &result)
 {
+    constexpr uint64_t elementsPerIsolation = CamMoeLayered::CACHE_LINE_ISOLATION_BYTES / sizeof(int32_t);
     uint64_t rounded = 0;
-    return AddFits(value, 7U, rounded) && (result = (rounded / 8U) * 8U, true);
+    return AddFits(value, elementsPerIsolation - 1U, rounded) &&
+           (result = (rounded / elementsPerIsolation) * elementsPerIsolation, true);
 }
 bool Align32(uint64_t value, uint64_t &result)
 {
@@ -96,9 +99,10 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     OP_TILING_CHECK(!d || !roceDesc || !desc || !Shape2D(s, bs, k) || roceDesc->GetDataType() != DT_INT32 ||
                         desc->GetDataType() != DT_INT32 || !g || world <= 0 || world > MAX_WORLD || rank < 0 ||
                         rank >= world || ranks <= 0 || world % ranks || world / ranks > MAX_SERVERS || experts <= 0 ||
-                        experts % world || experts % (world / ranks) || slots <= 0 || maxBs <= 0 || slots != maxBs ||
-                        bs <= 0 || bs > maxBs || tile <= 0 || k <= 0 || k > MAX_TOPK || hidden <= 0 ||
-                        expertAlignment <= 0 || static_cast<uint64_t>(experts) > std::numeric_limits<uint32_t>::max() ||
+                        experts > MAX_PREFIX_EXPERTS || experts % world || experts % (world / ranks) || slots <= 0 ||
+                        maxBs <= 0 || slots != maxBs || bs <= 0 || bs > maxBs || tile <= 0 || k <= 0 || k > MAX_TOPK ||
+                        hidden <= 0 || expertAlignment <= 0 ||
+                        static_cast<uint64_t>(experts) > std::numeric_limits<uint32_t>::max() ||
                         static_cast<uint64_t>(slots) > std::numeric_limits<uint32_t>::max() ||
                         static_cast<uint64_t>(tile) > std::numeric_limits<uint32_t>::max() ||
                         static_cast<uint64_t>(hidden) > std::numeric_limits<uint32_t>::max(),
@@ -107,6 +111,10 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
                    expertsU = static_cast<uint64_t>(experts), bsU = static_cast<uint64_t>(bs),
                    maxBsU = static_cast<uint64_t>(maxBs), slotsU = static_cast<uint64_t>(slots);
     const uint64_t serversU = worldU / ranksU, roundsU = 1U;
+    const uint64_t prefixBytes = CamMoeLayered::AlignUp64(expertsU * sizeof(int32_t)) +
+                                 2U * CamMoeLayered::AlignUp64(serversU * sizeof(int32_t));
+    OP_TILING_CHECK(prefixBytes > SHARED_WORK_UB_BYTES / 2U,
+                    OP_LOGE(n, "normal layered notify prefix table exceeds UB capacity"), return GRAPH_FAILED);
     uint64_t packetSlots = 0, roundsServers = 0, roundsServersLocalExperts = 0;
     uint64_t countSlicePadded = 0, packetSlicePadded = 0, memberCountSlicePadded = 0;
     uint64_t counterSlices = 0, counterElements = 0, roundMaxScratchElements = 0, workspaceElements = 0,
@@ -212,7 +220,8 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
                                                        slots, k, recordStride, partialStride),
         OP_LOGE(n, "normal layered window arithmetic overflows"), return GRAPH_FAILED);
     const uint64_t controlStride = CamMoeLayered::AlignUp64(
-        CamMoeLayered::AllRoundCountPayloadBytes(rounds, static_cast<uint32_t>(expertsU / serversU)));
+        CamMoeLayered::AllRoundCountPayloadBytes(rounds, static_cast<uint32_t>(expertsU / serversU)),
+        CamMoeLayered::CACHE_LINE_ISOLATION_BYTES);
     OP_TILING_CHECK(!FitsUint32(controlStride), OP_LOGE(n, "normal layered control stride overflows"),
                     return GRAPH_FAILED);
     l.recordStride = static_cast<uint32_t>(recordStride);
@@ -266,11 +275,12 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     l.aivNum = platform.GetCoreNumAiv();
     platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, l.totalUbSize);
     auto *ws = c->GetWorkspaceSizes(1);
-    const bool workspaceArithmetic = MulFits(static_cast<uint64_t>(l.aivNum), counterSlices, counterElements) &&
-                                     MulFits(static_cast<uint64_t>(l.aivNum),
-                                             CamMoeLayered::ALIGN_BYTES / sizeof(int32_t), roundMaxScratchElements) &&
-                                     AddFits(counterElements, roundMaxScratchElements, workspaceElements) &&
-                                     MulFits(workspaceElements, sizeof(int32_t), counterBytes);
+    const bool workspaceArithmetic =
+        MulFits(static_cast<uint64_t>(l.aivNum), counterSlices, counterElements) &&
+        MulFits(static_cast<uint64_t>(l.aivNum), CamMoeLayered::CACHE_LINE_ISOLATION_BYTES / sizeof(int32_t),
+                roundMaxScratchElements) &&
+        AddFits(counterElements, roundMaxScratchElements, workspaceElements) &&
+        MulFits(workspaceElements, sizeof(int32_t), counterBytes);
     OP_TILING_CHECK(l.aivNum == 0U || !ws || !workspaceArithmetic || counterBytes > WORKSPACE_BYTES ||
                         l.totalUbSize < REQUIRED_NOTIFY_UB_BYTES,
                     OP_LOGE(n, "normal layered workspace or UB budget is invalid"), return GRAPH_FAILED);

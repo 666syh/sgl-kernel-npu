@@ -8,10 +8,14 @@
 namespace CamMoeLayered {
 
 constexpr uint32_t PLAN_MAGIC = 0x4C4D4F45U;  // "LMOE"
-constexpr uint32_t PLAN_VERSION = 23U;
+constexpr uint32_t PLAN_VERSION = 25U;
 constexpr uint32_t DISPATCH_CHUNK_TARGET_BYTES = 128U * 1024U;
 constexpr int32_t INVALID_SLOT = -1;
 constexpr uint32_t ALIGN_BYTES = 32U;
+// Keep independently published records on distinct DCCI lines. 128B is a
+// conservative isolation granularity for the supported Ascend devices.
+constexpr uint32_t CACHE_LINE_ISOLATION_BYTES = 128U;
+constexpr uint32_t CONTROL_FLAG_STRIDE = CACHE_LINE_ISOLATION_BYTES;
 constexpr uint32_t ASSIST_INFO_STRIDE = 9U;
 
 enum class Phase : uint32_t {
@@ -155,10 +159,10 @@ struct PlanHeader {
 };
 
 struct SourcePacketDesc {
-    int32_t sourceToken;
-    int32_t memberBegin;
-    int32_t memberCount;
-    int32_t dispatchOrdinal;
+    int32_t sourceToken;      // 保存原始token Id
+    int32_t memberBegin;      // 该token的member是发送给目标server的第几个member
+    int32_t memberCount;      // 该token的member数量
+    int32_t dispatchOrdinal;  // 该token是发送给目标server的第几个packet
 };
 
 struct ReversePacketDesc {
@@ -368,7 +372,6 @@ struct WindowLayout {
     uint64_t controlFlagOffset;
     uint64_t baseAckFlagOffset;
     uint64_t proxyAggregateStageOffset;
-    uint64_t proxyAggregateStageStride;
     uint64_t proxyAggregateStageBytes;
     uint64_t proxyAggregateOffset;
     uint64_t proxyAggregateStride;
@@ -421,20 +424,15 @@ constexpr uint64_t AllRoundBasePayloadBytes(uint32_t rounds, uint32_t expertsPer
     return sizeof(BaseAckControlMeta) + static_cast<uint64_t>(rounds) * expertsPerServer * sizeof(int32_t);
 }
 
-constexpr uint64_t AllRoundCountRoundOffset(uint32_t round, uint32_t expertsPerServer)
+constexpr uint64_t CountControlDataOffset()
 {
-    return sizeof(CountControlMeta) +
-           static_cast<uint64_t>(round) * (sizeof(uint32_t) + expertsPerServer * sizeof(int32_t));
+    return sizeof(CountControlMeta);
 }
 
-// BaseAck payload is owner/expert-major. All rounds for one expert are
-// contiguous, matching the compact expert-major receive layout.
-constexpr uint64_t AllRoundBaseOwnerExpertRoundOffset(uint32_t round, uint32_t ownerInServer, uint32_t localExpert,
-                                                      uint32_t physicalRounds, uint32_t localExperts)
+constexpr uint64_t BaseAckOwnerExpertOffset(uint32_t ownerInServer, uint32_t localExpert, uint32_t localExperts)
 {
     return sizeof(BaseAckControlMeta) +
-           ((static_cast<uint64_t>(ownerInServer) * localExperts + localExpert) * physicalRounds + round) *
-               sizeof(int32_t);
+           (static_cast<uint64_t>(ownerInServer) * localExperts + localExpert) * sizeof(int32_t);
 }
 
 constexpr uint64_t BaseAckStageOffset(const WindowLayout &l, uint32_t proxyInServer, uint32_t sourceServer)
@@ -474,7 +472,17 @@ constexpr uint64_t AlignUp64(uint64_t value, uint64_t align = ALIGN_BYTES)
 
 constexpr uint64_t DispatchBatchPayloadBytes(uint32_t packetCount, uint32_t memberCount, uint32_t recordStride)
 {
-    if (packetCount == 0U && memberCount == 0U) return 0U;
+    if (packetCount == 0U && memberCount == 0U) {
+        return 0U;
+    }
+    /*
+     * [
+     *  DispatchBatchMeta                           // 固定头
+     *  packetCount × sizeof(DispatchPacketMeta)    // packet 元数据数组
+     *  packetCount × recordStride                  // token 记录
+     *  memberCount × sizeof(DispatchMemberMeta) )  // member 元数据数组
+     * ]
+     */
     const uint64_t packetMetaOffset = sizeof(DispatchBatchMeta);
     const uint64_t tokenRecordOffset =
         AlignUp64(packetMetaOffset + static_cast<uint64_t>(packetCount) * sizeof(DispatchPacketMeta));
@@ -485,45 +493,40 @@ constexpr uint64_t DispatchBatchPayloadBytes(uint32_t packetCount, uint32_t memb
 // All address calculations are byte-based. Source and target server are both
 // encoded so each sender/receiver pair owns a distinct batch lane.
 constexpr uint64_t ControlLaneOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
-                                     uint32_t targetServer, uint32_t round)
+                                     uint32_t targetServer)
 {
-    (void)round;
     return (targetServer * worldSize + sourceRank) * l.controlStride;
 }
 constexpr uint64_t BaseAckLaneOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
-                                     uint32_t targetServer, uint32_t round)
+                                     uint32_t targetServer)
 {
-    (void)round;
     return l.baseAckOffset + (targetServer * worldSize + sourceRank) * l.baseAckStride;
 }
 constexpr uint64_t ControlFlagOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
                                      uint32_t targetServer)
 {
-    return l.controlFlagOffset + (targetServer * worldSize + sourceRank) * sizeof(uint64_t);
+    return l.controlFlagOffset + (targetServer * worldSize + sourceRank) * CONTROL_FLAG_STRIDE;
 }
 constexpr uint64_t BaseAckFlagOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
                                      uint32_t targetServer)
 {
-    return l.baseAckFlagOffset + (targetServer * worldSize + sourceRank) * sizeof(uint64_t);
+    return l.baseAckFlagOffset + (targetServer * worldSize + sourceRank) * CONTROL_FLAG_STRIDE;
 }
 constexpr uint64_t ProxyAggregateOffset(const WindowLayout &l, uint32_t proxyRankInServer)
 {
     return l.proxyAggregateOffset + proxyRankInServer * l.proxyAggregateStride;
 }
-constexpr uint64_t ProxyAggregateStageOffset(const WindowLayout &l, uint32_t proxyRankInServer,
-                                             uint32_t ownerRankInServer)
+constexpr uint64_t ProxyAggregateStageOffset(const WindowLayout &l, uint32_t ownerRankInServer)
 {
-    return l.proxyAggregateStageOffset + proxyRankInServer * l.proxyAggregateStageStride +
-           ownerRankInServer * l.proxyAggregateStride;
+    return l.proxyAggregateStageOffset + ownerRankInServer * l.proxyAggregateStride;
 }
 constexpr uint64_t ProxyAggregateFlagOffset(const WindowLayout &l, uint32_t proxyRankInServer)
 {
     return l.proxyAggregateFlagOffset + proxyRankInServer * sizeof(uint64_t);
 }
-constexpr uint64_t ProxyOwnerCountOffset(uint32_t sourceServer, uint32_t round, uint32_t localExpert, uint32_t rounds,
-                                         uint32_t localExperts)
+constexpr uint64_t ProxyOwnerCountOffset(uint32_t sourceServer, uint32_t localExpert, uint32_t localExperts)
 {
-    return ((static_cast<uint64_t>(sourceServer) * rounds + round) * localExperts + localExpert) * sizeof(int32_t);
+    return (static_cast<uint64_t>(sourceServer) * localExperts + localExpert) * sizeof(int32_t);
 }
 constexpr uint64_t DispatchPayloadAddress(const WindowLayout &l, uint64_t compactOffset)
 {
@@ -551,81 +554,54 @@ constexpr uint64_t DispatchSourcePipelineFlagOffset(const WindowLayout &l, uint3
                                sizeof(uint64_t);
 }
 constexpr uint64_t PhaseFlagOffset(const WindowLayout &l, uint32_t serverNum, uint32_t sourceServer,
-                                   uint32_t targetServer, uint32_t round, Phase phase)
+                                   uint32_t targetServer, Phase phase)
 {
-    return l.stateOffset + (((round * serverNum + targetServer) * serverNum + sourceServer) * l.stateLaneStride +
-                            static_cast<uint32_t>(phase)) *
-                               sizeof(uint64_t);
+    return l.stateOffset +
+           ((targetServer * serverNum + sourceServer) * l.stateLaneStride + static_cast<uint32_t>(phase)) *
+               sizeof(uint64_t);
 }
-constexpr uint64_t OwnerPartialLaneOffset(const WindowLayout &l, uint32_t serverNum, uint32_t ranksPerServer,
-                                          uint32_t slots, uint32_t sourceServer, uint32_t targetServer,
-                                          uint32_t sourceRankInServer, uint32_t round, uint32_t slot,
-                                          uint32_t ownerRankInServer, uint32_t partialStride)
-{
-    (void)round;
-    return l.partialOffset +
-           (((((targetServer * serverNum + sourceServer) * ranksPerServer + sourceRankInServer) * ranksPerServer +
-              ownerRankInServer) *
-                 slots +
-             slot) *
-            partialStride);
-}
-constexpr uint64_t OwnerPartialReadyFlagOffset(const WindowLayout &l, uint32_t serverNum, uint32_t ranksPerServer,
-                                               uint32_t sourceServer, uint32_t targetServer, uint32_t round,
-                                               uint32_t sourceRankInServer, uint32_t ownerRankInServer)
-{
-    return l.stateOffset + ((((round * serverNum + targetServer) * serverNum + sourceServer) * l.stateLaneStride + 8U +
-                             sourceRankInServer * ranksPerServer + ownerRankInServer) *
-                            sizeof(uint64_t));
-}
-constexpr uint64_t ReturnPartialLaneOffset(const WindowLayout &l, uint32_t serverNum, uint32_t ranksPerServer,
-                                           uint32_t slots, uint32_t sourceServer, uint32_t targetServer,
-                                           uint32_t sourceRankInServer, uint32_t round, uint32_t slot,
-                                           uint32_t partialStride)
-{
-    (void)round;
-    return l.returnPartialOffset +
-           ((((targetServer * serverNum + sourceServer) * ranksPerServer + sourceRankInServer) * slots + slot) *
-            partialStride);
-}
-
 constexpr WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, uint32_t ranksPerServer,
                                         uint32_t serverNum, uint32_t rounds, uint32_t slots, uint32_t recordStride,
                                         uint32_t partialStride, uint32_t topk, bool hybridDeployment = false)
 {
     WindowLayout l{};
     const uint32_t expertsPerServer = expertNum / serverNum;
-    l.controlStride = AlignUp64(AllRoundCountPayloadBytes(rounds, expertsPerServer));
-    l.baseAckStride = AlignUp64(AllRoundBasePayloadBytes(rounds, expertsPerServer));
+    l.controlStride = AlignUp64(AllRoundCountPayloadBytes(rounds, expertsPerServer), CACHE_LINE_ISOLATION_BYTES);
+    l.baseAckStride = AlignUp64(AllRoundBasePayloadBytes(rounds, expertsPerServer), CACHE_LINE_ISOLATION_BYTES);
     // RDMA control region: controls are addressed by source rank, not by
     // source server. This is
     // Required when every source rank sends to its same-rank proxy in the
     // target server. The source-rank dimension keeps proxy lanes distinct.
     l.controlBytes = l.controlStride * serverNum * worldSize;
-    l.baseAckOffset = AlignUp64(l.controlBytes);
+    l.baseAckOffset = AlignUp64(l.controlBytes, CACHE_LINE_ISOLATION_BYTES);
     l.baseAckBytes = l.baseAckStride * serverNum * worldSize;
-    l.controlFlagOffset = AlignUp64(l.baseAckOffset + l.baseAckBytes);
-    l.baseAckFlagOffset = AlignUp64(l.controlFlagOffset + serverNum * worldSize * sizeof(uint64_t));
+    l.controlFlagOffset = AlignUp64(l.baseAckOffset + l.baseAckBytes, CACHE_LINE_ISOLATION_BYTES);
+    const uint64_t controlFlagBytes = static_cast<uint64_t>(serverNum) * worldSize * CONTROL_FLAG_STRIDE;
+    l.baseAckFlagOffset = AlignUp64(l.controlFlagOffset + controlFlagBytes, CACHE_LINE_ISOLATION_BYTES);
     // Server-local DataCopy staging starts after all RDMA payloads and flags.
     // It is deliberately not overlaid with the RDMA control region.
     const uint32_t localExperts = ranksPerServer == 0U ? 0U : expertsPerServer / ranksPerServer;
     // Staging and destination lanes intentionally use the same owner-local
     // source-preserving layout, so one proxy can copy a complete owner matrix.
-    l.proxyAggregateStride = AlignUp64(static_cast<uint64_t>(serverNum) * rounds * localExperts * sizeof(int32_t));
-    l.proxyAggregateStageOffset = AlignUp64(l.baseAckFlagOffset + serverNum * worldSize * sizeof(uint64_t));
-    l.proxyAggregateStageStride = l.proxyAggregateStride * ranksPerServer;
-    l.proxyAggregateStageBytes = l.proxyAggregateStageStride * ranksPerServer;
+    l.proxyAggregateStride = AlignUp64(static_cast<uint64_t>(serverNum) * rounds * localExperts * sizeof(int32_t),
+                                       CACHE_LINE_ISOLATION_BYTES);
+    const uint64_t baseAckFlagBytes = static_cast<uint64_t>(serverNum) * worldSize * CONTROL_FLAG_STRIDE;
+    l.proxyAggregateStageOffset = AlignUp64(l.baseAckFlagOffset + baseAckFlagBytes);
+    l.proxyAggregateStageBytes = l.proxyAggregateStride * ranksPerServer;
     l.proxyAggregateOffset = AlignUp64(l.proxyAggregateStageOffset + l.proxyAggregateStageBytes);
     l.proxyAggregateBytes = l.proxyAggregateStride * ranksPerServer;
     l.proxyAggregateFlagOffset = AlignUp64(l.proxyAggregateOffset + l.proxyAggregateBytes);
-    const uint64_t baseAckSliceBytes = AlignUp64(static_cast<uint64_t>(rounds) * localExperts * sizeof(int32_t));
+    const uint64_t baseAckSliceBytes =
+        AlignUp64(static_cast<uint64_t>(rounds) * localExperts * sizeof(int32_t), CACHE_LINE_ISOLATION_BYTES);
     l.baseAckStageOffset =
-        AlignUp64(l.proxyAggregateFlagOffset + static_cast<uint64_t>(ranksPerServer) * sizeof(uint64_t));
+        AlignUp64(l.proxyAggregateFlagOffset + static_cast<uint64_t>(ranksPerServer) * sizeof(uint64_t),
+                  CACHE_LINE_ISOLATION_BYTES);
     l.baseAckStageSliceStride = baseAckSliceBytes;
     l.baseAckStageOwnerRowsOffset = l.baseAckStageSliceStride * serverNum;
-    l.baseAckStageProxyStride = AlignUp64(l.baseAckStageOwnerRowsOffset + ALIGN_BYTES);
+    l.baseAckStageProxyStride =
+        AlignUp64(l.baseAckStageOwnerRowsOffset + CACHE_LINE_ISOLATION_BYTES, CACHE_LINE_ISOLATION_BYTES);
     l.baseAckStageBytes = l.baseAckStageProxyStride * ranksPerServer;
-    l.baseAckFanoutOffset = AlignUp64(l.baseAckStageOffset + l.baseAckStageBytes);
+    l.baseAckFanoutOffset = AlignUp64(l.baseAckStageOffset + l.baseAckStageBytes, CACHE_LINE_ISOLATION_BYTES);
     l.baseAckFanoutOwnerStride = l.baseAckStageProxyStride;
     l.baseAckFanoutBytes = l.baseAckFanoutOwnerStride * ranksPerServer;
     l.baseAckFanoutFlagOffset = AlignUp64(l.baseAckFanoutOffset + l.baseAckFanoutBytes);

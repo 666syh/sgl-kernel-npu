@@ -89,7 +89,7 @@ private:
 
     __aicore__ inline uint64_t DispatchReadyAddress(uint32_t sourceServer, uint32_t targetServer) const
     {
-        return PhaseFlagOffset(layout_, info_.serverNum, sourceServer, targetServer, 0U, Phase::DISPATCH_DATA_READY);
+        return PhaseFlagOffset(layout_, info_.serverNum, sourceServer, targetServer, Phase::DISPATCH_DATA_READY);
     }
 
     __aicore__ inline void CopyPeerBytes(__gm__ uint8_t *dst, __gm__ uint8_t *src, uint32_t bytes)
@@ -513,11 +513,11 @@ private:
                 return false;
             }
             const uint32_t sourceRank = sourceServer * info_.ranksPerServer + info_.rankInServer;
-            auto *control = in + ControlLaneOffset(layout_, info_.epWorldSize, sourceRank, sourceServer_, 0U);
+            auto *control = in + ControlLaneOffset(layout_, info_.epWorldSize, sourceRank, sourceServer_);
             LoadPeerBytes(control, sizeof(CountControlMeta));
             const uint32_t returnBase = copyUb_->template ReinterpretCast<uint32_t>().GetValue(0);
             StoreWords((__gm__ uint32_t *)(plan_ + p.reverseReturnBase + sourceServer), &returnBase, 1U);
-            auto *entry = control + AllRoundCountRoundOffset(0U, info_.moeExpertNum / info_.serverNum);
+            auto *entry = control + CountControlDataOffset();
             LoadPeerBytes(entry, sizeof(uint32_t));
             const uint32_t expectedPackets = copyUb_->template ReinterpretCast<uint32_t>().GetValue(0);
             if (expectedPackets == 0U) {  // 源 server 无 token 发来
