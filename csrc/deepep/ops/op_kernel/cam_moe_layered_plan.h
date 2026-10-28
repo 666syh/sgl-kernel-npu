@@ -7,6 +7,12 @@
 
 namespace CamMoeLayered {
 
+#ifdef __CCE_AICORE__
+#define CAM_MOE_LAYERED_INLINE __aicore__ inline
+#else
+#define CAM_MOE_LAYERED_INLINE inline
+#endif
+
 constexpr uint32_t PLAN_MAGIC = 0x4C4D4F45U;  // "LMOE"
 constexpr uint32_t PLAN_VERSION = 25U;
 constexpr uint32_t DISPATCH_CHUNK_TARGET_BYTES = 128U * 1024U;
@@ -41,12 +47,12 @@ enum class Phase : uint32_t {
     ERROR_PROTOCOL = 10,
 };
 
-constexpr uint64_t ComposeFlag(uint64_t epoch, Phase phase)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ComposeFlag(uint64_t epoch, Phase phase)
 {
     return (epoch << 8U) | static_cast<uint64_t>(phase);
 }
 
-constexpr uint32_t AlignUp(uint32_t value, uint32_t align = ALIGN_BYTES)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t AlignUp(uint32_t value, uint32_t align = ALIGN_BYTES)
 {
     return (value + align - 1U) / align * align;
 }
@@ -276,87 +282,90 @@ static_assert(sizeof(DispatchMemberMeta) == 3U * sizeof(int32_t), "Dispatch memb
 static_assert(sizeof(DispatchTopkRouteRecord) == 2U * sizeof(int32_t), "Dispatch top-k ABI changed");
 static_assert(sizeof(CombineRoute) == ASSIST_INFO_STRIDE * sizeof(int32_t), "Combine route ABI changed");
 
-constexpr uint32_t HeaderElements()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t HeaderElements()
 {
     return sizeof(PlanHeader) / sizeof(int32_t);
 }
-constexpr uint32_t PacketElements()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t PacketElements()
 {
     return sizeof(SourcePacketDesc) / sizeof(int32_t);
 }
-constexpr uint32_t ReversePacketElements()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t ReversePacketElements()
 {
     return sizeof(ReversePacketDesc) / sizeof(int32_t);
 }
-constexpr uint32_t MemberElements()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t MemberElements()
 {
     return sizeof(MemberDesc) / sizeof(int32_t);
 }
-constexpr uint32_t ReverseMemberElements()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t ReverseMemberElements()
 {
     return sizeof(ReverseMember) / sizeof(int32_t);
 }
-constexpr uint32_t LocalExpertNum(uint32_t expertNum, uint32_t worldSize)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t LocalExpertNum(uint32_t expertNum, uint32_t worldSize)
 {
     return worldSize == 0 ? 0 : expertNum / worldSize;
 }
-constexpr uint32_t ServerExpertNum(uint32_t expertNum, uint32_t worldSize, uint32_t ranksPerServer)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t ServerExpertNum(uint32_t expertNum, uint32_t worldSize,
+                                                          uint32_t ranksPerServer)
 {
     return LocalExpertNum(expertNum, worldSize) * ranksPerServer;
 }
-constexpr uint32_t DispatchChunkPackets(uint32_t maxBs, uint32_t recordStride)
+CAM_MOE_LAYERED_INLINE uint32_t DispatchChunkPackets(uint32_t maxBs, uint32_t recordStride)
 {
     const uint32_t byBytes = recordStride == 0U ? 1U : DISPATCH_CHUNK_TARGET_BYTES / recordStride;
     const uint32_t packets = byBytes == 0U ? 1U : byBytes;
     return packets < maxBs ? packets : maxBs;
 }
-constexpr uint32_t DispatchMaxChunks(uint32_t maxBs, uint32_t recordStride)
+CAM_MOE_LAYERED_INLINE uint32_t DispatchMaxChunks(uint32_t maxBs, uint32_t recordStride)
 {
     const uint32_t packets = DispatchChunkPackets(maxBs, recordStride);
     return packets == 0U ? 0U : (maxBs - 1U) / packets + 1U;
 }
-constexpr uint32_t DispatchTopkRouteOffset(uint32_t h, uint32_t elementBytes)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchTopkRouteOffset(uint32_t h, uint32_t elementBytes)
 {
     return AlignUp(h * elementBytes);
 }
-constexpr uint32_t DispatchRecordStride(uint32_t h, uint32_t k, uint32_t elementBytes)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchRecordStride(uint32_t h, uint32_t k, uint32_t elementBytes)
 {
     return AlignUp(DispatchTopkRouteOffset(h, elementBytes) + k * sizeof(DispatchTopkRouteRecord));
 }
-constexpr uint32_t DispatchRecordRouteEnd(uint32_t h, uint32_t k, uint32_t elementBytes)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchRecordRouteEnd(uint32_t h, uint32_t k, uint32_t elementBytes)
 {
     return DispatchTopkRouteOffset(h, elementBytes) + k * sizeof(DispatchTopkRouteRecord);
 }
 static_assert(DispatchRecordRouteEnd(33U, 2U, 2U) <= DispatchRecordStride(33U, 2U, 2U),
               "16-bit token routes must fit in their record");
 static_assert(DispatchRecordStride(33U, 2U, 2U) == 128U, "h=33, k=2 must reserve the aligned route tail");
-constexpr uint32_t DispatchPacketMetaOffsetInBatch()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchPacketMetaOffsetInBatch()
 {
     return sizeof(DispatchBatchMeta);
 }
-constexpr uint32_t DispatchIngressOffsetLoWord()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchIngressOffsetLoWord()
 {
     return offsetof(DispatchBatchMeta, ingressOffsetLo) / sizeof(uint32_t);
 }
-constexpr uint32_t DispatchIngressOffsetHiWord()
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchIngressOffsetHiWord()
 {
     return offsetof(DispatchBatchMeta, ingressOffsetHi) / sizeof(uint32_t);
 }
-constexpr uint32_t DispatchTokenRecordOffsetInBatch(uint32_t slots)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchTokenRecordOffsetInBatch(uint32_t slots)
 {
     return AlignUp(sizeof(DispatchBatchMeta) + slots * sizeof(DispatchPacketMeta));
 }
-constexpr uint32_t DispatchMemberMetaOffsetInBatch(uint32_t h, uint32_t k, uint32_t elementBytes, uint32_t slots)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchMemberMetaOffsetInBatch(uint32_t h, uint32_t k, uint32_t elementBytes,
+                                                                          uint32_t slots)
 {
     return AlignUp(DispatchTokenRecordOffsetInBatch(slots) +
                    static_cast<uint64_t>(slots) * DispatchRecordStride(h, k, elementBytes));
 }
-constexpr uint32_t DispatchIngressBatchStride(uint32_t h, uint32_t k, uint32_t elementBytes, uint32_t slots)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t DispatchIngressBatchStride(uint32_t h, uint32_t k, uint32_t elementBytes,
+                                                                     uint32_t slots)
 {
     return AlignUp(DispatchMemberMetaOffsetInBatch(h, k, elementBytes, slots) +
                    static_cast<uint64_t>(slots) * k * sizeof(DispatchMemberMeta));
 }
-constexpr uint32_t PartialRecordStride(uint32_t h, uint32_t elementBytes)
+CAM_MOE_LAYERED_INLINE uint32_t PartialRecordStride(uint32_t h, uint32_t elementBytes)
 {
     (void)elementBytes;
     return AlignUp(sizeof(PartialRecordHeader) + h * sizeof(float));
@@ -413,64 +422,68 @@ struct WindowLayout {
     uint64_t requiredBytes;
 };
 
-constexpr uint64_t AllRoundCountPayloadBytes(uint32_t rounds, uint32_t expertsPerServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t AllRoundCountPayloadBytes(uint32_t rounds, uint32_t expertsPerServer)
 {
     return sizeof(CountControlMeta) +
            static_cast<uint64_t>(rounds) * (sizeof(uint32_t) + expertsPerServer * sizeof(int32_t));
 }
 
-constexpr uint64_t AllRoundBasePayloadBytes(uint32_t rounds, uint32_t expertsPerServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t AllRoundBasePayloadBytes(uint32_t rounds, uint32_t expertsPerServer)
 {
     return sizeof(BaseAckControlMeta) + static_cast<uint64_t>(rounds) * expertsPerServer * sizeof(int32_t);
 }
 
-constexpr uint64_t CountControlDataOffset()
+CAM_MOE_LAYERED_INLINE constexpr uint64_t CountControlDataOffset()
 {
     return sizeof(CountControlMeta);
 }
 
-constexpr uint64_t BaseAckOwnerExpertOffset(uint32_t ownerInServer, uint32_t localExpert, uint32_t localExperts)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckOwnerExpertOffset(uint32_t ownerInServer, uint32_t localExpert,
+                                                                   uint32_t localExperts)
 {
     return sizeof(BaseAckControlMeta) +
            (static_cast<uint64_t>(ownerInServer) * localExperts + localExpert) * sizeof(int32_t);
 }
 
-constexpr uint64_t BaseAckStageOffset(const WindowLayout &l, uint32_t proxyInServer, uint32_t sourceServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckStageOffset(const WindowLayout &l, uint32_t proxyInServer,
+                                                             uint32_t sourceServer)
 {
     return l.baseAckStageOffset + proxyInServer * l.baseAckStageProxyStride + sourceServer * l.baseAckStageSliceStride;
 }
 
-constexpr uint64_t BaseAckStageOwnerRowsOffset(const WindowLayout &l, uint32_t proxyInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckStageOwnerRowsOffset(const WindowLayout &l, uint32_t proxyInServer)
 {
     return l.baseAckStageOffset + proxyInServer * l.baseAckStageProxyStride + l.baseAckStageOwnerRowsOffset;
 }
 
-constexpr uint64_t BaseAckFanoutOwnerOffset(const WindowLayout &l, uint32_t ownerInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckFanoutOwnerOffset(const WindowLayout &l, uint32_t ownerInServer)
 {
     return l.baseAckFanoutOffset + ownerInServer * l.baseAckFanoutOwnerStride;
 }
 
-constexpr uint64_t BaseAckFanoutSliceOffset(const WindowLayout &l, uint32_t ownerInServer, uint32_t sourceServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckFanoutSliceOffset(const WindowLayout &l, uint32_t ownerInServer,
+                                                                   uint32_t sourceServer)
 {
     return BaseAckFanoutOwnerOffset(l, ownerInServer) + sourceServer * l.baseAckStageSliceStride;
 }
 
-constexpr uint64_t BaseAckFanoutOwnerRowsOffset(const WindowLayout &l, uint32_t ownerInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckFanoutOwnerRowsOffset(const WindowLayout &l, uint32_t ownerInServer)
 {
     return BaseAckFanoutOwnerOffset(l, ownerInServer) + l.baseAckStageOwnerRowsOffset;
 }
 
-constexpr uint64_t BaseAckFanoutFlagOffset(const WindowLayout &l, uint32_t ownerInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckFanoutFlagOffset(const WindowLayout &l, uint32_t ownerInServer)
 {
     return l.baseAckFanoutFlagOffset + ownerInServer * sizeof(uint64_t);
 }
 
-constexpr uint64_t AlignUp64(uint64_t value, uint64_t align = ALIGN_BYTES)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t AlignUp64(uint64_t value, uint64_t align = ALIGN_BYTES)
 {
     return (value + align - 1U) / align * align;
 }
 
-constexpr uint64_t DispatchBatchPayloadBytes(uint32_t packetCount, uint32_t memberCount, uint32_t recordStride)
+CAM_MOE_LAYERED_INLINE uint64_t DispatchBatchPayloadBytes(uint32_t packetCount, uint32_t memberCount,
+                                                          uint32_t recordStride)
 {
     if (packetCount == 0U && memberCount == 0U) {
         return 0U;
@@ -492,77 +505,83 @@ constexpr uint64_t DispatchBatchPayloadBytes(uint32_t packetCount, uint32_t memb
 
 // All address calculations are byte-based. Source and target server are both
 // encoded so each sender/receiver pair owns a distinct batch lane.
-constexpr uint64_t ControlLaneOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
-                                     uint32_t targetServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ControlLaneOffset(const WindowLayout &l, uint32_t worldSize,
+                                                            uint32_t sourceRank, uint32_t targetServer)
 {
     return (targetServer * worldSize + sourceRank) * l.controlStride;
 }
-constexpr uint64_t BaseAckLaneOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
-                                     uint32_t targetServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckLaneOffset(const WindowLayout &l, uint32_t worldSize,
+                                                            uint32_t sourceRank, uint32_t targetServer)
 {
     return l.baseAckOffset + (targetServer * worldSize + sourceRank) * l.baseAckStride;
 }
-constexpr uint64_t ControlFlagOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
-                                     uint32_t targetServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ControlFlagOffset(const WindowLayout &l, uint32_t worldSize,
+                                                            uint32_t sourceRank, uint32_t targetServer)
 {
     return l.controlFlagOffset + (targetServer * worldSize + sourceRank) * CONTROL_FLAG_STRIDE;
 }
-constexpr uint64_t BaseAckFlagOffset(const WindowLayout &l, uint32_t worldSize, uint32_t sourceRank,
-                                     uint32_t targetServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t BaseAckFlagOffset(const WindowLayout &l, uint32_t worldSize,
+                                                            uint32_t sourceRank, uint32_t targetServer)
 {
     return l.baseAckFlagOffset + (targetServer * worldSize + sourceRank) * CONTROL_FLAG_STRIDE;
 }
-constexpr uint64_t ProxyAggregateOffset(const WindowLayout &l, uint32_t proxyRankInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ProxyAggregateOffset(const WindowLayout &l, uint32_t proxyRankInServer)
 {
     return l.proxyAggregateOffset + proxyRankInServer * l.proxyAggregateStride;
 }
-constexpr uint64_t ProxyAggregateStageOffset(const WindowLayout &l, uint32_t ownerRankInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ProxyAggregateStageOffset(const WindowLayout &l, uint32_t ownerRankInServer)
 {
     return l.proxyAggregateStageOffset + ownerRankInServer * l.proxyAggregateStride;
 }
-constexpr uint64_t ProxyAggregateFlagOffset(const WindowLayout &l, uint32_t proxyRankInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ProxyAggregateFlagOffset(const WindowLayout &l, uint32_t proxyRankInServer)
 {
     return l.proxyAggregateFlagOffset + proxyRankInServer * sizeof(uint64_t);
 }
-constexpr uint64_t ProxyOwnerCountOffset(uint32_t sourceServer, uint32_t localExpert, uint32_t localExperts)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t ProxyOwnerCountOffset(uint32_t sourceServer, uint32_t localExpert,
+                                                                uint32_t localExperts)
 {
     return (static_cast<uint64_t>(sourceServer) * localExperts + localExpert) * sizeof(int32_t);
 }
-constexpr uint64_t DispatchPayloadAddress(const WindowLayout &l, uint64_t compactOffset)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t DispatchPayloadAddress(const WindowLayout &l, uint64_t compactOffset)
 {
     return l.dispatchPayloadOffset + compactOffset;
 }
-constexpr uint64_t DispatchMetadataFanoutOffset(const WindowLayout &l, uint32_t ranksPerServer, uint32_t sourceServer,
-                                                uint32_t proxyInServer)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t DispatchMetadataFanoutOffset(const WindowLayout &l, uint32_t ranksPerServer,
+                                                                       uint32_t sourceServer, uint32_t proxyInServer)
 {
     return l.dispatchFanoutOffset +
            (static_cast<uint64_t>(sourceServer) * ranksPerServer + proxyInServer) * l.dispatchFanoutBatchStride;
 }
-constexpr uint64_t DispatchOwnerPipelineFlagOffset(const WindowLayout &l, uint32_t ranksPerServer,
-                                                   uint32_t sourceServer, uint32_t proxyInServer, uint32_t slot)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t DispatchOwnerPipelineFlagOffset(const WindowLayout &l,
+                                                                          uint32_t ranksPerServer,
+                                                                          uint32_t sourceServer, uint32_t proxyInServer,
+                                                                          uint32_t slot)
 {
     return l.dispatchPipelineFlagOffset + ((static_cast<uint64_t>(sourceServer) * ranksPerServer + proxyInServer) *
                                                (static_cast<uint64_t>(l.dispatchMaxChunks) + 2U) +
                                            slot) *
                                               sizeof(uint64_t);
 }
-constexpr uint64_t DispatchSourcePipelineFlagOffset(const WindowLayout &l, uint32_t serverNum, uint32_t ranksPerServer,
-                                                    uint32_t sourceServer, uint32_t targetServer, uint32_t slot)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t DispatchSourcePipelineFlagOffset(const WindowLayout &l, uint32_t serverNum,
+                                                                           uint32_t ranksPerServer,
+                                                                           uint32_t sourceServer, uint32_t targetServer,
+                                                                           uint32_t slot)
 {
     return l.stateOffset + ((static_cast<uint64_t>(targetServer) * serverNum + sourceServer) * l.stateLaneStride + 13U +
                             static_cast<uint64_t>(ranksPerServer) * ranksPerServer + slot) *
                                sizeof(uint64_t);
 }
-constexpr uint64_t PhaseFlagOffset(const WindowLayout &l, uint32_t serverNum, uint32_t sourceServer,
-                                   uint32_t targetServer, Phase phase)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t PhaseFlagOffset(const WindowLayout &l, uint32_t serverNum,
+                                                          uint32_t sourceServer, uint32_t targetServer, Phase phase)
 {
     return l.stateOffset +
            ((targetServer * serverNum + sourceServer) * l.stateLaneStride + static_cast<uint32_t>(phase)) *
                sizeof(uint64_t);
 }
-constexpr WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, uint32_t ranksPerServer,
-                                        uint32_t serverNum, uint32_t rounds, uint32_t slots, uint32_t recordStride,
-                                        uint32_t partialStride, uint32_t topk, bool hybridDeployment = false)
+CAM_MOE_LAYERED_INLINE WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, uint32_t ranksPerServer,
+                                                     uint32_t serverNum, uint32_t rounds, uint32_t slots,
+                                                     uint32_t recordStride, uint32_t partialStride, uint32_t topk,
+                                                     bool hybridDeployment = false)
 {
     WindowLayout l{};
     const uint32_t expertsPerServer = expertNum / serverNum;
@@ -650,15 +669,15 @@ constexpr WindowLayout MakeWindowLayout(uint32_t expertNum, uint32_t worldSize, 
 // Combine runs after Dispatch has released its Window lanes. Owner rows,
 // outbound partials and inbound partials occupy distinct ranges even when
 // WindowIn and WindowOut alias on A5.
-constexpr uint32_t CombineOwnerRowUbBytes(uint32_t hidden, uint32_t elementBytes)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t CombineOwnerRowUbBytes(uint32_t hidden, uint32_t elementBytes)
 {
     return AlignUp(hidden * elementBytes);
 }
-constexpr uint32_t CombinePartialUbBytes(uint32_t hidden)
+CAM_MOE_LAYERED_INLINE constexpr uint32_t CombinePartialUbBytes(uint32_t hidden)
 {
     return AlignUp(hidden * sizeof(float));
 }
-constexpr uint64_t CombineExpertBasesUbBytes(uint32_t localExperts)
+CAM_MOE_LAYERED_INLINE constexpr uint64_t CombineExpertBasesUbBytes(uint32_t localExperts)
 {
     return AlignUp64((static_cast<uint64_t>(localExperts) + 1U) * sizeof(uint32_t));
 }
@@ -691,10 +710,10 @@ struct CombineWindowLayout {
 // Short flag writes from different AIVs must not share a cache line.
 constexpr uint64_t COMBINE_FLAG_STRIDE = 64U;
 
-constexpr CombineWindowLayout MakeCombineWindowLayout(const WindowLayout &base, uint32_t serverNum,
-                                                      uint32_t ranksPerServer, uint32_t localExperts,
-                                                      uint32_t ownerCapacity, uint32_t maxBs, uint32_t hidden,
-                                                      uint32_t elementBytes)
+CAM_MOE_LAYERED_INLINE CombineWindowLayout MakeCombineWindowLayout(const WindowLayout &base, uint32_t serverNum,
+                                                                   uint32_t ranksPerServer, uint32_t localExperts,
+                                                                   uint32_t ownerCapacity, uint32_t maxBs,
+                                                                   uint32_t hidden, uint32_t elementBytes)
 {
     CombineWindowLayout c{};
     c.ownerStageStride = AlignUp64(static_cast<uint64_t>(hidden) * elementBytes);
@@ -718,24 +737,6 @@ constexpr CombineWindowLayout MakeCombineWindowLayout(const WindowLayout &base, 
     c.requiredBytes = AlignUp64(c.consumedFlagStageOffset + serverNum * COMBINE_FLAG_STRIDE, COMBINE_FLAG_STRIDE);
     return c;
 }
-
-constexpr CombineWindowLayout kCombineLayoutProbe =
-    MakeCombineWindowLayout(WindowLayout{}, 2U, 2U, 4U, 128U, 32U, 33U, 2U);
-static_assert(kCombineLayoutProbe.ownerStageStride == 96U && kCombineLayoutProbe.partialStride == 160U,
-              "Combine row and FP32 partial strides changed");
-static_assert(kCombineLayoutProbe.expertBaseStride == 32U && kCombineLayoutProbe.expertBaseBytes == 64U &&
-                  kCombineLayoutProbe.expertBaseOffset + kCombineLayoutProbe.expertBaseBytes <=
-                      kCombineLayoutProbe.proxyPartialOffset &&
-                  kCombineLayoutProbe.proxyPartialOffset + 2U * 32U * 160U <= kCombineLayoutProbe.sourcePartialOffset &&
-                  kCombineLayoutProbe.sourcePartialOffset + 2U * 32U * 160U <= kCombineLayoutProbe.ownerReadyOffset,
-              "Combine window ranges overlap");
-static_assert(kCombineLayoutProbe.ownerConsumedOffset - kCombineLayoutProbe.ownerReadyOffset ==
-                      2U * COMBINE_FLAG_STRIDE &&
-                  kCombineLayoutProbe.sourceFlagStageOffset - kCombineLayoutProbe.serverFlagStageOffset ==
-                      2U * COMBINE_FLAG_STRIDE &&
-                  kCombineLayoutProbe.requiredBytes - kCombineLayoutProbe.consumedFlagStageOffset ==
-                      2U * COMBINE_FLAG_STRIDE,
-              "Combine flags must have isolated slots");
 
 struct PlanLayout {
     uint32_t packetCount;
@@ -763,8 +764,9 @@ struct PlanLayout {
     uint32_t total;
 };
 
-constexpr PlanLayout MakePlanLayout(uint32_t bs, uint32_t maxBs, uint32_t k, uint32_t expertNum, uint32_t worldSize,
-                                    uint32_t serverNum, uint32_t ranksPerServer, uint32_t rounds, uint32_t slots)
+CAM_MOE_LAYERED_INLINE PlanLayout MakePlanLayout(uint32_t bs, uint32_t maxBs, uint32_t k, uint32_t expertNum,
+                                                 uint32_t worldSize, uint32_t serverNum, uint32_t ranksPerServer,
+                                                 uint32_t rounds, uint32_t slots)
 {
     PlanLayout l{};
     l.packetCount = HeaderElements();
@@ -799,5 +801,7 @@ constexpr PlanLayout MakePlanLayout(uint32_t bs, uint32_t maxBs, uint32_t k, uin
 }
 
 }  // namespace CamMoeLayered
+
+#undef CAM_MOE_LAYERED_INLINE
 
 #endif

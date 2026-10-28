@@ -129,7 +129,22 @@ private:
         GlobalTensor<uint32_t> destination;
         destination.SetGlobalBuffer(dst);
         SyncFunc<HardEvent::S_MTE3>();
-        DataCopyPad(destination, words, DataCopyExtParams{1U, count * sizeof(uint32_t), 0U, 0U, 0U});
+        DataCopyPad(destination, words,
+                    DataCopyExtParams{1U, static_cast<uint32_t>(count * sizeof(uint32_t)), 0U, 0U, 0U});
+        SyncFunc<HardEvent::MTE3_S>();
+    }
+
+    __aicore__ inline void StoreWords(__gm__ uint8_t *dst, const uint32_t *values, uint32_t count)
+    {
+        auto words = copyUb_->template ReinterpretCast<uint32_t>();
+        for (uint32_t i = 0U; i < count; ++i) {
+            words.SetValue(i, values[i]);
+        }
+        GlobalTensor<uint8_t> destination;
+        destination.SetGlobalBuffer(dst);
+        SyncFunc<HardEvent::S_MTE3>();
+        DataCopyPad(destination, *copyUb_,
+                    DataCopyExtParams{1U, static_cast<uint32_t>(count * sizeof(uint32_t)), 0U, 0U, 0U});
         SyncFunc<HardEvent::MTE3_S>();
     }
 
@@ -196,7 +211,7 @@ private:
             const uint32_t memberOffset = AlignUp(tokenOffset + packets * info_.recordStride);
             const uint32_t headerWords[8] = {packets, members, sizeof(DispatchBatchMeta), tokenOffset, memberOffset, 0U,
                                              0U,      0U};
-            StoreWords((__gm__ uint32_t *)batch, headerWords, 8U);
+            StoreWords(batch, headerWords, 8U);
         }
     }
 
@@ -252,9 +267,8 @@ private:
 
         // 搬 token 数据
         auto *record = batch + tokenRecordOffset + static_cast<uint64_t>(ordinal) * info_.recordStride;
-        auto *recordX = (__gm__ uint8_t *)record;
         auto *sourceX = (__gm__ uint8_t *)(x_ + static_cast<uint64_t>(sourceToken) * info_.h);
-        CopyLocalBytes(recordX, sourceX, info_.h * static_cast<uint32_t>(sizeof(T)));
+        CopyLocalBytes(record, sourceX, info_.h * static_cast<uint32_t>(sizeof(T)));
         // 搬 top-k ids 和 topk weights
         auto *topkRoutes = (__gm__ DispatchTopkRouteRecord *)(record + DispatchTopkRouteOffset(info_.h, sizeof(T)));
         for (uint32_t topkSlot = 0; topkSlot < info_.k; ++topkSlot) {
@@ -615,7 +629,7 @@ private:
                 return true;
             }
             for (uint32_t peerWorker = 1U; peerWorker < workers; ++peerWorker) {  // 其他AIV也全部完成
-                auto *peer = Scratch(OwnerWorkerCore(proxy, peer)) + index;
+                auto *peer = Scratch(OwnerWorkerCore(proxy, peerWorker)) + index;
                 if (LoadWord(peer) != 0xffffffffU) {
                     return false;
                 }

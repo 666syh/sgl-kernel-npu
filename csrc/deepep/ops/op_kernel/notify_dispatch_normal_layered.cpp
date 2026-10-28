@@ -154,8 +154,8 @@ private:
             Duplicate(*initUb_, value, count);
             GlobalTensor<int32_t> dst;
             dst.SetGlobalBuffer(plan_ + offset);
-            DataCopyPad(dst, *initUb_, DataCopyExtParams{1U, count * sizeof(int32_t), 0U, 0U, 0U},
-                        DataCopyPadExtParams<int32_t>{false, 0U, 0U, 0U});
+            DataCopyPad(dst, *initUb_,
+                        DataCopyExtParams{1U, static_cast<uint32_t>(count * sizeof(int32_t)), 0U, 0U, 0U});
             SyncFunc<HardEvent::MTE3_S>();
             offset += count;
         }
@@ -170,13 +170,13 @@ private:
         SyncFunc<HardEvent::MTE2_S>();
     }
 
-    __aicore__ inline void CopyUbToPlan(uint32_t planOffset, LocalTensor<int32_t> &ub, uint32_t bytes)
+    __aicore__ inline void CopyUbToPlan(uint32_t planOffset, LocalTensor<int32_t> &ub, uint32_t bytes,
+                                        uint32_t ubOffset = 0U)
     {
         SyncFunc<HardEvent::S_MTE3>();
         GlobalTensor<int32_t> dst;
         dst.SetGlobalBuffer(plan_ + planOffset);
-        DataCopyPad(dst, ub, DataCopyExtParams{1U, bytes, 0U, 0U, 0U},
-                    DataCopyPadExtParams<int32_t>{false, 0U, 0U, 0U});
+        DataCopyPad(dst, ub[ubOffset], DataCopyExtParams{1U, bytes, 0U, 0U, 0U});
         SyncFunc<HardEvent::MTE3_S>();
     }
 
@@ -264,7 +264,7 @@ private:
                 GlobalTensor<int32_t> srcTensor;
                 srcTensor.SetGlobalBuffer(workspace_ + sourceBase + static_cast<uint64_t>(p) * sourceStride +
                                           srcOffset + offset);
-                DataCopyExtParams copyParams{1U, count * sizeof(int32_t), 0U, 0U, 0U};
+                DataCopyExtParams copyParams{1U, static_cast<uint32_t>(count * sizeof(int32_t)), 0U, 0U, 0U};
                 DataCopyPadExtParams<int32_t> padParams{false, 0U, 0U, 0};
                 DataCopyPad(*reduceSrcUb_, srcTensor, copyParams, padParams);
                 SyncFunc<HardEvent::MTE2_V>();
@@ -274,9 +274,8 @@ private:
             SyncFunc<HardEvent::V_MTE3>();
             GlobalTensor<int32_t> dstTensor;
             dstTensor.SetGlobalBuffer(plan_ + dstOffset + offset);
-            DataCopyExtParams copyParams{1U, count * sizeof(int32_t), 0U, 0U, 0U};
-            DataCopyPadExtParams<int32_t> padParams{false, 0U, 0U, 0};
-            DataCopyPad(dstTensor, *reduceAccUb_, copyParams, padParams);
+            DataCopyExtParams copyParams{1U, static_cast<uint32_t>(count * sizeof(int32_t)), 0U, 0U, 0U};
+            DataCopyPad(dstTensor, *reduceAccUb_, copyParams);
             SyncFunc<HardEvent::MTE3_V>();
         }
     }
@@ -288,7 +287,8 @@ private:
         for (uint32_t p = 0U; p < aiv; ++p) {
             GlobalTensor<int32_t> source;
             source.SetGlobalBuffer(workspace_ + sourceBase + static_cast<uint64_t>(p) * sourceStride);
-            DataCopyPad(*reduceSrcUb_, source, DataCopyExtParams{1U, elements * sizeof(int32_t), 0U, 0U, 0U},
+            DataCopyPad(*reduceSrcUb_, source,
+                        DataCopyExtParams{1U, static_cast<uint32_t>(elements * sizeof(int32_t)), 0U, 0U, 0U},
                         DataCopyPadExtParams<int32_t>{false, 0U, 0U, 0U});
             SyncFunc<HardEvent::MTE2_V>();
             Add(prefixUb, prefixUb, *reduceSrcUb_, elements);
@@ -352,9 +352,9 @@ private:
         auto *packets = workspace_ + PacketSlice(aiv);  // 保存发送给每个server packet的数量（本AIV内）
         auto *memberCounts = workspace_ + MemberCountSlice(aiv);  // 保存发送到每个server member数量（本AIV内）
         const uint32_t descScratch = 0U;
-        const uint32_t descStride = AlignUp(PacketElements(), kUbCopyAlignmentElements);
+        const uint32_t descStride = CamMoeLayered::AlignUp(PacketElements(), kUbCopyAlignmentElements);
         const uint32_t memberScratch = info_.serverNum * descStride;
-        const uint32_t memberScratchStride = AlignUp(MemberElements(), kUbCopyAlignmentElements);
+        const uint32_t memberScratchStride = CamMoeLayered::AlignUp(MemberElements(), kUbCopyAlignmentElements);
         const uint32_t packetSlotScratch = memberScratch + memberScratchStride;
         for (uint32_t token = begin; token < end; ++token) {
             for (uint32_t target = 0U; target < info_.serverNum; ++target) {
@@ -388,19 +388,19 @@ private:
                 initUb_->SetValue(memberScratch, expert);                              // 专家id
                 initUb_->SetValue(memberScratch + 1U, static_cast<int32_t>(ordinal));  // 发给该expert member的偏移
                 initUb_->SetValue(memberScratch + 2U, static_cast<int32_t>(topkSlot));  // topk id
-                CopyUbToPlan(mb, *initUb_ + memberScratch, sizeof(MemberDesc));
+                CopyUbToPlan(mb, *initUb_, sizeof(MemberDesc), memberScratch);
                 initUb_->SetValue(packetSlotScratch + target, static_cast<int32_t>(token));
             }
             for (uint32_t target = 0U; target < info_.serverNum; ++target) {
                 const uint32_t desc = descScratch + target * descStride;
                 if (initUb_->GetValue(desc + 2U) > 0) {
                     const uint32_t packet = target * info_.slotsPerServer + token;
-                    CopyUbToPlan(info_.packetDescOffset + packet * PacketElements(), *initUb_ + desc,
-                                 sizeof(SourcePacketDesc));
+                    CopyUbToPlan(info_.packetDescOffset + packet * PacketElements(), *initUb_, sizeof(SourcePacketDesc),
+                                 desc);
                 }
             }
-            CopyUbToPlan(info_.packetSlotOffset + token * info_.serverNum, *initUb_ + packetSlotScratch,
-                         info_.serverNum * sizeof(int32_t));
+            CopyUbToPlan(info_.packetSlotOffset + token * info_.serverNum, *initUb_, info_.serverNum * sizeof(int32_t),
+                         packetSlotScratch);
         }
         cacheWriteThrough(reinterpret_cast<__gm__ uint8_t *>(counts),
                           static_cast<uint64_t>(countSlicePadded_) * sizeof(int32_t));
@@ -686,7 +686,7 @@ private:
                 const uint32_t byteOffset = block * blockBytes;
                 GlobalTensor<uint8_t> srcTensor;
                 srcTensor.SetGlobalBuffer(aggregate + byteOffset);
-                const DataCopyExtParams copyParams{1U, blockNum * blockBytes, 0U, 0U, 0U};
+                const DataCopyExtParams copyParams{1U, static_cast<uint32_t>(blockNum * blockBytes), 0U, 0U, 0U};
                 const DataCopyPadExtParams<uint8_t> padParams{false, 0U, 0U, 0U};
                 DataCopyPad(*aggregateCopyUb_, srcTensor, copyParams, padParams);
                 SyncFunc<HardEvent::MTE2_V>();
@@ -970,8 +970,8 @@ private:
             }
             CopyPlanToUb(info_.packetDescOffset + packet * PacketElements(), *initUb_, sizeof(SourcePacketDesc));
             const uint32_t memberCount = static_cast<uint32_t>(initUb_->GetValue(2U));  // 发给该server的member数量
-            const auto *ack = self + BaseAckLaneOffset(layout_, info_.epWorldSize, info_.epRankId, target);
-            cacheReadInvalidate(reinterpret_cast<__gm__ uint8_t *>(ack), layout_.baseAckStride);
+            auto *ack = self + BaseAckLaneOffset(layout_, info_.epWorldSize, info_.epRankId, target);
+            cacheReadInvalidate(ack, layout_.baseAckStride);
             const uint32_t expertBegin = target * expertsPerServer_;
             // 对当前 packet 中每个实际topk member，找到目标 server 回传的对应 expert 内 row base,
             // 再加上该 member 在本地的局部序号，得到它在目标 expert 内的最终行号

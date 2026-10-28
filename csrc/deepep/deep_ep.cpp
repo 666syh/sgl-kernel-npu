@@ -755,16 +755,9 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
         EP_HOST_ASSERT_S(expert_alignment > 0, "normal layered dispatch", " expert_alignment must be positive");
         const auto &topology = layered_topology_cache;
         const int64_t max_bs = static_cast<int64_t>(round) * per_round_tokens;
-        const int64_t slots = max_bs;
-        EP_HOST_ASSERT_S(slots > 0, "normal layered capacity", " must be positive");
+        EP_HOST_ASSERT_S(max_bs > 0, "normal layered capacity", " must be positive");
         const int64_t physical_rounds = 1;
-        const auto layered_window = CamMoeLayered::MakeWindowLayout(
-            static_cast<uint32_t>(num_experts), static_cast<uint32_t>(num_ranks),
-            static_cast<uint32_t>(topology.ranks_per_server), static_cast<uint32_t>(topology.server_num), 1U,
-            static_cast<uint32_t>(max_bs), CamMoeLayered::DispatchRecordStride(hidden, num_topk, 2U),
-            CamMoeLayered::PartialRecordStride(hidden, 2U), static_cast<uint32_t>(num_topk),
-            Mc2TilingUtils::IsHybridDeployment());
-        EP_HOST_ASSERT_S(layered_window.requiredBytes > 0U, "normal layered window", " capacity arithmetic overflowed");
+        const int32_t slots_per_server = static_cast<int32_t>(max_bs);
         char hcom_ep_name[HCOMM_NAME_LEN];
         if (!moe_all_to_all_group_name.empty()) {
             std::memcpy(hcom_ep_name, moe_all_to_all_group_name.data(), moe_all_to_all_group_name.size() + 1);
@@ -772,8 +765,7 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
             HCCL_CHECK(HcclGetCommName(ep_comm, hcom_ep_name));
         }
 #ifdef __DAV_C310__
-        EP_HOST_ASSERT_S(layered_context.defined() && layered_window_bytes >= layered_window.requiredBytes,
-                         "normal layered window", " Buffer-owned registered context capacity is insufficient");
+        EP_HOST_ASSERT_S(layered_context.defined(), "normal layered context", " is not initialized");
 #else
         if (!layered_context.defined()) {
             layered_context = at::empty({1}, at::dtype(at::kInt).device(device));
@@ -781,14 +773,14 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
 #endif
         const auto plan_layout =
             layered_plan_layout(num_tokens, max_bs, num_topk, num_experts, num_ranks, topology.server_num,
-                                topology.ranks_per_server, physical_rounds, slots);
+                                topology.ranks_per_server, physical_rounds, max_bs);
         auto int_options = at::dtype(at::kInt).device(device);
         auto recv_tokens_per_expert_i32 = at::empty({num_local_experts}, int_options);
         auto plan = at::empty({plan_layout.total}, int_options);
         auto expert_total = at::empty({1}, int_options);
         const int64_t epoch = static_cast<int64_t>(++layered_epoch);
         EXEC_NPU_CMD(aclnnNotifyDispatchNormalLayered, layered_context, expert_ids, hcom_ep_name, num_ranks, rank,
-                     topology.ranks_per_server, num_experts, slots, 1, epoch, hidden, max_bs, expert_alignment,
+                     topology.ranks_per_server, num_experts, slots_per_server, epoch, hidden, max_bs, expert_alignment,
                      recv_tokens_per_expert_i32, plan, expert_total);
         const int32_t notify_error = plan.narrow(0, plan_layout.error, 1).to(at::kCPU).item<int32_t>();
         EP_HOST_ASSERT_S(notify_error == 0, "normal layered notify", " transport, topology, or route planning failed");
@@ -800,8 +792,8 @@ Buffer::internode_dispatch(const torch::Tensor &x, const std::optional<torch::Te
         auto recv_topk_idx_i32 = at::full({recv_rows, num_topk}, CamMoeLayered::INVALID_SLOT, int_options);
         auto recv_topk_weights = at::zeros({recv_rows, num_topk}, at::dtype(at::kFloat).device(device));
         EXEC_NPU_CMD(aclnnCamMoeDispatchNormalLayered, layered_context, new_x, new_topk_weights, expert_ids, plan,
-                     hcom_ep_name, num_ranks, rank, hcom_ep_name, 1, 0, num_experts, topology.ranks_per_server, slots,
-                     1, max_bs, recv_x, assist, recv_topk_idx_i32, recv_topk_weights);
+                     hcom_ep_name, num_ranks, rank, hcom_ep_name, num_experts, topology.ranks_per_server, max_bs,
+                     recv_x, assist, recv_topk_idx_i32, recv_topk_weights);
         const int32_t dispatch_error = plan.narrow(0, plan_layout.error, 1).to(at::kCPU).item<int32_t>();
         EP_HOST_ASSERT_S(dispatch_error == 0, "normal layered dispatch", " transport or server fan-out failed");
         auto counts_cpu = recv_tokens_per_expert_i32.to(at::kCPU);
@@ -1010,11 +1002,13 @@ std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<EventHandl
                          "normal layered combine", " registered window capacity is invalid");
 #endif
         auto combined_x = torch::empty({plan_header->bs, plan_header->hiddenSize}, x.options());
+        const int64_t topk = topk_idx.size(1);
+        const int64_t invocation_id = static_cast<int64_t>(++layered_combine_epoch);
+        const int64_t window_capacity = static_cast<int64_t>(layered_window_bytes);
         EXEC_NPU_CMD(aclnnCamMoeCombineNormalLayered, layered_context, x, send_head, src_idx, hcom_ep_name, num_ranks,
-                     rank, hcom_ep_name, 1, 0, plan_header->expertNum, plan_header->bs, round, per_round_tokens,
-                     topology.ranks_per_server, plan_header->maxBs, 1, topk_idx.size(1), plan_header->maxBs,
-                     owner_capacity, static_cast<int64_t>(++layered_combine_epoch),
-                     static_cast<int64_t>(layered_window_bytes), combined_x);
+                     rank, hcom_ep_name, plan_header->expertNum, plan_header->bs, round, per_round_tokens,
+                     topology.ranks_per_server, topk, plan_header->maxBs, owner_capacity, invocation_id,
+                     window_capacity, combined_x);
         return {combined_x, std::nullopt, std::nullopt};
     }
     EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous());

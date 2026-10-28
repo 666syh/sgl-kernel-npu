@@ -194,8 +194,9 @@ private:
             GlobalTensor<uint32_t> destination;
             destination.SetGlobalBuffer(bases);
             SyncFunc<HardEvent::S_MTE3>();
-            DataCopyPad(destination, *expertBasesUb_,
-                        DataCopyExtParams{1U, (localExperts_ + 1U) * sizeof(uint32_t), 0U, 0U, 0U});
+            DataCopyPad(
+                destination, *expertBasesUb_,
+                DataCopyExtParams{1U, static_cast<uint32_t>((localExperts_ + 1U) * sizeof(uint32_t)), 0U, 0U, 0U});
             SyncFunc<HardEvent::MTE3_S>();
             InitPartialProgress();  // 初始化并行状态区
         }
@@ -252,8 +253,15 @@ private:
     __aicore__ inline void BuildPartialPacket(uint32_t source, uint32_t ordinal, uint64_t base, const PlanLayout &p)
     {
         const uint32_t packetIndex = source * info_.maxBs + ordinal;
-        auto *members =
-            (__gm__ ReverseMember *)(plan_ + p.reverseMember) + static_cast<uint64_t>(packetIndex) * info_.k;
+        auto *members = (__gm__ uint8_t *)(plan_ + p.reverseMember) +
+                        static_cast<uint64_t>(packetIndex) * info_.k * sizeof(ReverseMember);
+        GlobalTensor<uint8_t> memberSource;
+        memberSource.SetGlobalBuffer(members);
+        const uint32_t memberBytes = static_cast<uint32_t>(info_.k * sizeof(ReverseMember));
+        DataCopyPad(*copyUb_, memberSource, DataCopyExtParams{1U, memberBytes, 0U, 0U, 0U},
+                    DataCopyPadExtParams<uint8_t>{false, 0U, 0U, 0U});
+        SyncFunc<HardEvent::MTE2_S>();
+        auto memberWords = copyUb_->template ReinterpretCast<int32_t>();
         auto *partial = (__gm__ float *)(outWindow_ + layout_.proxyPartialOffset +
                                          static_cast<uint64_t>(base + ordinal) *
                                              layout_.partialStride);  // 拷贝到最终目的地，准备发给server
@@ -261,25 +269,28 @@ private:
         float weights[kMaxTopk];
         uint32_t validMembers = 0U;
         for (uint32_t slot = 0U; slot < info_.k; ++slot) {  // 获取有效专家的token
-            const auto member = members[slot];
-            if (member.expertId < 0) {
+            const uint32_t memberOffset = slot * ReverseMemberElements();
+            const int32_t expertId = memberWords.GetValue(memberOffset);
+            if (expertId < 0) {
                 continue;
             }
-            const uint32_t expert = static_cast<uint32_t>(member.expertId);
+            const uint32_t expert = static_cast<uint32_t>(expertId);
+            const int32_t expertRow = memberWords.GetValue(memberOffset + 1U);
+            const int32_t weightBits = memberWords.GetValue(memberOffset + 3U);
             const uint32_t ownerRank = expert / localExperts_;
             const uint32_t localExpert = expert % localExperts_;
             auto *ownerWindow = (__gm__ uint8_t *)comm_.WindowIn(ownerRank);
             auto *expertBases =
                 (__gm__ uint32_t *)(in_ + layout_.expertBaseOffset +
                                     static_cast<uint64_t>(ownerRank % info_.ranksPerServer) * layout_.expertBaseStride);
-            const uint32_t ownerRow = expertBases[localExpert] + static_cast<uint32_t>(member.expertRow);
+            const uint32_t ownerRow = expertBases[localExpert] + static_cast<uint32_t>(expertRow);
             ownerRows[validMembers] = (__gm__ T *)(ownerWindow + layout_.ownerStageOffset +
                                                    static_cast<uint64_t>(ownerRow) * layout_.ownerStageStride);
             union {
                 int32_t bits;
                 float value;
             } weight{};
-            weight.bits = member.weightBits;
+            weight.bits = weightBits;
             weights[validMembers] = weight.value;
             ++validMembers;
         }
@@ -288,7 +299,8 @@ private:
         for (uint32_t member = 0U; member < validMembers; ++member) {  // 远端读+加权求和
             GlobalTensor<T> sourceRow;
             sourceRow.SetGlobalBuffer(ownerRows[member]);
-            DataCopyPad(*ownerRowUb_, sourceRow, DataCopyExtParams{1U, info_.h * sizeof(T), 0U, 0U, 0U},
+            DataCopyPad(*ownerRowUb_, sourceRow,
+                        DataCopyExtParams{1U, static_cast<uint32_t>(info_.h * sizeof(T)), 0U, 0U, 0U},
                         DataCopyPadExtParams<T>{false, 0U, 0U, 0U});
             SyncFunc<HardEvent::MTE2_V>();
             AscendC::Cast(*weightedUb_, *ownerRowUb_, RoundMode::CAST_NONE, info_.h);
@@ -366,7 +378,7 @@ private:
     __aicore__ inline bool ChunkComplete(uint32_t source, uint32_t completed, uint32_t workers) const
     {
         for (uint32_t worker = 0U; worker < workers; ++worker) {  // 遍历worker是否均已完成
-            auto *progress = CompletedChunks(source, worker);
+            __gm__ uint32_t *progress = CompletedChunks(source, worker);
             GlobalTensor<uint32_t> source;
             source.SetGlobalBuffer(progress);
             auto words = copyUb_->template ReinterpretCast<uint32_t>();
@@ -602,7 +614,8 @@ private:
                                          layout_.partialStride);
                 GlobalTensor<float> source;
                 source.SetGlobalBuffer(partial);
-                DataCopyPad(*weightedUb_, source, DataCopyExtParams{1U, info_.h * sizeof(float), 0U, 0U, 0U},
+                DataCopyPad(*weightedUb_, source,
+                            DataCopyExtParams{1U, static_cast<uint32_t>(info_.h * sizeof(float)), 0U, 0U, 0U},
                             DataCopyPadExtParams<float>{false, 0U, 0U, 0.0F});
                 SyncFunc<HardEvent::MTE2_V>();
                 AscendC::Add(*partialUb_, *partialUb_, *weightedUb_, info_.h);  // topk累加求和
@@ -613,7 +626,8 @@ private:
             GlobalTensor<T> destination;
             destination.SetGlobalBuffer(out_ + static_cast<uint64_t>(token) * info_.h);
             SyncFunc<HardEvent::V_MTE3>();
-            DataCopyPad(destination, *ownerRowUb_, DataCopyExtParams{1U, info_.h * sizeof(T), 0U, 0U, 0U});  // 输出位置
+            DataCopyPad(destination, *ownerRowUb_,
+                        DataCopyExtParams{1U, static_cast<uint32_t>(info_.h * sizeof(T)), 0U, 0U, 0U});  // 输出位置
             SyncFunc<HardEvent::MTE3_S>();
         }
     }

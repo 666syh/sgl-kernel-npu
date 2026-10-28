@@ -24,7 +24,6 @@ struct CamMoeLayeredInfo {
     uint32_t dispatchMaxChunks;
     uint32_t partialStride;
     uint32_t controlStride;
-    uint32_t ipcTilePackets;
     uint32_t expertAlignment;
     uint32_t elementBytes;
     uint32_t isHybridDeployment;

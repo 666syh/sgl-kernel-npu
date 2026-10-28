@@ -7,14 +7,12 @@ extern "C" void __attribute__((weak)) NnopbaseSetHcclServerType(void *, Nnopbase
 extern "C" aclnnStatus aclnnCamMoeDispatchNormalLayeredGetWorkspaceSize(
     const aclTensor *roceContext, const aclTensor *x, const aclTensor *topkWeights, const aclTensor *topkIdx,
     const aclTensor *layeredPlan, char *groupEp, int64_t epWorldSize, int64_t epRankId, char *groupTp,
-    int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum, int64_t ranksPerServer, int64_t rdmaSlotsPerPeer,
-    int64_t ipcTilePackets, int64_t maxBs, const aclTensor *recvX, const aclTensor *layeredAssist,
+    int64_t moeExpertNum, int64_t ranksPerServer, int64_t maxBs, const aclTensor *recvX, const aclTensor *layeredAssist,
     const aclTensor *recvTopkIdx, const aclTensor *recvTopkWeights, uint64_t *workspaceSize, aclOpExecutor **executor)
 {
     return aclnnInnerCamMoeDispatchNormalLayeredGetWorkspaceSize(
-        roceContext, x, topkWeights, topkIdx, layeredPlan, groupEp, epWorldSize, epRankId, groupTp, tpWorldSize,
-        tpRankId, moeExpertNum, ranksPerServer, rdmaSlotsPerPeer, ipcTilePackets, maxBs, recvX, layeredAssist,
-        recvTopkIdx, recvTopkWeights, workspaceSize, executor);
+        roceContext, x, topkWeights, topkIdx, layeredPlan, groupEp, epWorldSize, epRankId, groupTp, moeExpertNum,
+        ranksPerServer, maxBs, recvX, layeredAssist, recvTopkIdx, recvTopkWeights, workspaceSize, executor);
 }
 
 extern "C" aclnnStatus aclnnCamMoeDispatchNormalLayered(void *workspace, uint64_t workspaceSize,

@@ -12,6 +12,14 @@
 
 namespace CamMoeLayered {
 
+template <AscendC::HardEvent event>
+__aicore__ inline void SyncFunc()
+{
+    const int32_t eventId = static_cast<int32_t>(GetTPipePtr()->FetchEventID(event));
+    AscendC::SetFlag<event>(eventId);
+    AscendC::WaitFlag<event>(eventId);
+}
+
 #ifdef __DAV_C310__
 static_assert(CAM_MOE_LAYERED_A5_STATE_BYTES == A5_MTE_STATE_WIN_SIZE,
               "Layered registered window and MC2 window offsets differ");
@@ -20,12 +28,12 @@ static_assert(CAM_MOE_LAYERED_A5_STATE_BYTES == A5_MTE_STATE_WIN_SIZE,
 class CommAdapter
 {
 public:
-    __aicore__ inline void Init(uint32_t rankId, GM_ADDR roceContext, LocalTensor<uint8_t> &hcommUb,
+    __aicore__ inline void Init(uint32_t rankId, GM_ADDR roceContext, AscendC::LocalTensor<uint8_t> &hcommUb,
                                 bool isHybridDeployment = false)
     {
         rankId_ = rankId;
         (void)isHybridDeployment;
-        context_ = (__gm__ HcclOpParam *)AscendC::GetHcclContext<HCCL_GROUP_ID_0>();
+        context_ = (__gm__ HcclOpParam *)AscendC::GetHcclContext<AscendC::HCCL_GROUP_ID_0>();
 #ifndef __DAV_C310__  // A3 AiRMA transport
         rdmaInfo_ = (__gm__ HcclAiRMAInfo *)context_->aiRMAInfo;
         (void)roceContext;
@@ -105,8 +113,8 @@ public:
     // Runtime initialization guarantees the WQE and memory ABI. Callers own
     // one destination rank/QP per AIV during the full submission phase.
     __aicore__ inline bool PostRdmaSend(GM_ADDR src, GM_ADDR dst, uint32_t dstRank, uint32_t bytes,
-                                        LocalTensor<uint64_t> &doorbellUb, LocalTensor<uint32_t> &headUb,
-                                        uint64_t timeoutCycles = 0U) const
+                                        AscendC::LocalTensor<uint64_t> &doorbellUb,
+                                        AscendC::LocalTensor<uint32_t> &headUb, uint64_t timeoutCycles = 0U) const
     {
 #ifndef __DAV_C310__  // A3 AiRMA RDMA write
         auto qpNum = rdmaInfo_->qpNum;
@@ -184,8 +192,8 @@ public:
     // staging address.  Receivers may therefore poll exactly one 64-bit word
     // without relying on PCIe/RoCE write ordering of unrelated cache lines.
     __aicore__ inline bool PostReadyFlag(GM_ADDR localFlag, GM_ADDR remoteFlag, uint32_t dstRank,
-                                         LocalTensor<uint64_t> &doorbellUb, LocalTensor<uint32_t> &headUb,
-                                         uint64_t timeoutCycles = 0U) const
+                                         AscendC::LocalTensor<uint64_t> &doorbellUb,
+                                         AscendC::LocalTensor<uint32_t> &headUb, uint64_t timeoutCycles = 0U) const
     {
         return PostRdmaSend(localFlag, remoteFlag, dstRank, sizeof(uint64_t), doorbellUb, headUb, timeoutCycles);
     }

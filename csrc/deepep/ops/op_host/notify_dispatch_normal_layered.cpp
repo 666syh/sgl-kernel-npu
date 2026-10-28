@@ -16,8 +16,7 @@ public:
         this->Attr("rank_id").Int();
         this->Attr("ranks_per_server").Int();
         this->Attr("moe_expert_num").Int();
-        this->Attr("rdma_slots_per_peer").Int();
-        this->Attr("ipc_tile_packets").Int();
+        this->Attr("slots_per_server").Int();
         this->Attr("epoch").Int();
         this->Attr("hidden_size").Int();
         this->Attr("max_bs").Int();

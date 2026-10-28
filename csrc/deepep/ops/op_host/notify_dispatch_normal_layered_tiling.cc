@@ -11,8 +11,8 @@
 #include "../op_kernel/cam_moe_layered_plan.h"
 using namespace ge;
 namespace {
-constexpr uint32_t GROUP = 0, WORLD = 1, RANK = 2, RANKS = 3, EXPERTS = 4, SLOTS = 5, TILE = 6, EPOCH = 7, HIDDEN = 8,
-                   MAX_BS = 9, EXPERT_ALIGNMENT = 10;
+constexpr uint32_t GROUP = 0, WORLD = 1, RANK = 2, RANKS = 3, EXPERTS = 4, SLOTS = 5, EPOCH = 6, HIDDEN = 7, MAX_BS = 8,
+                   EXPERT_ALIGNMENT = 9;
 constexpr uint32_t MAX_WORLD = 384, MAX_SERVERS = 32, MAX_TOPK = 16;
 constexpr uint32_t MAX_PREFIX_EXPERTS = 1024;
 constexpr uint64_t WORKSPACE_BYTES = 16ULL * 1024ULL * 1024ULL;
@@ -93,18 +93,17 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     auto *desc = c->GetInputDesc(1);
     int64_t bs = 0, k = 0;
     const int64_t world = Attr(c, WORLD), rank = Attr(c, RANK), ranks = Attr(c, RANKS), experts = Attr(c, EXPERTS),
-                  slots = Attr(c, SLOTS), tile = Attr(c, TILE), epoch = Attr(c, EPOCH), hidden = Attr(c, HIDDEN),
-                  maxBs = Attr(c, MAX_BS), expertAlignment = Attr(c, EXPERT_ALIGNMENT);
+                  slots = Attr(c, SLOTS), epoch = Attr(c, EPOCH), hidden = Attr(c, HIDDEN), maxBs = Attr(c, MAX_BS),
+                  expertAlignment = Attr(c, EXPERT_ALIGNMENT);
     auto *g = c->GetAttrs() ? c->GetAttrs()->GetAttrPointer<char>(GROUP) : nullptr;
     OP_TILING_CHECK(!d || !roceDesc || !desc || !Shape2D(s, bs, k) || roceDesc->GetDataType() != DT_INT32 ||
                         desc->GetDataType() != DT_INT32 || !g || world <= 0 || world > MAX_WORLD || rank < 0 ||
                         rank >= world || ranks <= 0 || world % ranks || world / ranks > MAX_SERVERS || experts <= 0 ||
                         experts > MAX_PREFIX_EXPERTS || experts % world || experts % (world / ranks) || slots <= 0 ||
-                        maxBs <= 0 || slots != maxBs || bs <= 0 || bs > maxBs || tile <= 0 || k <= 0 || k > MAX_TOPK ||
+                        maxBs <= 0 || slots != maxBs || bs <= 0 || bs > maxBs || k <= 0 || k > MAX_TOPK ||
                         hidden <= 0 || expertAlignment <= 0 ||
                         static_cast<uint64_t>(experts) > std::numeric_limits<uint32_t>::max() ||
                         static_cast<uint64_t>(slots) > std::numeric_limits<uint32_t>::max() ||
-                        static_cast<uint64_t>(tile) > std::numeric_limits<uint32_t>::max() ||
                         static_cast<uint64_t>(hidden) > std::numeric_limits<uint32_t>::max(),
                     OP_LOGE(n, "invalid normal layered notify inputs or topology"), return GRAPH_FAILED);
     const uint64_t worldU = static_cast<uint64_t>(world), ranksU = static_cast<uint64_t>(ranks),
@@ -210,7 +209,6 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     l.validRounds = 1U;
     l.physicalRounds = rounds;
     l.slotsPerServer = slots;
-    l.ipcTilePackets = tile;
     l.expertAlignment = static_cast<uint32_t>(expertAlignment);
     l.epoch = epoch < 0 ? 0 : epoch;
     l.elementBytes = 2;

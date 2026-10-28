@@ -22,12 +22,8 @@ public:
         this->Attr("ep_world_size").Int();
         this->Attr("ep_rank_id").Int();
         this->Attr("group_tp").String();
-        this->Attr("tp_world_size").Int();
-        this->Attr("tp_rank_id").Int();
         this->Attr("moe_expert_num").Int();
         this->Attr("ranks_per_server").Int();
-        this->Attr("rdma_slots_per_peer").Int();
-        this->Attr("ipc_tile_packets").Int();
         this->Attr("max_bs").Int();
         OpAICoreConfig config;
         config.DynamicCompileStaticFlag(true)

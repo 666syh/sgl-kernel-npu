@@ -26,17 +26,13 @@ constexpr uint32_t ATTR_EP_GROUP = 0U;
 constexpr uint32_t ATTR_EP_WORLD = 1U;
 constexpr uint32_t ATTR_EP_RANK = 2U;
 constexpr uint32_t ATTR_TP_GROUP = 3U;
-constexpr uint32_t ATTR_TP_WORLD = 4U;
-constexpr uint32_t ATTR_TP_RANK = 5U;
-constexpr uint32_t ATTR_EXPERTS = 6U;
-constexpr uint32_t ATTR_RANKS_PER_SERVER = 10U;
-constexpr uint32_t ATTR_SLOTS = 11U;
-constexpr uint32_t ATTR_IPC_TILE = 12U;
-constexpr uint32_t ATTR_TOPK = 13U;
-constexpr uint32_t ATTR_MAX_BS = 14U;
-constexpr uint32_t ATTR_OWNER_CAPACITY = 15U;
-constexpr uint32_t ATTR_INVOCATION_ID = 16U;
-constexpr uint32_t ATTR_WINDOW_CAPACITY = 17U;
+constexpr uint32_t ATTR_EXPERTS = 4U;
+constexpr uint32_t ATTR_RANKS_PER_SERVER = 8U;
+constexpr uint32_t ATTR_TOPK = 9U;
+constexpr uint32_t ATTR_MAX_BS = 10U;
+constexpr uint32_t ATTR_OWNER_CAPACITY = 11U;
+constexpr uint32_t ATTR_INVOCATION_ID = 12U;
+constexpr uint32_t ATTR_WINDOW_CAPACITY = 13U;
 constexpr uint32_t MAX_SERVERS = 32U;
 constexpr uint32_t MAX_RANKS_PER_SERVER = 8U;
 constexpr uint32_t MAX_TOPK = 16U;
@@ -110,8 +106,6 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
     const int64_t rank = Attr(context, ATTR_EP_RANK);
     const int64_t experts = Attr(context, ATTR_EXPERTS);
     const int64_t ranksPerServer = Attr(context, ATTR_RANKS_PER_SERVER);
-    const int64_t slots = Attr(context, ATTR_SLOTS);
-    const int64_t ipcTile = Attr(context, ATTR_IPC_TILE);
     const int64_t topk = Attr(context, ATTR_TOPK);
     const int64_t maxBs = Attr(context, ATTR_MAX_BS);
     const int64_t ownerCapacity = Attr(context, ATTR_OWNER_CAPACITY);
@@ -127,23 +121,21 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
         CamMoeLayeredHost::MulFits(static_cast<uint64_t>(world), static_cast<uint64_t>(maxBs), maxLocalRows) &&
         CamMoeLayeredHost::MulFits(maxLocalRows, static_cast<uint64_t>(topk), maxLocalRows) &&
         maxLocalRows <= std::numeric_limits<uint32_t>::max();
-    OP_TILING_CHECK(
-        world <= 0 || rank < 0 || rank >= world || experts <= 0 || ranksPerServer <= 0 || world % ranksPerServer != 0 ||
-            experts % world != 0 || experts % (world / ranksPerServer) != 0 || slots <= 0 || maxBs <= 0 ||
-            ownerCapacity <= 0 || static_cast<uint64_t>(ownerCapacity) > maxLocalRows || invocationId <= 0 ||
-            windowCapacity < 0 || outRows > maxBs || ipcTile <= 0 || topk <= 0 || topk > MAX_TOPK ||
-            hidden > MAX_HIDDEN || outRows <= 0 || static_cast<uint64_t>(world / ranksPerServer) > MAX_SERVERS ||
-            static_cast<uint64_t>(ranksPerServer) > MAX_RANKS_PER_SERVER ||
-            static_cast<uint64_t>(world) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(rank) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(experts) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(ranksPerServer) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(slots) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(ipcTile) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(maxBs) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(rows) > std::numeric_limits<uint32_t>::max() ||
-            static_cast<uint64_t>(hidden) > std::numeric_limits<uint32_t>::max() || !rowBoundFits,
-        OP_LOGE(node, "invalid normal-layered combine topology or attrs"), return GRAPH_FAILED);
+    OP_TILING_CHECK(world <= 0 || rank < 0 || rank >= world || experts <= 0 || ranksPerServer <= 0 ||
+                        world % ranksPerServer != 0 || experts % world != 0 ||
+                        experts % (world / ranksPerServer) != 0 || maxBs <= 0 || ownerCapacity <= 0 ||
+                        static_cast<uint64_t>(ownerCapacity) > maxLocalRows || invocationId <= 0 ||
+                        windowCapacity < 0 || outRows > maxBs || topk <= 0 || topk > MAX_TOPK || hidden > MAX_HIDDEN ||
+                        outRows <= 0 || static_cast<uint64_t>(world / ranksPerServer) > MAX_SERVERS ||
+                        static_cast<uint64_t>(ranksPerServer) > MAX_RANKS_PER_SERVER ||
+                        static_cast<uint64_t>(world) > std::numeric_limits<uint32_t>::max() ||
+                        static_cast<uint64_t>(rank) > std::numeric_limits<uint32_t>::max() ||
+                        static_cast<uint64_t>(experts) > std::numeric_limits<uint32_t>::max() ||
+                        static_cast<uint64_t>(ranksPerServer) > std::numeric_limits<uint32_t>::max() ||
+                        static_cast<uint64_t>(maxBs) > std::numeric_limits<uint32_t>::max() ||
+                        static_cast<uint64_t>(rows) > std::numeric_limits<uint32_t>::max() ||
+                        static_cast<uint64_t>(hidden) > std::numeric_limits<uint32_t>::max() || !rowBoundFits,
+                    OP_LOGE(node, "invalid normal-layered combine topology or attrs"), return GRAPH_FAILED);
 
     auto &l = data->layered;
     l.epWorldSize = static_cast<uint32_t>(world);
@@ -161,7 +153,6 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
     l.elementBytes = 2U;
     l.isHybridDeployment = Mc2TilingUtils::IsHybridDeployment() ? 1U : 0U;
     l.slotsPerServer = static_cast<uint32_t>(maxBs);
-    l.ipcTilePackets = static_cast<uint32_t>(ipcTile);
     l.validRounds = 1U;
     l.physicalRounds = 1U;
     l.recordStride = CamMoeLayered::DispatchRecordStride(l.h, l.k, l.elementBytes);
