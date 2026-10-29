@@ -34,10 +34,8 @@ struct CamMoeLayeredInfo {
     uint32_t expertCountOffset;
     uint32_t localExpertOffset;
     uint32_t localExpertCountOffset;
-    uint32_t overflowOffset;
     uint32_t packetDescOffset;
     uint32_t memberDescOffset;
-    uint32_t errorOffset;
     uint64_t epoch;
     uint32_t aivNum;
     uint64_t totalUbSize;

@@ -8,8 +8,6 @@
 #define CAM_MOE_LAYERED_MAX_RANK_NUM 384U
 #endif
 
-constexpr uint64_t CAM_MOE_LAYERED_A5_STATE_BYTES = 4096ULL * 1024ULL;
-
 enum CamMoeLayeredProtocol : uint32_t {
     CAM_MOE_LAYERED_PROTOCOL_ROCE = 1U,
     CAM_MOE_LAYERED_PROTOCOL_UBOE = 2U,

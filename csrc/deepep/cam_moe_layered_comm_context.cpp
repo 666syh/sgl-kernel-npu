@@ -1,6 +1,6 @@
 #include "cam_moe_layered_comm_context.hpp"
 
-#ifdef __DAV_C310__
+#if defined(__DAV_C310__) && DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION
 #include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 
@@ -29,7 +29,7 @@ struct SharedLayeredWindow {
     uint32_t rank = 0U;
     uint32_t world = 0U;
     uint32_t ranksPerServer = 0U;
-    CamMoeLayeredProtocol protocol = CAM_MOE_LAYERED_PROTOCOL_UBOE;
+    CamMoeLayeredProtocol protocol = CAM_MOE_LAYERED_PROTOCOL_ROCE;
     CamMoeLayeredCommContext host{};
     bool hostReady = false;
     bool contextReady = false;
@@ -67,8 +67,7 @@ uint64_t ParseCapacity(const char *name)
     }
     char *end = nullptr;
     const unsigned long long parsed = std::strtoull(value, &end, 10);
-    if (end == value || *end != '\0' || parsed == 0U ||
-        parsed > (std::numeric_limits<uint64_t>::max() - CAM_MOE_LAYERED_A5_STATE_BYTES) / kMiB) {
+    if (end == value || *end != '\0' || parsed == 0U || parsed > std::numeric_limits<uint64_t>::max() / kMiB) {
         throw std::invalid_argument(std::string(name) + " must be a positive MiB count");
     }
     return static_cast<uint64_t>(parsed) * kMiB;
@@ -108,6 +107,207 @@ HcclResult FindProtocolLink(HcclComm comm, uint32_t src, uint32_t dst, CommProto
     }
     return HCCL_E_NOT_FOUND;
 }
+
+struct CommRankInfo {
+    uint32_t rank;
+    uint32_t world;
+};
+
+HcclResult GetCommRankInfo(HcclComm comm, uint32_t ranksPerServer, CommRankInfo &info)
+{
+    HcclResult ret = HcclGetRankId(comm, &info.rank);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    ret = HcclGetRankSize(comm, &info.world);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    if (info.world == 0U || info.rank >= info.world || info.world > CAM_MOE_LAYERED_MAX_RANK_NUM ||
+        info.world % ranksPerServer != 0U) {
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetExistingEngineContext(HcclComm comm, const std::string &contextTag, void *&engineContext,
+                                    bool &contextExists)
+{
+    uint64_t contextBytes = 0U;
+    const HcclResult ret =
+        HcclEngineCtxGet(comm, contextTag.c_str(), CommEngine::COMM_ENGINE_AIV, &engineContext, &contextBytes);
+    if (ret != HCCL_SUCCESS && ret != HCCL_E_NOT_FOUND) {
+        return ret;
+    }
+    contextExists = ret == HCCL_SUCCESS;
+    if (contextExists && (engineContext == nullptr || contextBytes != sizeof(CamMoeLayeredCommContext))) {
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ValidateSharedWindow(const SharedLayeredWindow &shared, const std::string &contextTag,
+                                const CommRankInfo &rankInfo, uint32_t ranksPerServer, CamMoeLayeredProtocol protocol,
+                                uint64_t requestedBytes, uint64_t minimumWindowBytes, bool contextExists)
+{
+    if (contextExists && (shared.buffer == nullptr || shared.memHandle == nullptr || !shared.hostReady)) {
+        return HCCL_E_NOT_FOUND;
+    }
+    if (shared.buffer == nullptr) {
+        if (shared.memHandle != nullptr || shared.contextReady) {
+            return HCCL_E_NOT_FOUND;
+        }
+        return HCCL_SUCCESS;
+    }
+    if (shared.memHandle == nullptr) {
+        return HCCL_E_NOT_FOUND;
+    }
+    if (!shared.hostReady) {
+        throw std::runtime_error("layered context '" + contextTag +
+                                 "' has an incomplete registered window; use a new communication domain");
+    }
+    if (requestedBytes > shared.payloadBytes || minimumWindowBytes > shared.payloadBytes) {
+        throw std::runtime_error("layered context '" + contextTag + "' has a fixed registered payload of " +
+                                 std::to_string(shared.payloadBytes) + " bytes; requested " +
+                                 std::to_string(requestedBytes) + " bytes with a minimum of " +
+                                 std::to_string(minimumWindowBytes) + ". Use a new communication domain");
+    }
+    if (shared.rank != rankInfo.rank || shared.world != rankInfo.world || shared.ranksPerServer != ranksPerServer ||
+        shared.protocol != protocol) {
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllocateAndRegisterWindow(HcclComm comm, const std::string &memTag, uint64_t requestedBytes,
+                                     const CommRankInfo &rankInfo, uint32_t ranksPerServer,
+                                     CamMoeLayeredProtocol protocol, SharedLayeredWindow &shared)
+{
+    void *buffer = nullptr;
+    aclError aclRet = aclrtMalloc(&buffer, requestedBytes, ACL_MEM_MALLOC_NORMAL_ONLY);
+    if (aclRet != ACL_SUCCESS) {
+        return HCCL_E_MEMORY;
+    }
+    aclRet = aclrtMemset(buffer, requestedBytes, 0, requestedBytes);
+    if (aclRet != ACL_SUCCESS) {
+        (void)aclrtFree(buffer);
+        return HCCL_E_MEMORY;
+    }
+
+    CommMem mem{};
+    mem.type = COMM_MEM_TYPE_DEVICE;
+    mem.addr = buffer;
+    mem.size = requestedBytes;
+    HcclMemHandle memHandle = nullptr;
+    const HcclResult ret = HcclCommMemReg(comm, memTag.c_str(), &mem, &memHandle);
+    if (ret != HCCL_SUCCESS) {
+        (void)aclrtFree(buffer);
+        return ret;
+    }
+
+    // HCCL has no matching unregister operation. Keep successfully registered
+    // storage even if a later channel/context step fails.
+    shared.buffer = buffer;
+    shared.memHandle = memHandle;
+    shared.payloadBytes = requestedBytes;
+    shared.registeredBytes = requestedBytes;
+    shared.rank = rankInfo.rank;
+    shared.world = rankInfo.world;
+    shared.ranksPerServer = ranksPerServer;
+    shared.protocol = protocol;
+    return memHandle == nullptr ? HCCL_E_NOT_FOUND : HCCL_SUCCESS;
+}
+
+HcclResult BuildHostContext(HcclComm comm, const std::string &memTag, const CommRankInfo &rankInfo,
+                            uint32_t ranksPerServer, CamMoeLayeredProtocol protocol, SharedLayeredWindow &shared,
+                            CamMoeLayeredCommContext &host)
+{
+    host.protocol = static_cast<uint32_t>(protocol);
+    host.windowBytes = shared.payloadBytes;
+    host.ipcBuffer[rankInfo.rank] = reinterpret_cast<uint64_t>(shared.buffer);
+
+    std::vector<HcclChannelDesc> descs;
+    std::vector<uint32_t> peers;
+    const CommProtocol selectedProtocol = ToHcclProtocol(protocol);
+    descs.reserve(rankInfo.world - 1U);
+    peers.reserve(rankInfo.world - 1U);
+    for (uint32_t peer = 0U; peer < rankInfo.world; ++peer) {
+        if (peer == rankInfo.rank) {
+            continue;
+        }
+        const bool intraServer = peer / ranksPerServer == rankInfo.rank / ranksPerServer;
+        const CommProtocol peerProtocol = intraServer ? CommProtocol::COMM_PROTOCOL_UB_MEM : selectedProtocol;
+        CommLink link{};
+        HcclResult ret = FindProtocolLink(comm, rankInfo.rank, peer, peerProtocol, link);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+        HcclChannelDesc desc{};
+        ret = HcclChannelDescInit(&desc, 1U);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+        desc.remoteRank = peer;
+        desc.channelProtocol = peerProtocol;
+        desc.localEndpoint = link.srcEndpointDesc;
+        desc.remoteEndpoint = link.dstEndpointDesc;
+        desc.memHandles = &shared.memHandle;
+        desc.memHandleNum = 1U;
+        descs.push_back(desc);
+        peers.push_back(peer);
+    }
+
+    std::vector<ChannelHandle> channels(descs.size());
+    if (!descs.empty()) {
+        const HcclResult ret = HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, descs.data(),
+                                                  static_cast<uint32_t>(descs.size()), channels.data());
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    }
+    for (size_t i = 0U; i < peers.size(); ++i) {
+        const uint32_t peer = peers[i];
+        const uint32_t compact = peer < rankInfo.rank ? peer : peer - 1U;
+        host.hcommHandle[compact] = static_cast<uint64_t>(channels[i]);
+        uint32_t remoteCount = 0U;
+        CommMem *remoteMems = nullptr;
+        char **remoteTags = nullptr;
+        HcclResult ret = HcclChannelGetRemoteMems(comm, channels[i], &remoteCount, &remoteMems, &remoteTags);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+        bool found = false;
+        for (uint32_t j = 0U; j < remoteCount; ++j) {
+            if (remoteTags != nullptr && remoteMems != nullptr && remoteTags[j] != nullptr && memTag == remoteTags[j] &&
+                remoteMems[j].addr != nullptr && remoteMems[j].size >= shared.registeredBytes) {
+                host.ipcBuffer[peer] = reinterpret_cast<uint64_t>(remoteMems[j].addr);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            return HCCL_E_NOT_FOUND;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult PublishEngineContext(HcclComm comm, const std::string &contextTag, CamMoeLayeredCommContext &host,
+                                bool contextExists, void *&engineContext)
+{
+    if (!contextExists) {
+        HcclResult ret = HcclEngineCtxCreate(comm, contextTag.c_str(), CommEngine::COMM_ENGINE_AIV,
+                                             sizeof(CamMoeLayeredCommContext), &engineContext);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+        if (engineContext == nullptr) {
+            return HCCL_E_NOT_FOUND;
+        }
+    }
+    return HcclEngineCtxCopy(comm, CommEngine::COMM_ENGINE_AIV, contextTag.c_str(), &host,
+                             sizeof(CamMoeLayeredCommContext), 0U);
+}
 }  // namespace
 
 LayeredCommContextManager::~LayeredCommContextManager() = default;
@@ -120,19 +320,14 @@ HcclResult LayeredCommContextManager::Create(HcclComm comm, const std::string &c
         (protocol != CAM_MOE_LAYERED_PROTOCOL_ROCE && protocol != CAM_MOE_LAYERED_PROTOCOL_UBOE)) {
         return HCCL_E_PARA;
     }
-    uint32_t rank = 0U;
-    uint32_t world = 0U;
-    HcclResult ret = HcclGetRankId(comm, &rank);
-    if (ret != HCCL_SUCCESS) return ret;
-    ret = HcclGetRankSize(comm, &world);
-    if (ret != HCCL_SUCCESS) return ret;
-    if (world == 0U || rank >= world || world > CAM_MOE_LAYERED_MAX_RANK_NUM || world % ranksPerServer != 0U) {
-        return HCCL_E_PARA;
+    CommRankInfo rankInfo{};
+    HcclResult ret = GetCommRankInfo(comm, ranksPerServer, rankInfo);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
     }
 
     const uint64_t requestedBytes = GetPayloadCapacity();
-    if (requestedBytes < minimumWindowBytes ||
-        requestedBytes > std::numeric_limits<uint64_t>::max() - CAM_MOE_LAYERED_A5_STATE_BYTES) {
+    if (requestedBytes < minimumWindowBytes) {
         return HCCL_E_MEMORY;
     }
     const uint64_t maxTag = 255U;
@@ -144,169 +339,45 @@ HcclResult LayeredCommContextManager::Create(HcclComm comm, const std::string &c
     auto shared = GetSharedWindow(comm, contextTag);
     std::lock_guard<std::mutex> lock(shared->mutex);
     void *engineContext = nullptr;
-    uint64_t contextBytes = 0U;
-    const HcclResult getRet =
-        HcclEngineCtxGet(comm, contextTag.c_str(), CommEngine::COMM_ENGINE_AIV, &engineContext, &contextBytes);
-    if (getRet != HCCL_SUCCESS && getRet != HCCL_E_NOT_FOUND) {
-        return getRet;
-    }
-    const bool contextExists = getRet == HCCL_SUCCESS;
-    if (contextExists && (engineContext == nullptr || contextBytes != sizeof(CamMoeLayeredCommContext))) {
-        return HCCL_E_PARA;
-    }
-    // A matching HCCL context must never outlive its registered window.
-    if (contextExists && (shared->buffer == nullptr || shared->memHandle == nullptr || !shared->hostReady)) {
-        return HCCL_E_NOT_FOUND;
+    bool contextExists = false;
+    ret = GetExistingEngineContext(comm, contextTag, engineContext, contextExists);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
     }
     if (!contextExists && shared->contextReady) {
         return HCCL_E_NOT_FOUND;
     }
-    if (shared->buffer != nullptr && shared->memHandle == nullptr) {
-        return HCCL_E_NOT_FOUND;
-    }
-    if (shared->buffer != nullptr) {
-        if (!shared->hostReady) {
-            throw std::runtime_error("layered context '" + contextTag +
-                                     "' has an incomplete registered window; use a new communication domain");
-        }
-        if (requestedBytes > shared->payloadBytes || minimumWindowBytes > shared->payloadBytes) {
-            throw std::runtime_error("layered context '" + contextTag + "' has a fixed registered payload of " +
-                                     std::to_string(shared->payloadBytes) + " bytes; requested " +
-                                     std::to_string(requestedBytes) + " bytes with a minimum of " +
-                                     std::to_string(minimumWindowBytes) + ". Use a new communication domain");
-        }
-        if (shared->rank != rank || shared->world != world || shared->ranksPerServer != ranksPerServer ||
-            shared->protocol != protocol) {
-            return HCCL_E_PARA;
-        }
-        if (contextExists && shared->contextReady) {
-            FillResource(*shared, engineContext, resource);
-            return HCCL_SUCCESS;
-        }
-    } else {
-        const uint64_t registeredBytes = requestedBytes + CAM_MOE_LAYERED_A5_STATE_BYTES;
-        void *buffer = nullptr;
-        aclError aclRet = aclrtMalloc(&buffer, registeredBytes, ACL_MEM_MALLOC_NORMAL_ONLY);
-        if (aclRet != ACL_SUCCESS) {
-            return HCCL_E_MEMORY;
-        }
-        aclRet = aclrtMemset(buffer, registeredBytes, 0, registeredBytes);
-        if (aclRet != ACL_SUCCESS) {
-            (void)aclrtFree(buffer);
-            return HCCL_E_MEMORY;
-        }
-        CommMem mem{};
-        mem.type = COMM_MEM_TYPE_DEVICE;
-        mem.addr = buffer;
-        mem.size = registeredBytes;
-        HcclMemHandle memHandle = nullptr;
-        ret = HcclCommMemReg(comm, memTag.c_str(), &mem, &memHandle);
-        if (ret != HCCL_SUCCESS) {
-            (void)aclrtFree(buffer);
-            return ret;
-        }
-        // HCCL has no matching unregister operation. Keep successfully
-        // registered storage even if a later channel/context step fails.
-        shared->buffer = buffer;
-        shared->memHandle = memHandle;
-        shared->payloadBytes = requestedBytes;
-        shared->registeredBytes = registeredBytes;
-        shared->rank = rank;
-        shared->world = world;
-        shared->ranksPerServer = ranksPerServer;
-        shared->protocol = protocol;
-        if (memHandle == nullptr) {
-            return HCCL_E_NOT_FOUND;
-        }
-    }
 
-    if (shared->hostReady) {
-        if (!contextExists) {
-            ret = HcclEngineCtxCreate(comm, contextTag.c_str(), CommEngine::COMM_ENGINE_AIV,
-                                      sizeof(CamMoeLayeredCommContext), &engineContext);
-            if (ret != HCCL_SUCCESS) {
-                return ret;
-            }
-            if (engineContext == nullptr) {
-                return HCCL_E_NOT_FOUND;
-            }
-        }
-        ret = HcclEngineCtxCopy(comm, CommEngine::COMM_ENGINE_AIV, contextTag.c_str(), &shared->host,
-                                sizeof(CamMoeLayeredCommContext), 0U);
-        if (ret != HCCL_SUCCESS) {
-            return ret;
-        }
-        shared->contextReady = true;
+    ret = ValidateSharedWindow(*shared, contextTag, rankInfo, ranksPerServer, protocol, requestedBytes,
+                               minimumWindowBytes, contextExists);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    if (shared->buffer != nullptr && contextExists && shared->contextReady) {
         FillResource(*shared, engineContext, resource);
         return HCCL_SUCCESS;
     }
-
-    CamMoeLayeredCommContext host{};
-    host.protocol = static_cast<uint32_t>(protocol);
-    host.windowBytes = shared->payloadBytes;
-    host.ipcBuffer[rank] = reinterpret_cast<uint64_t>(shared->buffer);
-
-    std::vector<HcclChannelDesc> descs;
-    std::vector<uint32_t> peers;
-    const CommProtocol selectedProtocol = ToHcclProtocol(protocol);
-    descs.reserve(world - 1U);
-    peers.reserve(world - 1U);
-    for (uint32_t peer = 0U; peer < world; ++peer) {
-        if (peer == rank) continue;
-        const bool intraServer = peer / ranksPerServer == rank / ranksPerServer;
-        const CommProtocol peerProtocol = intraServer ? CommProtocol::COMM_PROTOCOL_UB_MEM : selectedProtocol;
-        CommLink link{};
-        ret = FindProtocolLink(comm, rank, peer, peerProtocol, link);
-        if (ret != HCCL_SUCCESS) return ret;
-        HcclChannelDesc desc{};
-        ret = HcclChannelDescInit(&desc, 1U);
-        if (ret != HCCL_SUCCESS) return ret;
-        desc.remoteRank = peer;
-        desc.channelProtocol = peerProtocol;
-        desc.localEndpoint = link.srcEndpointDesc;
-        desc.remoteEndpoint = link.dstEndpointDesc;
-        desc.memHandles = &shared->memHandle;
-        desc.memHandleNum = 1U;
-        descs.push_back(desc);
-        peers.push_back(peer);
-    }
-
-    std::vector<ChannelHandle> channels(descs.size());
-    if (!descs.empty()) {
-        ret = HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, descs.data(), static_cast<uint32_t>(descs.size()),
-                                 channels.data());
-        if (ret != HCCL_SUCCESS) return ret;
-    }
-    for (size_t i = 0U; i < peers.size(); ++i) {
-        const uint32_t peer = peers[i];
-        const uint32_t compact = peer < rank ? peer : peer - 1U;
-        host.hcommHandle[compact] = static_cast<uint64_t>(channels[i]);
-        uint32_t remoteCount = 0U;
-        CommMem *remoteMems = nullptr;
-        char **remoteTags = nullptr;
-        ret = HcclChannelGetRemoteMems(comm, channels[i], &remoteCount, &remoteMems, &remoteTags);
-        if (ret != HCCL_SUCCESS) return ret;
-        bool found = false;
-        for (uint32_t j = 0U; j < remoteCount; ++j) {
-            if (remoteTags != nullptr && remoteMems != nullptr && remoteTags[j] != nullptr && memTag == remoteTags[j] &&
-                remoteMems[j].addr != nullptr && remoteMems[j].size >= shared->registeredBytes) {
-                host.ipcBuffer[peer] = reinterpret_cast<uint64_t>(remoteMems[j].addr);
-                found = true;
-                break;
-            }
+    if (shared->buffer == nullptr) {
+        ret = AllocateAndRegisterWindow(comm, memTag, requestedBytes, rankInfo, ranksPerServer, protocol, *shared);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
         }
-        if (!found) return HCCL_E_NOT_FOUND;
     }
 
-    shared->host = host;
-    shared->hostReady = true;
-    ret = HcclEngineCtxCreate(comm, contextTag.c_str(), CommEngine::COMM_ENGINE_AIV, sizeof(CamMoeLayeredCommContext),
-                              &engineContext);
-    if (ret != HCCL_SUCCESS) return ret;
-    if (engineContext == nullptr) return HCCL_E_NOT_FOUND;
-    ret = HcclEngineCtxCopy(comm, CommEngine::COMM_ENGINE_AIV, contextTag.c_str(), &host,
-                            sizeof(CamMoeLayeredCommContext), 0U);
-    if (ret != HCCL_SUCCESS) return ret;
+    if (!shared->hostReady) {
+        CamMoeLayeredCommContext host{};
+        ret = BuildHostContext(comm, memTag, rankInfo, ranksPerServer, protocol, *shared, host);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+        shared->host = host;
+        shared->hostReady = true;
+    }
+
+    ret = PublishEngineContext(comm, contextTag, shared->host, contextExists, engineContext);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
     shared->contextReady = true;
     FillResource(*shared, engineContext, resource);
     return HCCL_SUCCESS;
@@ -317,4 +388,4 @@ HcclResult LayeredCommContextManager::Create(HcclComm comm, const std::string &c
 namespace deep_ep {
 LayeredCommContextManager::~LayeredCommContextManager() = default;
 }  // namespace deep_ep
-#endif  // __DAV_C310__
+#endif  // __DAV_C310__ && CANN version supports layered communication

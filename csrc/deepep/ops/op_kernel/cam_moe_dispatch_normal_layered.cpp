@@ -1,3 +1,5 @@
+#if DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION
+
 #include "kernel_operator.h"
 #include "cam_moe_dispatch_normal_layered_tiling.h"
 #include "cam_moe_layered_comm.h"
@@ -15,10 +17,10 @@ class CamMoeDispatchNormalLayered
 {
 public:
     __aicore__ inline void Init(GM_ADDR roceContext, GM_ADDR x, GM_ADDR topkWeights, GM_ADDR topkIdx,
-                                GM_ADDR layeredPlan, GM_ADDR recvX, GM_ADDR layeredAssist, GM_ADDR recvTopkIdx,
-                                GM_ADDR recvTopkWeights, GM_ADDR workspace, const CamMoeLayeredInfo &tiling,
-                                LocalTensor<uint64_t> &doorbellUb, LocalTensor<uint32_t> &headUb,
-                                LocalTensor<uint8_t> &copyUb, LocalTensor<uint8_t> &hcommUb)
+                                GM_ADDR layeredPlan, GM_ADDR recvX, GM_ADDR recvTopkIdx, GM_ADDR recvTopkWeights,
+                                GM_ADDR workspace, const CamMoeLayeredInfo &tiling, LocalTensor<uint64_t> &doorbellUb,
+                                LocalTensor<uint32_t> &headUb, LocalTensor<uint8_t> &copyUb,
+                                LocalTensor<uint8_t> &hcommUb)
     {
         info_ = tiling;
         header_ = (__gm__ PlanHeader *)layeredPlan;
@@ -27,7 +29,6 @@ public:
         weights_ = (__gm__ float *)topkWeights;
         topk_ = (__gm__ int32_t *)topkIdx;
         recv_ = (__gm__ T *)recvX;
-        routes_ = (__gm__ CombineRoute *)layeredAssist;
         recvTopk_ = (__gm__ int32_t *)recvTopkIdx;
         recvWeights_ = (__gm__ float *)recvTopkWeights;
         doorbellUb_ = &doorbellUb;
@@ -884,18 +885,16 @@ private:
     {
         for (uint32_t ordinal = packetBegin; ordinal < packetEnd; ++ordinal) {
             ConsumeMetadataPacket(metaBatch, packetMetaOffset, memberMetaOffset, proxyBatch, tokenRecordOffset,
-                                  remoteSourceServer, sourceRankInServer, ordinal);
+                                  ordinal);
         }
     }
 
     __aicore__ inline void ConsumeMetadataPacket(__gm__ uint8_t *metaBatch, uint32_t packetMetaOffset,
                                                  uint32_t memberMetaOffset, __gm__ uint8_t *proxyBatch,
-                                                 uint32_t tokenRecordOffset, uint32_t remoteSourceServer,
-                                                 uint32_t sourceRankInServer, uint32_t ordinal)
+                                                 uint32_t tokenRecordOffset, uint32_t ordinal)
     {
         LoadPeerBytes(metaBatch + packetMetaOffset + ordinal * sizeof(DispatchPacketMeta), sizeof(DispatchPacketMeta));
         auto packetWords = copyUb_->template ReinterpretCast<uint32_t>();
-        const uint32_t sourceToken = packetWords.GetValue(0);
         const uint32_t memberBegin = packetWords.GetValue(1);
         const uint32_t memberCount = packetWords.GetValue(2);
         if (memberCount == 0U) {  // 空 packet 直接跳过
@@ -903,16 +902,12 @@ private:
         }
 
         uint32_t compactRows[kMaxTopk];
-        int32_t topkSlots[kMaxTopk];
-        // 获取专家行号与topk的索引
         const uint32_t localMemberCount =
-            CollectLocalPacketMembers(metaBatch, memberMetaOffset, memberBegin, memberCount, compactRows, topkSlots);
+            CollectLocalPacketMembers(metaBatch, memberMetaOffset, memberBegin, memberCount, compactRows);
         if (localMemberCount == 0U) {  // 不是本 rank 的，跳过
             return;
         }
 
-        const uint32_t recordSourceToken = sourceToken;
-        const uint32_t recordSourceRank = remoteSourceServer * info_.ranksPerServer + sourceRankInServer;
         auto *tokenRecord = proxyBatch + tokenRecordOffset + static_cast<uint64_t>(ordinal) * info_.recordStride;
         int32_t routeExperts[kMaxTopk];
         int32_t routeWeightBits[kMaxTopk];
@@ -922,14 +917,11 @@ private:
         CopyPacketTopkRouteToRows(compactRows, localMemberCount, routeExperts, routeWeightBits);
         // 拷贝payload到recv_
         CopyPacketPayloadToRows(tokenRecord, compactRows, localMemberCount);
-        // 对每个member记录回传元数据信息
-        WritePacketCombineRoutes(compactRows, topkSlots, localMemberCount, routeWeightBits, recordSourceRank,
-                                 recordSourceToken, remoteSourceServer, sourceRankInServer, sourceToken);
     }
 
     __aicore__ inline uint32_t CollectLocalPacketMembers(__gm__ uint8_t *metaBatch, uint32_t memberMetaOffset,
                                                          uint32_t memberBegin, uint32_t memberCount,
-                                                         uint32_t *compactRows, int32_t *topkSlots)
+                                                         uint32_t *compactRows)
     {
         uint32_t localMemberCount = 0U;
         for (uint32_t member = 0U; member < memberCount; ++member) {
@@ -939,7 +931,6 @@ private:
             auto memberWords = copyUb_->template ReinterpretCast<int32_t>();
             const int32_t expert = memberWords.GetValue(0);
             const int32_t expertRow = memberWords.GetValue(1);
-            const int32_t topkSlot = memberWords.GetValue(2);
             const uint32_t ownerInServer = (static_cast<uint32_t>(expert) / localExperts_) % info_.ranksPerServer;
             if (ownerInServer != info_.rankInServer) {  // 不是本 rank 的，跳过
                 continue;
@@ -948,7 +939,6 @@ private:
             const uint32_t localExpert = static_cast<uint32_t>(expert) % localExperts_;
             const int32_t localOffset = plan_[header_->localExpertOffset + localExpert];
             compactRows[localMemberCount] = static_cast<uint32_t>(localOffset + expertRow);
-            topkSlots[localMemberCount] = topkSlot;
             ++localMemberCount;
         }
         return localMemberCount;
@@ -1001,42 +991,12 @@ private:
         }
     }
 
-    __aicore__ inline void WritePacketCombineRoutes(const uint32_t *compactRows, const int32_t *topkSlots,
-                                                    uint32_t localMemberCount, const int32_t *routeWeightBits,
-                                                    uint32_t sourceRank, uint32_t sourceToken, uint32_t sourceServer,
-                                                    uint32_t sourceRankInServer, uint32_t slot)
-    {
-        for (uint32_t member = 0U; member < localMemberCount; ++member) {
-            const uint32_t topkSlot = static_cast<uint32_t>(topkSlots[member]);
-            WriteCombineRoute(compactRows[member], sourceRank, sourceToken, sourceServer, sourceRankInServer, slot,
-                              topkSlots[member], routeWeightBits[topkSlot]);
-        }
-    }
-
-    __aicore__ inline void WriteCombineRoute(uint32_t compactRow, uint32_t sourceRank, uint32_t sourceToken,
-                                             uint32_t sourceServer, uint32_t sourceRankInServer, uint32_t slot,
-                                             int32_t topkSlot, int32_t weightBits)
-    {
-        auto *route = routes_ + compactRow;
-        const uint32_t words[9] = {static_cast<uint32_t>(epoch_),
-                                   sourceRank,
-                                   sourceToken,
-                                   sourceServer,
-                                   sourceRankInServer,
-                                   0U,
-                                   slot,
-                                   static_cast<uint32_t>(topkSlot),
-                                   static_cast<uint32_t>(weightBits)};
-        StoreWords((__gm__ uint32_t *)route, words, 9U);
-    }
-
     __gm__ PlanHeader *header_{nullptr};
     __gm__ int32_t *plan_{nullptr};
     __gm__ T *x_{nullptr};
     __gm__ float *weights_{nullptr};
     __gm__ int32_t *topk_{nullptr};
     __gm__ T *recv_{nullptr};
-    __gm__ CombineRoute *routes_{nullptr};
     __gm__ int32_t *recvTopk_{nullptr};
     __gm__ float *recvWeights_{nullptr};
     __gm__ uint8_t *localOut_{nullptr};
@@ -1053,9 +1013,11 @@ private:
 };
 }  // namespace
 
-extern "C" __global__ __aicore__ void cam_moe_dispatch_normal_layered(
-    GM_ADDR roceContext, GM_ADDR x, GM_ADDR topkWeights, GM_ADDR topkIdx, GM_ADDR layeredPlan, GM_ADDR recvX,
-    GM_ADDR layeredAssist, GM_ADDR recvTopkIdx, GM_ADDR recvTopkWeights, GM_ADDR workspace, GM_ADDR tiling)
+extern "C" __global__ __aicore__ void cam_moe_dispatch_normal_layered(GM_ADDR roceContext, GM_ADDR x,
+                                                                      GM_ADDR topkWeights, GM_ADDR topkIdx,
+                                                                      GM_ADDR layeredPlan, GM_ADDR recvX,
+                                                                      GM_ADDR recvTopkIdx, GM_ADDR recvTopkWeights,
+                                                                      GM_ADDR workspace, GM_ADDR tiling)
 {
     REGISTER_TILING_DEFAULT(CamMoeDispatchNormalLayeredTilingData);
     TPipe pipe;
@@ -1078,8 +1040,10 @@ extern "C" __global__ __aicore__ void cam_moe_dispatch_normal_layered(
     auto hcommTensor = copyTensor;
 #endif
     CamMoeDispatchNormalLayered<DTYPE_X> op;
-    op.Init(roceContext, x, topkWeights, topkIdx, layeredPlan, recvX, layeredAssist, recvTopkIdx, recvTopkWeights,
-            workspace, data.layered, doorbellUb, headUb, copyTensor, hcommTensor);
+    op.Init(roceContext, x, topkWeights, topkIdx, layeredPlan, recvX, recvTopkIdx, recvTopkWeights, workspace,
+            data.layered, doorbellUb, headUb, copyTensor, hcommTensor);
     op.Process();
 #endif
 }
+
+#endif  // DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION

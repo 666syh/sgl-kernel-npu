@@ -8,7 +8,7 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "cam_moe_layered_host_validation.h"
 #include "../op_kernel/notify_dispatch_normal_layered_tiling.h"
-#include "../op_kernel/cam_moe_layered_plan.h"
+#include "cam_moe_layered_plan.h"
 using namespace ge;
 namespace {
 constexpr uint32_t GROUP = 0, WORLD = 1, RANK = 2, RANKS = 3, EXPERTS = 4, SLOTS = 5, EPOCH = 6, HIDDEN = 7, MAX_BS = 8,
@@ -71,8 +71,7 @@ bool ValidPlanLayout(const CamMoeLayered::PlanLayout &p, uint64_t packetSlots, u
     return p.packetCount <= p.dispatchMemberCount && p.dispatchMemberCount <= p.packetSlot &&
            p.packetSlot <= p.expertCount && p.expertCount <= p.localExpertOffset &&
            p.localExpertOffset <= p.localExpertCount && p.localExpertCount <= p.packetDesc &&
-           p.packetDesc <= p.memberDesc && p.memberDesc <= p.sourceReturnBase && p.reverseMember <= p.overflow &&
-           static_cast<uint64_t>(p.overflow) + 1U == p.error && static_cast<uint64_t>(p.error) + 1U == p.total &&
+           p.packetDesc <= p.memberDesc && p.memberDesc <= p.sourceReturnBase && p.reverseMember <= p.total &&
            static_cast<uint64_t>(p.packetSlot) + packetSlots <= planElements;
 }
 void SetComm(NotifyDispatchNormalLayeredTilingData *d, const std::string &g)
@@ -163,7 +162,7 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     uint64_t planPacketCount = CamMoeLayered::HeaderElements(), planDispatchMemberCount = 0, planPacketSlot = 0;
     uint64_t planExpertCount = 0, planLocalExpertOffset = 0, planLocalExpertCount = 0;
     uint64_t planPacketDesc = 0, planMemberDesc = 0, planSourceReturnBase = 0, planReverseCount = 0;
-    uint64_t planReverseReturnBase = 0, planReversePacket = 0, planReverseMember = 0, planOverflow = 0;
+    uint64_t planReverseReturnBase = 0, planReversePacket = 0, planReverseMember = 0;
     uint64_t planPacketDescElements = 0, planMemberElements = 0, planReversePacketElements = 0;
     uint64_t planReverseMemberElements = 0, planIngressElements = 0, planTotal = 0, localExpertsU = expertsU / worldU;
     const bool planArithmetic =
@@ -190,8 +189,7 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
         MulFits(maxBsU, worldU, planReverseMemberElements) &&
         MulFits(planReverseMemberElements, k, planReverseMemberElements) &&
         MulFits(planReverseMemberElements, CamMoeLayered::ReverseMemberElements(), planReverseMemberElements) &&
-        AddFits(planReverseMember, planReverseMemberElements, planOverflow) && AddFits(planOverflow, 2U, planTotal) &&
-        FitsUint32(planTotal);
+        AddFits(planReverseMember, planReverseMemberElements, planTotal) && FitsUint32(planTotal);
     OP_TILING_CHECK(!planArithmetic, OP_LOGE(n, "normal layered plan layout overflows"), return GRAPH_FAILED);
     const uint32_t servers = static_cast<uint32_t>(serversU), rounds = static_cast<uint32_t>(roundsU);
     auto &l = d->layered;
@@ -242,22 +240,22 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     auto p = CamMoeLayered::MakePlanLayout(l.bs, l.maxBs, l.k, l.moeExpertNum, l.epWorldSize, servers, l.ranksPerServer,
                                            rounds, slots);
     const uint64_t planElements = p.total;
-    OP_TILING_CHECK(
-        !ValidPlanLayout(p, packetSlots, planElements) || planElements != planTotal ||
-            p.packetCount != planPacketCount || p.dispatchMemberCount != planDispatchMemberCount ||
-            p.packetSlot != planPacketSlot || p.expertCount != planExpertCount ||
-            p.localExpertOffset != planLocalExpertOffset || p.localExpertCount != planLocalExpertCount ||
-            p.packetDesc != planPacketDesc || p.memberDesc != planMemberDesc ||
-            p.sourceReturnBase != planSourceReturnBase || p.outboundBase != planSourceReturnBase + serversU ||
-            p.outboundBytes != planSourceReturnBase + 3U * serversU ||
-            p.outboundTotalBytes != planSourceReturnBase + 5U * serversU ||
-            p.sendIngressBase != planSourceReturnBase + 5U * serversU + 2U ||
-            p.sendIngressBytes != planSourceReturnBase + 7U * serversU + 2U ||
-            p.recvIngressBase != planSourceReturnBase + 9U * serversU + 2U ||
-            p.recvIngressBytes != planSourceReturnBase + 11U * serversU + 2U || p.reverseCount != planReverseCount ||
-            p.reverseReturnBase != planReverseReturnBase || p.reversePacket != planReversePacket ||
-            p.reverseMember != planReverseMember || p.overflow != planOverflow,
-        OP_LOGE(n, "normal layered plan layout is invalid"), return GRAPH_FAILED);
+    OP_TILING_CHECK(!ValidPlanLayout(p, packetSlots, planElements) || planElements != planTotal ||
+                        p.packetCount != planPacketCount || p.dispatchMemberCount != planDispatchMemberCount ||
+                        p.packetSlot != planPacketSlot || p.expertCount != planExpertCount ||
+                        p.localExpertOffset != planLocalExpertOffset || p.localExpertCount != planLocalExpertCount ||
+                        p.packetDesc != planPacketDesc || p.memberDesc != planMemberDesc ||
+                        p.sourceReturnBase != planSourceReturnBase ||
+                        p.outboundBase != planSourceReturnBase + serversU ||
+                        p.outboundBytes != planSourceReturnBase + 3U * serversU ||
+                        p.outboundTotalBytes != planSourceReturnBase + 5U * serversU ||
+                        p.sendIngressBase != planSourceReturnBase + 5U * serversU + 2U ||
+                        p.sendIngressBytes != planSourceReturnBase + 7U * serversU + 2U ||
+                        p.recvIngressBase != planSourceReturnBase + 9U * serversU + 2U ||
+                        p.recvIngressBytes != planSourceReturnBase + 11U * serversU + 2U ||
+                        p.reverseCount != planReverseCount || p.reverseReturnBase != planReverseReturnBase ||
+                        p.reversePacket != planReversePacket || p.reverseMember != planReverseMember,
+                    OP_LOGE(n, "normal layered plan layout is invalid"), return GRAPH_FAILED);
     l.planElements = static_cast<uint32_t>(planElements);
     l.packetCountOffset = p.packetCount;
     l.dispatchMemberCountOffset = p.dispatchMemberCount;
@@ -267,8 +265,6 @@ static ge::graphStatus NotifyTiling(gert::TilingContext *c)
     l.localExpertCountOffset = p.localExpertCount;
     l.packetDescOffset = p.packetDesc;
     l.memberDescOffset = p.memberDesc;
-    l.overflowOffset = p.overflow;
-    l.errorOffset = p.error;
     auto platform = platform_ascendc::PlatformAscendC(c->GetPlatformInfo());
     l.aivNum = platform.GetCoreNumAiv();
     platform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, l.totalUbSize);

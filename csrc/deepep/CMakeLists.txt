@@ -11,7 +11,11 @@ endif()
 
 set(PROJECT_BUILD_PATH ${PROJECT_BINARY_DIR})
 set(TARGET_INSTALL_DIR ${CMAKE_INSTALL_PREFIX})
-set(ASCEND_HOME_PATH ${ASCEND_HOME_PATH})
+set(ASCEND_HOME_PATH "$ENV{ASCEND_HOME_PATH}")
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/ops/common/cmake/DeepEPCannVersion.cmake)
+deepep_detect_cann_version(DEEPEP_CANN_VERSION_NUM)
+set(DEEPEP_LAYERED_MIN_CANN_VERSION 90200000)
 
 find_program(PYTHON_EXECUTABLE NAMES python3 python)
 message(STATUS "PYTHON_EXECUTABLE:${PYTHON_EXECUTABLE}")
@@ -40,8 +44,12 @@ set_target_properties(deep_ep_cpp PROPERTIES CXX_STANDARD 17)
 if("${DEEPEP_IS_A5_BUILD}" STREQUAL "ON")
     target_compile_definitions(deep_ep_cpp PRIVATE __DAV_C310__)
 endif()
+target_compile_definitions(deep_ep_cpp PRIVATE
+    DEEPEP_CANN_VERSION_NUM=${DEEPEP_CANN_VERSION_NUM}
+    DEEPEP_LAYERED_MIN_CANN_VERSION=${DEEPEP_LAYERED_MIN_CANN_VERSION})
 target_include_directories( deep_ep_cpp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/common/include
 
     ${TORCH_DIR}/include
     ${TORCH_DIR}/include/torch/csrc/api/include

@@ -12,6 +12,16 @@ CopyOps() {
         cp -rf "$src_dir/op_kernel/"* "$dst_dir/op_kernel/"
         echo "cp -rf $src_dir/op_kernel/* $dst_dir/op_kernel/"
     fi
+    if [ -d "$src_dir/common/include" ]; then
+        mkdir -p "$dst_dir/common"
+        cp -rf "$src_dir/common/include" "$dst_dir/common/"
+        echo "cp -rf $src_dir/common/include $dst_dir/common/"
+    fi
+    if [ -d "$src_dir/common/cmake" ]; then
+        mkdir -p "$dst_dir/common"
+        cp -rf "$src_dir/common/cmake" "$dst_dir/common/"
+        echo "cp -rf $src_dir/common/cmake $dst_dir/common/"
+    fi
 
     # Ensure that op_host and op_kernel exist in the target directory
     mkdir -p "$dst_dir/op_host" "$dst_dir/op_kernel"
@@ -52,6 +62,7 @@ BuildOps() {
     rm -rf ${proj_name}/CMakeLists.txt
     rm -rf ${proj_name}/CMakePresets.json
     rm -rf ${proj_name}/framework
+    rm -rf ${proj_name}/common
   fi
 
   echo "msopgen gen -i ./AddCustom.json -c ai_core-${soc_version} -f pytorch -lan cpp -out ${proj_name}"

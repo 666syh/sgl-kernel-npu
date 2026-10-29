@@ -14,7 +14,7 @@
 #include "config.hpp"
 #include "event.hpp"
 #include "layered_config.hpp"
-#include "ops/op_kernel/cam_moe_layered_comm_context.h"
+#include "cam_moe_layered_comm_context.h"
 
 namespace deep_ep {
 
@@ -50,7 +50,6 @@ private:
 
     bool available = false;
     bool layered_mode = false;
-    LayeredTopology layered_topology_cache{};
     uint64_t layered_epoch = 0;
     uint64_t layered_combine_epoch = 0;
     uint64_t layered_window_bytes = 0;

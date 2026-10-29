@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "../op_kernel/cam_moe_layered_plan.h"
+#include "cam_moe_layered_plan.h"
 
 namespace CamMoeLayeredHost {
 

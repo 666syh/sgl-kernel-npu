@@ -20,11 +20,6 @@ __aicore__ inline void SyncFunc()
     AscendC::WaitFlag<event>(eventId);
 }
 
-#ifdef __DAV_C310__
-static_assert(CAM_MOE_LAYERED_A5_STATE_BYTES == A5_MTE_STATE_WIN_SIZE,
-              "Layered registered window and MC2 window offsets differ");
-#endif
-
 class CommAdapter
 {
 public:
@@ -66,7 +61,7 @@ public:
     __aicore__ inline GM_ADDR GetBufferAddrByRankId(uint32_t rank) const
     {
 #ifdef __DAV_C310__
-        return (GM_ADDR)rdmaContext_->ipcBuffer[rank] + CAM_MOE_LAYERED_A5_STATE_BYTES;
+        return (GM_ADDR)rdmaContext_->ipcBuffer[rank];
 #endif
         return GetBaseWindAddrByRankId(context_, rank, rankId_);
     }
@@ -86,19 +81,6 @@ public:
         return (GM_ADDR)relation->windowsOut;
 #endif
     }
-    __aicore__ inline GM_ADDR GetStateAddrByRankId(uint32_t rank) const
-    {
-#ifdef __DAV_C310__
-        return (GM_ADDR)rdmaContext_->ipcBuffer[rank];
-#else
-        return GetBaseWindStateAddrByRankId(context_, rank, rankId_);
-#endif
-    }
-    __aicore__ inline GM_ADDR State(uint32_t rank) const
-    {
-        return GetStateAddrByRankId(rank);
-    }
-
     __aicore__ inline AscendC::ChannelHandle GetChannel(uint32_t dstRank) const
     {
 #ifdef __DAV_C310__

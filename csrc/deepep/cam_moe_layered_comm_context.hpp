@@ -6,7 +6,7 @@
 
 #include "hccl/hccl.h"
 
-#include "ops/op_kernel/cam_moe_layered_comm_context.h"
+#include "cam_moe_layered_comm_context.h"
 
 namespace deep_ep {
 

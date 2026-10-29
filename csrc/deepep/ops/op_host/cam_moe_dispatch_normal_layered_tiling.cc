@@ -11,7 +11,7 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "cam_moe_layered_host_validation.h"
 #include "../op_kernel/cam_moe_dispatch_normal_layered_tiling.h"
-#include "../op_kernel/cam_moe_layered_plan.h"
+#include "cam_moe_layered_plan.h"
 
 using namespace ge;
 
@@ -22,9 +22,8 @@ constexpr uint32_t WEIGHTS_INDEX = 2U;
 constexpr uint32_t TOPK_INDEX = 3U;
 constexpr uint32_t PLAN_INDEX = 4U;
 constexpr uint32_t RECV_X_INDEX = 0U;
-constexpr uint32_t ASSIST_INDEX = 1U;
-constexpr uint32_t RECV_TOPK_INDEX = 2U;
-constexpr uint32_t RECV_TOPK_WEIGHTS_INDEX = 3U;
+constexpr uint32_t RECV_TOPK_INDEX = 1U;
+constexpr uint32_t RECV_TOPK_WEIGHTS_INDEX = 2U;
 constexpr uint32_t ATTR_EP_GROUP = 0U;
 constexpr uint32_t ATTR_EP_WORLD = 1U;
 constexpr uint32_t ATTR_EP_RANK = 2U;
@@ -83,26 +82,22 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
     auto *weightsDesc = context->GetInputDesc(WEIGHTS_INDEX);
     auto *topkDesc = context->GetInputDesc(TOPK_INDEX);
     auto *planDesc = context->GetInputDesc(PLAN_INDEX);
-    auto *assistDesc = context->GetOutputDesc(ASSIST_INDEX);
     auto *recvTopkDesc = context->GetOutputDesc(RECV_TOPK_INDEX);
     auto *recvTopkWeightsDesc = context->GetOutputDesc(RECV_TOPK_WEIGHTS_INDEX);
     int64_t bs = 0, hidden = 0, weightBs = 0, topk = 0, recvRows = 0, recvHidden = 0;
-    int64_t assistRows = 0, assistWidth = 0, recvTopkRows = 0, recvTopkWidth = 0, recvWeightRows = 0,
-            recvWeightWidth = 0, topkBs = 0, topkWidth = 0;
+    int64_t recvTopkRows = 0, recvTopkWidth = 0, recvWeightRows = 0, recvWeightWidth = 0, topkBs = 0, topkWidth = 0;
     OP_TILING_CHECK(
         data == nullptr || roceContextDesc == nullptr || xDesc == nullptr || weightsDesc == nullptr ||
-            topkDesc == nullptr || planDesc == nullptr || assistDesc == nullptr || recvTopkDesc == nullptr ||
-            recvTopkWeightsDesc == nullptr || (xDesc->GetDataType() != DT_BF16 && xDesc->GetDataType() != DT_FLOAT16) ||
+            topkDesc == nullptr || planDesc == nullptr || recvTopkDesc == nullptr || recvTopkWeightsDesc == nullptr ||
+            (xDesc->GetDataType() != DT_BF16 && xDesc->GetDataType() != DT_FLOAT16) ||
             roceContextDesc->GetDataType() != DT_INT32 || weightsDesc->GetDataType() != DT_FLOAT ||
             topkDesc->GetDataType() != DT_INT32 || planDesc->GetDataType() != DT_INT32 ||
-            assistDesc->GetDataType() != DT_INT32 || recvTopkDesc->GetDataType() != DT_INT32 ||
-            recvTopkWeightsDesc->GetDataType() != DT_FLOAT || !Shape2D(context->GetInputShape(X_INDEX), bs, hidden) ||
+            recvTopkDesc->GetDataType() != DT_INT32 || recvTopkWeightsDesc->GetDataType() != DT_FLOAT ||
+            !Shape2D(context->GetInputShape(X_INDEX), bs, hidden) ||
             !Shape2D(context->GetInputShape(WEIGHTS_INDEX), weightBs, topk) ||
             !Shape2D(context->GetInputShape(TOPK_INDEX), topkBs, topkWidth) || weightBs != bs || topkBs != bs ||
             topkWidth != topk || !Shape2D(context->GetOutputShape(RECV_X_INDEX), recvRows, recvHidden) ||
-            recvHidden != hidden || !Shape2D(context->GetOutputShape(ASSIST_INDEX), assistRows, assistWidth) ||
-            assistRows != recvRows || assistWidth != static_cast<int64_t>(CamMoeLayered::ASSIST_INFO_STRIDE) ||
-            !Shape2D(context->GetOutputShape(RECV_TOPK_INDEX), recvTopkRows, recvTopkWidth) ||
+            recvHidden != hidden || !Shape2D(context->GetOutputShape(RECV_TOPK_INDEX), recvTopkRows, recvTopkWidth) ||
             !Shape2D(context->GetOutputShape(RECV_TOPK_WEIGHTS_INDEX), recvWeightRows, recvWeightWidth) ||
             recvTopkRows != recvRows || recvWeightRows != recvRows || recvTopkWidth != topk || recvWeightWidth != topk,
         OP_LOGE(node, "invalid normal-layered dispatch tensor shapes or types"), return GRAPH_FAILED);
@@ -179,7 +174,7 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
     uint64_t planPacketCount = CamMoeLayered::HeaderElements(), planDispatchMemberCount = 0U, planPacketSlot = 0U;
     uint64_t planExpertCount = 0U, planLocalExpertOffset = 0U, planLocalExpertCount = 0U;
     uint64_t planPacketDesc = 0U, planMemberDesc = 0U, planSourceReturnBase = 0U, planReverseCount = 0U;
-    uint64_t planReverseReturnBase = 0U, planReversePacket = 0U, planReverseMember = 0U, planOverflow = 0U;
+    uint64_t planReverseReturnBase = 0U, planReversePacket = 0U, planReverseMember = 0U;
     uint64_t planTotal = 0U, packetSlots = 0U, reversePacketSlots = 0U, routeCounts = 0U;
     uint64_t packetDescElements = 0U, memberDescElements = 0U, reversePacketElements = 0U;
     uint64_t reverseMemberElements = 0U, planIngressElements = 0U;
@@ -214,8 +209,7 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
         CamMoeLayeredHost::MulFits(reversePacketSlots, l.k, reverseMemberElements) &&
         CamMoeLayeredHost::MulFits(reverseMemberElements, CamMoeLayered::ReverseMemberElements(),
                                    reverseMemberElements) &&
-        CamMoeLayeredHost::AddFits(planReverseMember, reverseMemberElements, planOverflow) &&
-        CamMoeLayeredHost::AddFits(planOverflow, 2U, planTotal) && planTotal <= maxUint32 &&
+        CamMoeLayeredHost::AddFits(planReverseMember, reverseMemberElements, planTotal) && planTotal <= maxUint32 &&
         planPacketCount == planLayout.packetCount && planDispatchMemberCount == planLayout.dispatchMemberCount &&
         planPacketSlot == planLayout.packetSlot && planExpertCount == planLayout.expertCount &&
         planLocalExpertOffset == planLayout.localExpertOffset && planLocalExpertCount == planLayout.localExpertCount &&
@@ -230,14 +224,13 @@ static ge::graphStatus CamMoeDispatchNormalLayeredTiling(gert::TilingContext *co
         planLayout.recvIngressBytes == planSourceReturnBase + 11U * servers + 2U &&
         planReverseCount == planLayout.reverseCount && planReverseReturnBase == planLayout.reverseReturnBase &&
         planReversePacket == planLayout.reversePacket && planReverseMember == planLayout.reverseMember &&
-        planOverflow == planLayout.overflow && planTotal == planLayout.total;
+        planTotal == planLayout.total;
     OP_TILING_CHECK(!planArithmetic, OP_LOGE(node, "normal-layered plan layout arithmetic overflows"),
                     return GRAPH_FAILED);
     OP_TILING_CHECK(planShape->GetStorageShape().GetDim(0) < static_cast<int64_t>(planLayout.total),
                     OP_LOGE(node, "layered_plan capacity is smaller than the required plan layout"),
                     return GRAPH_FAILED);
     l.planElements = planLayout.total;
-    l.errorOffset = planLayout.error;
     l.activeWindowBytes = window.requiredBytes;
     l.windowRequiredBytes = window.requiredBytes;
 

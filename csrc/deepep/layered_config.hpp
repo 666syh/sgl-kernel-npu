@@ -26,9 +26,9 @@ struct LayeredTopology {
 };
 
 struct LayeredPlanLayout {
-    // 单轮 packet count 区域，形状为 [server]。
+    // packet count 区域，形状为 [server]。
     int64_t packet_count;
-    // 单轮 packet member count 区域，形状为 [server]。
+    // packet member count 区域，形状为 [server]。
     int64_t dispatch_member_count;
     // packetSlot section 的起始偏移，形状为 [max_bs, server]。
     int64_t packet_slot;
@@ -57,32 +57,25 @@ struct LayeredPlanLayout {
     int64_t reverse_return_base;
     int64_t reverse_packet;
     int64_t reverse_member;
-    // overflow 标志的偏移，单位为 int32 元素；非零表示 plan 容量或路由规划发生溢出。
-    int64_t overflow;
-    // error 状态的偏移，单位为 int32 元素；保存 transport、协议或其他 plan 错误码。
-    int64_t error;
     // layered plan 所需的总 int32 元素数量，用于分配 plan tensor 的容量。
     int64_t total;
 };
 
-constexpr LayeredPlanLayout layered_plan_layout(int64_t bs, int64_t max_bs, int64_t topk, int64_t experts,
-                                                int64_t world, int64_t servers, int64_t ranks_per_server,
-                                                int64_t rounds, int64_t slots)
+constexpr LayeredPlanLayout layered_plan_layout(int64_t max_bs, int64_t topk, int64_t experts, int64_t world,
+                                                int64_t servers, int64_t slots)
 {
-    (void)bs;
-    (void)ranks_per_server;
     const int64_t local_experts = experts / world;
     const int64_t experts_per_server = experts / servers;
     LayeredPlanLayout layout{};
     layout.packet_count = kLayeredPlanHeaderElements;
-    layout.dispatch_member_count = layout.packet_count + rounds * servers;
-    layout.packet_slot = layout.dispatch_member_count + rounds * servers;
+    layout.dispatch_member_count = layout.packet_count + servers;
+    layout.packet_slot = layout.dispatch_member_count + servers;
     layout.expert_count = layout.packet_slot + max_bs * servers;
-    layout.local_expert_offset = layout.expert_count + rounds * servers * experts_per_server;
+    layout.local_expert_offset = layout.expert_count + servers * experts_per_server;
     layout.local_expert_count = layout.local_expert_offset + local_experts;
     layout.packet_desc = layout.local_expert_count + local_experts;
-    layout.member_desc = layout.packet_desc + rounds * servers * slots * kLayeredSourcePacketDescElements;
-    layout.source_return_base = layout.member_desc + rounds * servers * slots * topk * kLayeredMemberDescElements;
+    layout.member_desc = layout.packet_desc + servers * slots * kLayeredSourcePacketDescElements;
+    layout.source_return_base = layout.member_desc + servers * slots * topk * kLayeredMemberDescElements;
     layout.outbound_base = layout.source_return_base + servers;
     layout.outbound_bytes = layout.outbound_base + 2 * servers;
     layout.outbound_total_bytes = layout.outbound_bytes + 2 * servers;
@@ -94,31 +87,22 @@ constexpr LayeredPlanLayout layered_plan_layout(int64_t bs, int64_t max_bs, int6
     layout.reverse_return_base = layout.reverse_count + servers;
     layout.reverse_packet = layout.reverse_return_base + servers;
     layout.reverse_member = layout.reverse_packet + world * max_bs * kLayeredReversePacketDescElements;
-    layout.overflow = layout.reverse_member + world * max_bs * topk * kLayeredReverseMemberElements;
-    layout.error = layout.overflow + 1;
-    layout.total = layout.error + 1;
+    layout.total = layout.reverse_member + world * max_bs * topk * kLayeredReverseMemberElements;
     return layout;
-}
-
-inline bool layered_enabled()
-{
-    const char *value = std::getenv("DEEPEP_ENABLE_NORMAL_LAYERED");
-    return value != nullptr && value[0] == '1' && value[1] == '\0';
 }
 
 inline LayeredTopology layered_topology(int64_t rank, int64_t world_size)
 {
-    const char *value = std::getenv("DEEPEP_NORMAL_LAYERED_RANKS_PER_SERVER");
-    EP_HOST_ASSERT_S(value != nullptr, "DEEPEP_NORMAL_LAYERED_RANKS_PER_SERVER",
-                     " must be set when DEEPEP_ENABLE_NORMAL_LAYERED=1");
+    const char *value = std::getenv("DEEPEP_LAYERED_RANKS_PER_SERVER");
+    EP_HOST_ASSERT_S(value != nullptr, "DEEPEP_LAYERED_RANKS_PER_SERVER", " must be set to enable layered topology");
     char *end = nullptr;
     const long parsed = std::strtol(value, &end, 10);
     EP_HOST_ASSERT_S(end != value && *end == '\0' && parsed > 0 && parsed <= std::numeric_limits<int32_t>::max(),
-                     "DEEPEP_NORMAL_LAYERED_RANKS_PER_SERVER", " must be a positive int32 value");
+                     "DEEPEP_LAYERED_RANKS_PER_SERVER", " must be a positive int32 value");
     const int64_t ranks_per_server = static_cast<int64_t>(parsed);
-    EP_HOST_ASSERT_S(world_size > 0 && world_size % ranks_per_server == 0, "DEEPEP_NORMAL_LAYERED_RANKS_PER_SERVER",
+    EP_HOST_ASSERT_S(world_size > 0 && world_size % ranks_per_server == 0, "DEEPEP_LAYERED_RANKS_PER_SERVER",
                      " must divide ep world size");
-    EP_HOST_ASSERT_S(world_size / ranks_per_server <= 32, "DEEPEP_NORMAL_LAYERED_RANKS_PER_SERVER",
+    EP_HOST_ASSERT_S(world_size / ranks_per_server <= 32, "DEEPEP_LAYERED_RANKS_PER_SERVER",
                      " produces more than 32 servers");
     EP_HOST_ASSERT_S(rank >= 0 && rank < world_size, "normal layered rank", " is outside ep world size");
     return {ranks_per_server, world_size / ranks_per_server, rank % ranks_per_server};

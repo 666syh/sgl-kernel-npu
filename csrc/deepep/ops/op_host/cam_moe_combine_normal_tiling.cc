@@ -20,7 +20,7 @@
 #include "register/op_def_registry.h"
 #include "mc2_tiling_utils.h"
 #include "../op_kernel/cam_moe_combine_normal_tiling.h"
-#include "tiling_args.h"
+#include "window_layout.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/hccl/hccl_tiling.h"
 

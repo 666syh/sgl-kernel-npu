@@ -1,3 +1,5 @@
+#if DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION
+
 #include "kernel_operator.h"
 #include "cam_moe_combine_normal_layered_tiling.h"
 #include "cam_moe_layered_comm.h"
@@ -16,19 +18,18 @@ template <typename T>
 class CamMoeCombineNormalLayered
 {
 public:
-    __aicore__ inline void Init(GM_ADDR roceContext, GM_ADDR recvX, GM_ADDR layeredPlan, GM_ADDR layeredAssist,
-                                GM_ADDR xOut, GM_ADDR workspace, const CamMoeLayeredInfo &tiling,
-                                uint32_t ownerCapacity, uint32_t chunkPackets, LocalTensor<uint64_t> &doorbellUb,
-                                LocalTensor<uint32_t> &headUb, LocalTensor<uint32_t> &expertBasesUb,
-                                LocalTensor<uint8_t> &copyUb, LocalTensor<uint32_t> &progressUb,
-                                LocalTensor<float> &partialUb, LocalTensor<float> &weightedUb,
-                                LocalTensor<T> &ownerRowUb, LocalTensor<uint8_t> &hcommUb)
+    __aicore__ inline void Init(GM_ADDR roceContext, GM_ADDR recvX, GM_ADDR layeredPlan, GM_ADDR xOut,
+                                GM_ADDR workspace, const CamMoeLayeredInfo &tiling, uint32_t ownerCapacity,
+                                uint32_t chunkPackets, LocalTensor<uint64_t> &doorbellUb, LocalTensor<uint32_t> &headUb,
+                                LocalTensor<uint32_t> &expertBasesUb, LocalTensor<uint8_t> &copyUb,
+                                LocalTensor<uint32_t> &progressUb, LocalTensor<float> &partialUb,
+                                LocalTensor<float> &weightedUb, LocalTensor<T> &ownerRowUb,
+                                LocalTensor<uint8_t> &hcommUb)
     {
         info_ = tiling;
         header_ = (__gm__ PlanHeader *)layeredPlan;
         plan_ = (__gm__ int32_t *)layeredPlan;
         recv_ = (__gm__ T *)recvX;
-        (void)layeredAssist;
         progress_ = (__gm__ uint8_t *)workspace;
         chunkPackets_ = chunkPackets;
         out_ = (__gm__ T *)xOut;
@@ -685,8 +686,8 @@ private:
 }  // namespace
 
 extern "C" __global__ __aicore__ void cam_moe_combine_normal_layered(GM_ADDR roceContext, GM_ADDR recvX,
-                                                                     GM_ADDR layeredPlan, GM_ADDR layeredAssist,
-                                                                     GM_ADDR xOut, GM_ADDR workspace, GM_ADDR tiling)
+                                                                     GM_ADDR layeredPlan, GM_ADDR xOut,
+                                                                     GM_ADDR workspace, GM_ADDR tiling)
 {
     REGISTER_TILING_DEFAULT(CamMoeCombineNormalLayeredTilingData);
     TPipe pipe;
@@ -727,9 +728,11 @@ extern "C" __global__ __aicore__ void cam_moe_combine_normal_layered(GM_ADDR roc
     auto hcommTensor = copyTensor;
 #endif
     CamMoeCombineNormalLayered<DTYPE_RECV_X> op;
-    op.Init(roceContext, recvX, layeredPlan, layeredAssist, xOut, workspace, data.layered, data.ownerCapacity,
-            data.chunkPackets, doorbellTensor, headTensor, expertBasesTensor, copyTensor, progressTensor, partialTensor,
-            weightedTensor, ownerRowTensor, hcommTensor);
+    op.Init(roceContext, recvX, layeredPlan, xOut, workspace, data.layered, data.ownerCapacity, data.chunkPackets,
+            doorbellTensor, headTensor, expertBasesTensor, copyTensor, progressTensor, partialTensor, weightedTensor,
+            ownerRowTensor, hcommTensor);
     op.Process();
 #endif
 }
+
+#endif  // DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION

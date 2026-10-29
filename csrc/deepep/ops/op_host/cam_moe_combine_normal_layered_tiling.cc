@@ -12,7 +12,7 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "cam_moe_layered_host_validation.h"
 #include "../op_kernel/cam_moe_combine_normal_layered_tiling.h"
-#include "../op_kernel/cam_moe_layered_plan.h"
+#include "cam_moe_layered_plan.h"
 
 using namespace ge;
 
@@ -20,7 +20,6 @@ namespace {
 constexpr uint32_t ROCE_CONTEXT_INDEX = 0U;
 constexpr uint32_t RECV_X_INDEX = 1U;
 constexpr uint32_t PLAN_INDEX = 2U;
-constexpr uint32_t ASSIST_INDEX = 3U;
 constexpr uint32_t OUTPUT_X_INDEX = 0U;
 constexpr uint32_t ATTR_EP_GROUP = 0U;
 constexpr uint32_t ATTR_EP_WORLD = 1U;
@@ -86,17 +85,13 @@ static ge::graphStatus CamMoeCombineNormalLayeredTiling(gert::TilingContext *con
     auto *roceContextDesc = context->GetInputDesc(ROCE_CONTEXT_INDEX);
     auto *recvDesc = context->GetInputDesc(RECV_X_INDEX);
     auto *planDesc = context->GetInputDesc(PLAN_INDEX);
-    auto *assistDesc = context->GetInputDesc(ASSIST_INDEX);
-    int64_t rows = 0, hidden = 0, assistRows = 0, assistWidth = 0, outRows = 0, outHidden = 0;
-    OP_TILING_CHECK(
-        data == nullptr || roceContextDesc == nullptr || recvDesc == nullptr || planDesc == nullptr ||
-            assistDesc == nullptr || (recvDesc->GetDataType() != DT_BF16 && recvDesc->GetDataType() != DT_FLOAT16) ||
-            roceContextDesc->GetDataType() != DT_INT32 || planDesc->GetDataType() != DT_INT32 ||
-            assistDesc->GetDataType() != DT_INT32 || !Shape2D(context->GetInputShape(RECV_X_INDEX), rows, hidden) ||
-            !Shape2D(context->GetInputShape(ASSIST_INDEX), assistRows, assistWidth) || assistRows != rows ||
-            assistWidth != static_cast<int64_t>(CamMoeLayered::ASSIST_INFO_STRIDE) ||
-            !Shape2D(context->GetOutputShape(OUTPUT_X_INDEX), outRows, outHidden) || outHidden != hidden,
-        OP_LOGE(node, "invalid normal-layered combine tensor shapes or types"), return GRAPH_FAILED);
+    int64_t rows = 0, hidden = 0, outRows = 0, outHidden = 0;
+    OP_TILING_CHECK(data == nullptr || roceContextDesc == nullptr || recvDesc == nullptr || planDesc == nullptr ||
+                        (recvDesc->GetDataType() != DT_BF16 && recvDesc->GetDataType() != DT_FLOAT16) ||
+                        roceContextDesc->GetDataType() != DT_INT32 || planDesc->GetDataType() != DT_INT32 ||
+                        !Shape2D(context->GetInputShape(RECV_X_INDEX), rows, hidden) ||
+                        !Shape2D(context->GetOutputShape(OUTPUT_X_INDEX), outRows, outHidden) || outHidden != hidden,
+                    OP_LOGE(node, "invalid normal-layered combine tensor shapes or types"), return GRAPH_FAILED);
     const auto *planShape = context->GetInputShape(PLAN_INDEX);
     OP_TILING_CHECK(planShape == nullptr || planShape->GetStorageShape().GetDimNum() != 1U ||
                         planShape->GetStorageShape().GetDim(0) < static_cast<int64_t>(CamMoeLayered::HeaderElements()),

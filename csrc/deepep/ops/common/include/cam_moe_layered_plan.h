@@ -14,7 +14,7 @@ namespace CamMoeLayered {
 #endif
 
 constexpr uint32_t PLAN_MAGIC = 0x4C4D4F45U;  // "LMOE"
-constexpr uint32_t PLAN_VERSION = 25U;
+constexpr uint32_t PLAN_VERSION = 26U;
 constexpr uint32_t DISPATCH_CHUNK_TARGET_BYTES = 128U * 1024U;
 constexpr int32_t INVALID_SLOT = -1;
 constexpr uint32_t ALIGN_BYTES = 32U;
@@ -22,7 +22,6 @@ constexpr uint32_t ALIGN_BYTES = 32U;
 // conservative isolation granularity for the supported Ascend devices.
 constexpr uint32_t CACHE_LINE_ISOLATION_BYTES = 128U;
 constexpr uint32_t CONTROL_FLAG_STRIDE = CACHE_LINE_ISOLATION_BYTES;
-constexpr uint32_t ASSIST_INFO_STRIDE = 9U;
 
 enum class Phase : uint32_t {
     CONTROL_COUNT_READY = 1,
@@ -43,8 +42,6 @@ enum class Phase : uint32_t {
     DISPATCH_REUSABLE = 22,
     DISPATCH_REVERSE_DONE = 23,
     DISPATCH_PIPELINE_ERROR = 24,
-    ERROR_OVERFLOW = 8,
-    ERROR_PROTOCOL = 10,
 };
 
 CAM_MOE_LAYERED_INLINE constexpr uint64_t ComposeFlag(uint64_t epoch, Phase phase)
@@ -141,14 +138,6 @@ struct PlanHeader {
     // memberDesc section 的 int32 元素偏移。
     uint32_t memberDescOffset;
 
-    // overflow 标志的 int32 元素偏移。
-    // 非零表示 packet 容量、expert 路由或其他规划约束溢出。
-    uint32_t overflowOffset;
-
-    // error 状态的 int32 元素偏移。
-    // 保存 ERROR_OVERFLOW、ERROR_PROTOCOL 等错误码。
-    uint32_t errorOffset;
-
     // layered_plan 的总元素数量，单位为 int32。
     // Host 分配 plan tensor 时使用该值进行容量校验。
     uint32_t totalElements;
@@ -160,8 +149,8 @@ struct PlanHeader {
     // Combine 以此计算所有 rank 一致的轮数。
     uint32_t globalCombineRows;
 
-    // 预留字段，保持 ABI 扩展空间并确保 header 对齐。
-    uint32_t reserved[2];
+    // 预留字段，保持 32-word header 大小并为 ABI 扩展留空间。
+    uint32_t reserved[4];
 };
 
 struct SourcePacketDesc {
@@ -241,21 +230,6 @@ struct DispatchTopkRouteRecord {
     int32_t weightBits;
 };
 
-// Persistent per-received-row combine metadata.  Keep this layout stable:
-// Dispatch writes it and Combine consumes it after the dispatch record slots
-// have been reused by later rounds.
-struct CombineRoute {
-    int32_t epoch;
-    int32_t sourceRank;
-    int32_t sourceToken;
-    int32_t sourceServer;
-    int32_t sourceRankInServer;
-    int32_t round;
-    int32_t slot;
-    int32_t topkSlot;
-    int32_t weightBits;
-};
-
 struct PartialRecordHeader {
     uint64_t epoch;
     uint32_t sourceRank;
@@ -280,7 +254,6 @@ static_assert(offsetof(DispatchBatchMeta, ingressOffsetHi) == 7U * sizeof(uint32
               "Dispatch ingress high word ABI changed");
 static_assert(sizeof(DispatchMemberMeta) == 3U * sizeof(int32_t), "Dispatch member meta ABI changed");
 static_assert(sizeof(DispatchTopkRouteRecord) == 2U * sizeof(int32_t), "Dispatch top-k ABI changed");
-static_assert(sizeof(CombineRoute) == ASSIST_INFO_STRIDE * sizeof(int32_t), "Combine route ABI changed");
 
 CAM_MOE_LAYERED_INLINE constexpr uint32_t HeaderElements()
 {
@@ -759,8 +732,6 @@ struct PlanLayout {
     uint32_t reverseReturnBase;
     uint32_t reversePacket;
     uint32_t reverseMember;
-    uint32_t overflow;
-    uint32_t error;
     uint32_t total;
 };
 
@@ -794,9 +765,7 @@ CAM_MOE_LAYERED_INLINE PlanLayout MakePlanLayout(uint32_t bs, uint32_t maxBs, ui
     l.reverseReturnBase = l.reverseCount + serverNum;
     l.reversePacket = l.reverseReturnBase + serverNum;
     l.reverseMember = l.reversePacket + worldSize * maxBs * ReversePacketElements();
-    l.overflow = l.reverseMember + worldSize * maxBs * k * ReverseMemberElements();
-    l.error = l.overflow + 1U;
-    l.total = l.error + 1U;
+    l.total = l.reverseMember + worldSize * maxBs * k * ReverseMemberElements();
     return l;
 }
 

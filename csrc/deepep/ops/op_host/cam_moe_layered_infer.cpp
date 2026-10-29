@@ -1,5 +1,5 @@
 #include "register/op_impl_registry.h"
-#include "../op_kernel/cam_moe_layered_plan.h"
+#include "cam_moe_layered_plan.h"
 
 using namespace ge;
 using namespace CamMoeLayered;
@@ -58,19 +58,15 @@ ge::graphStatus InferDispatch(gert::InferShapeContext *ctx)
     const auto *topk = ctx->GetInputShape(3);
     const auto *plan = ctx->GetInputShape(4);
     auto *recv = ctx->GetOutputShape(0);
-    auto *assist = ctx->GetOutputShape(1);
-    auto *recvTopk = ctx->GetOutputShape(2);
-    auto *recvWeights = ctx->GetOutputShape(3);
+    auto *recvTopk = ctx->GetOutputShape(1);
+    auto *recvWeights = ctx->GetOutputShape(2);
     if (x == nullptr || weights == nullptr || topk == nullptr || plan == nullptr || recv == nullptr ||
-        assist == nullptr || recvTopk == nullptr || recvWeights == nullptr || x->GetDimNum() != 2 ||
-        weights->GetDimNum() != 2 || topk->GetDimNum() != 2 || plan->GetDimNum() != 1)
+        recvTopk == nullptr || recvWeights == nullptr || x->GetDimNum() != 2 || weights->GetDimNum() != 2 ||
+        topk->GetDimNum() != 2 || plan->GetDimNum() != 1)
         return GRAPH_FAILED;
     recv->SetDimNum(2);
     recv->SetDim(0, -1);
     recv->SetDim(1, x->GetDim(1));
-    assist->SetDimNum(2);
-    assist->SetDim(0, -1);
-    assist->SetDim(1, ASSIST_INFO_STRIDE);
     recvTopk->SetDimNum(2);
     recvTopk->SetDim(0, -1);
     recvTopk->SetDim(1, topk->GetDim(1));
@@ -83,8 +79,7 @@ ge::graphStatus InferDispatchType(gert::InferDataTypeContext *ctx)
 {
     ctx->SetOutputDataType(0, ctx->GetInputDataType(1));
     ctx->SetOutputDataType(1, DT_INT32);
-    ctx->SetOutputDataType(2, DT_INT32);
-    ctx->SetOutputDataType(3, DT_FLOAT);
+    ctx->SetOutputDataType(2, DT_FLOAT);
     return GRAPH_SUCCESS;
 }
 

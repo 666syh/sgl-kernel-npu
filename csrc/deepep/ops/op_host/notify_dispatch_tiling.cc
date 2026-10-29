@@ -16,7 +16,7 @@
 #include "register/op_def_registry.h"
 #include "mc2_tiling_utils.h"
 #include "../op_kernel/notify_dispatch_tiling.h"
-#include "tiling_args.h"
+#include "window_layout.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "tiling/hccl/hccl_tiling.h"
 #include "platform/platform_infos_def.h"

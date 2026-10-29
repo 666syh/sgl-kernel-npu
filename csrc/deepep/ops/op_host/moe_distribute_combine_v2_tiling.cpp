@@ -18,7 +18,7 @@
 #include "register/op_def_registry.h"
 #include "../op_kernel/moe_distribute_combine_tiling.h"
 #include "../op_kernel/moe_distribute_combine_v2_tiling.h"
-#include "tiling_args.h"
+#include "window_layout.h"
 #include "platform/platform_infos_def.h"
 #include "moe_distribute_combine_v2_ccu_tiling.h"
 

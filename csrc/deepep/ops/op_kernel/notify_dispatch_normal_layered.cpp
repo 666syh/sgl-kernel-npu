@@ -1,3 +1,5 @@
+#if DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION
+
 #include "kernel_operator.h"
 #include "notify_dispatch_normal_layered_tiling.h"
 #include "cam_moe_layered_plan.h"
@@ -204,9 +206,7 @@ private:
         const uint32_t packetSlotBegin = info_.packetSlotOffset;
         const uint32_t packetSlotEnd = packetSlotBegin + static_cast<uint32_t>(packetSlotElements);
         const uint32_t dataBegin = HeaderElements();
-        // overflow/error/state are single-writer fields initialized by
-        // InitPlanHeader(). Keep them out of the parallel data clearing range.
-        const uint32_t dataEnd = info_.overflowOffset;
+        const uint32_t dataEnd = info_.planElements;
         const uint32_t dataSize = dataEnd - dataBegin;
         const uint32_t begin = dataBegin + static_cast<uint32_t>(static_cast<uint64_t>(dataSize) * aiv / aivNum);
         const uint32_t end = dataBegin + static_cast<uint32_t>(static_cast<uint64_t>(dataSize) * (aiv + 1U) / aivNum);
@@ -329,14 +329,12 @@ private:
         h->localExpertCountOffset = info_.localExpertCountOffset;
         h->packetDescOffset = info_.packetDescOffset;
         h->memberDescOffset = info_.memberDescOffset;
-        h->overflowOffset = info_.overflowOffset;
-        h->errorOffset = info_.errorOffset;
         h->totalElements = info_.planElements;
         h->globalCombineRows = 0U;
         h->reserved[0] = 0U;
         h->reserved[1] = 0U;
-        StorePlanValue(info_.overflowOffset, 0);
-        StorePlanValue(info_.errorOffset, 0);
+        h->reserved[2] = 0U;
+        h->reserved[3] = 0U;
         StoreInt32(total_, 0);
         cacheWriteThrough(reinterpret_cast<__gm__ uint8_t *>(h), sizeof(PlanHeader));
     }
@@ -1056,3 +1054,5 @@ extern "C" __global__ __aicore__ void notify_dispatch_normal_layered(GM_ADDR roc
             memberPrefixTensor, expertPrefixTensor);
     op.Process();
 }
+
+#endif  // DEEPEP_CANN_VERSION_NUM >= DEEPEP_LAYERED_MIN_CANN_VERSION

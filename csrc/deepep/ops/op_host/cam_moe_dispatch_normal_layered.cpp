@@ -15,7 +15,6 @@ public:
             .ParamType(REQUIRED)
             .DataTypeList({ge::DT_BF16, ge::DT_FLOAT16})
             .FormatList({ge::FORMAT_ND});
-        this->Output("layered_assist").ParamType(REQUIRED).DataTypeList({ge::DT_INT32}).FormatList({ge::FORMAT_ND});
         this->Output("recv_topk_idx").ParamType(REQUIRED).DataTypeList({ge::DT_INT32}).FormatList({ge::FORMAT_ND});
         this->Output("recv_topk_weights").ParamType(REQUIRED).DataTypeList({ge::DT_FLOAT}).FormatList({ge::FORMAT_ND});
         this->Attr("group_ep").String();

@@ -12,7 +12,6 @@ public:
             .DataTypeList({ge::DT_BF16, ge::DT_FLOAT16})
             .FormatList({ge::FORMAT_ND});
         this->Input("layered_plan").ParamType(REQUIRED).DataTypeList({ge::DT_INT32}).FormatList({ge::FORMAT_ND});
-        this->Input("layered_assist").ParamType(REQUIRED).DataTypeList({ge::DT_INT32}).FormatList({ge::FORMAT_ND});
         this->Output("x").ParamType(REQUIRED).DataTypeList({ge::DT_BF16, ge::DT_FLOAT16}).FormatList({ge::FORMAT_ND});
         this->Attr("ep_group_name").String();
         this->Attr("ep_world_size").Int();

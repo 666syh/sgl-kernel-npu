@@ -3,8 +3,23 @@
 # =====================================================
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} ops_srcs)
 
+if(DEEPEP_CANN_VERSION_NUM LESS DEEPEP_LAYERED_MIN_CANN_VERSION)
+    list(REMOVE_ITEM ops_srcs
+        ${CMAKE_CURRENT_SOURCE_DIR}/cam_moe_layered_infer.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cam_moe_dispatch_normal_layered.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cam_moe_combine_normal_layered.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/notify_dispatch_normal_layered.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/cam_moe_dispatch_normal_layered_tiling.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/cam_moe_combine_normal_layered_tiling.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/notify_dispatch_normal_layered_tiling.cc)
+    message(STATUS "CANN ${DEEPEP_CANN_VERSION_NUM} < ${DEEPEP_LAYERED_MIN_CANN_VERSION}: layered host ops disabled")
+endif()
+
 set(a5_fused_deep_moe_host_dir ${CMAKE_CURRENT_SOURCE_DIR}/fused_deep_moe_a5)
-set(op_codegen_options -g)
+set(_DEEPEP_COMMON_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../common/include")
+set(op_codegen_options -g -I${_DEEPEP_COMMON_INCLUDE_DIR}
+    -DDEEPEP_CANN_VERSION_NUM=${DEEPEP_CANN_VERSION_NUM}
+    -DDEEPEP_LAYERED_MIN_CANN_VERSION=${DEEPEP_LAYERED_MIN_CANN_VERSION})
 if("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
     # Keep one FusedDeepMoe definition visible to code generation on A5.
     list(REMOVE_ITEM ops_srcs
@@ -33,6 +48,15 @@ npu_op_code_gen(
 file(GLOB_RECURSE pregen_file
     "${CMAKE_CURRENT_SOURCE_DIR}/op_api/*"
 )
+if(DEEPEP_CANN_VERSION_NUM LESS DEEPEP_LAYERED_MIN_CANN_VERSION)
+    list(REMOVE_ITEM pregen_file
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_notify_dispatch_normal_layered.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_notify_dispatch_normal_layered.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_cam_moe_dispatch_normal_layered.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_cam_moe_dispatch_normal_layered.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_cam_moe_combine_normal_layered.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/op_api/aclnn_cam_moe_combine_normal_layered.h")
+endif()
 if("${ASCEND_COMPUTE_UNIT}" MATCHES "^ascend950")
     # Keep all existing ACLNN wrappers (including low-latency dispatch/combine)
     # and overlay only the A5-specific FusedDeepMoe wrapper.
@@ -47,12 +71,22 @@ endif()
 message(STATUS ">>> [DEBUG] ASCEND_COMPUTE_UNIT = ${ASCEND_COMPUTE_UNIT}")
 file(COPY ${pregen_file} DESTINATION ${ASCEND_AUTOGEN_PATH})
 file(GLOB aclnn_src ${ASCEND_AUTOGEN_PATH}/aclnn*.cpp)
+if(DEEPEP_CANN_VERSION_NUM LESS DEEPEP_LAYERED_MIN_CANN_VERSION)
+    foreach(_aclnn_source IN LISTS aclnn_src)
+        get_filename_component(_aclnn_name "${_aclnn_source}" NAME)
+        string(TOLOWER "${_aclnn_name}" _aclnn_name_lower)
+        if(_aclnn_name_lower MATCHES "layered")
+            list(REMOVE_ITEM aclnn_src "${_aclnn_source}")
+        endif()
+    endforeach()
+endif()
 file(GLOB autogen_aclnn_src ${ASCEND_AUTOGEN_PATH}/aclnnInner_*.cpp)                # 将通过npu_op_code_gen生成的aclnn相关源文件添加至源文件列表中
 
 set_source_files_properties(${autogen_aclnn_src} PROPERTIES GENERATED TRUE)    # 设置对应的文件属性为编译过程中生成的文件
 npu_op_library(cust_opapi ACLNN                                                # 指定library名称与类型，以及参与编译的源文件
      ${aclnn_src}
 )
+target_include_directories(cust_opapi PRIVATE ${_DEEPEP_COMMON_INCLUDE_DIR})
 target_compile_options(cust_opapi PRIVATE                                      # 为对应library添加编译选项，与通用的cmake语法一致
      -fvisibility=hidden
 )
@@ -67,6 +101,7 @@ npu_op_library(cust_op_proto GRAPH                                             #
      ${ops_srcs}
      ${proto_src}
 )
+target_include_directories(cust_op_proto PRIVATE ${_DEEPEP_COMMON_INCLUDE_DIR})
 target_compile_options(cust_op_proto PRIVATE                                   # 为对应library添加编译选项，与通用的cmake语法一致
      -fvisibility=hidden
 )
@@ -82,6 +117,7 @@ npu_op_library(cust_optiling  TILING                                           #
      ${ops_srcs}
      ${fallback_src}
 )
+target_include_directories(cust_optiling PRIVATE ${_DEEPEP_COMMON_INCLUDE_DIR})
 target_compile_options(cust_optiling PRIVATE                                   # 为对应library添加编译选项，与通用的cmake语法一致
      -fvisibility=hidden
 )
